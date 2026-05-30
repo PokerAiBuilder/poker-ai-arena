@@ -165,7 +165,6 @@ function SpectatorCommunityBoard({
   cardSize: CardSize;
 }) {
   const isFullBoard = communityCards.length >= 5;
-  const flopSlots: (Card | null)[] = [0, 1, 2].map((i) => communityCards[i] ?? null);
 
   return (
     <div className="flex flex-col items-center gap-1.5">
@@ -181,53 +180,28 @@ function SpectatorCommunityBoard({
               className="relative z-[2]"
             />
           ))
+        ) : communityCards.length > 0 ? (
+          communityCards.map((card, i) => (
+            <PlayingCard
+              key={`spectator-partial-${card.rank}-${card.suit}-${i}`}
+              rank={card.rank}
+              suit={card.suit}
+              size={cardSize}
+              animate
+              className="relative z-[2]"
+            />
+          ))
         ) : (
-          <>
-            {flopSlots.map((card, i) =>
-              card ? (
-                <PlayingCard
-                  key={`spectator-flop-${card.rank}-${card.suit}-${i}`}
-                  rank={card.rank}
-                  suit={card.suit}
-                  size={cardSize}
-                  animate
-                  className="relative z-[2]"
-                />
-              ) : (
-                <PlayingCard
-                  key={`spectator-flop-empty-${i}`}
-                  faceDown
-                  size={cardSize}
-                  animate={false}
-                  className="relative z-[2]"
-                />
-              ),
-            )}
-            <PlayingCard
-              locked
-              lockedLabel="Turn"
-              size={cardSize}
-              className="relative z-[2]"
-            />
-            <PlayingCard
-              locked
-              lockedLabel="River"
-              size={cardSize}
-              className="relative z-[2]"
-            />
-          </>
+          <p className="text-[8px] uppercase tracking-wider text-white/35">
+            Board not run out
+          </p>
         )}
       </div>
       <p className="text-center text-[7px] font-medium uppercase tracking-wider text-violet-200/70">
         {isFullBoard
-          ? "Agent Battle: full board visible"
-          : "Agent Battle: flop-only simulation"}
+          ? "Agent Battle: full-board spectator simulation"
+          : "Spectator Mode — hand ended early"}
       </p>
-      {!isFullBoard && communityCards.length > 0 ? (
-        <p className="text-center text-[6px] uppercase tracking-wider text-white/30">
-          Turn / river not dealt
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -371,8 +345,13 @@ function WinnerBanner({
           {winnerName}
         </p>
         <p className="text-[9px] leading-tight text-white/75">
-          {isFoldWin ? "Win by fold" : (winningHand ?? "Showdown")}
+          {isFoldWin ? "Win by fold" : "Showdown"}
         </p>
+        {!isFoldWin && winningHand ? (
+          <p className="text-[9px] leading-tight text-violet-200/80">
+            {winningHand}
+          </p>
+        ) : null}
         {pot != null ? (
           <p className="text-[9px] font-semibold leading-tight text-casino-goldLight">
             Pot won: {pot.toLocaleString()} chips

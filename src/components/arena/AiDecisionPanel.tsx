@@ -89,7 +89,7 @@ export function AiDecisionPanel({
         </p>
         {spectatorMode && compact ? (
           <p className="mt-1 text-[9px] leading-none text-white/35">
-            Spectator Mode — watch only.
+            Spectator Mode — full agent sequence in Action Log.
           </p>
         ) : null}
         {!guidedHand && !spectatorMode && !compact ? (

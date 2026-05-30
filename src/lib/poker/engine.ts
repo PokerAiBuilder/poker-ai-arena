@@ -174,6 +174,52 @@ export function dealRiver(state: GameState): void {
   state.stage = "river";
 }
 
+function logArenaMessage(
+  state: GameState,
+  stage: GameState["stage"],
+  message: string,
+): void {
+  state.actionLog.push({
+    playerId: "system",
+    playerName: "Arena",
+    action: "deal",
+    stage,
+    message,
+    timestamp: Date.now(),
+  });
+}
+
+/** Agent Battle: deal turn + river with honest board-runout logs (no street betting). */
+function runAgentBattleBoardRunout(state: GameState): void {
+  if (state.communityCards.length === 0) {
+    dealFlop(state);
+  }
+
+  logArenaMessage(
+    state,
+    "flop",
+    "Board runs out to the river — no turn/river betting in this spectator sim.",
+  );
+
+  if (state.communityCards.length === 3) {
+    dealTurn(state);
+    logArenaMessage(
+      state,
+      "turn",
+      `Turn: ${formatCards(state.communityCards.slice(3, 4))}.`,
+    );
+  }
+
+  if (state.communityCards.length === 4) {
+    dealRiver(state);
+    logArenaMessage(
+      state,
+      "river",
+      `River: ${formatCards(state.communityCards.slice(4, 5))}.`,
+    );
+  }
+}
+
 export function determineWinner(
   state: GameState,
   options?: { gameMode?: GameMode },
@@ -236,6 +282,17 @@ export function determineWinner(
   const winner = winners[0].player;
   const isSplit = winners.length > 1;
 
+  if (isAgentBattle) {
+    state.actionLog.push({
+      playerId: "system",
+      playerName: "Arena",
+      action: "showdown",
+      stage: "showdown",
+      message: "Showdown complete.",
+      timestamp: Date.now(),
+    });
+  }
+
   state.actionLog.push({
     playerId: winner.id,
     playerName: winner.name,
@@ -244,7 +301,7 @@ export function determineWinner(
     message: isSplit
       ? `Split pot — ${winners.map((w) => w.player.name).join(" & ")} tie with ${winners[0].hand.rankName}.`
       : isAgentBattle
-        ? `${winner.name} wins the Agent Battle with ${describeHand(winners[0].hand)}.`
+        ? `${winner.name} wins the Agent Battle — Showdown: ${describeHand(winners[0].hand)}.`
         : `${winner.name} wins ${state.pot} chips with ${describeHand(winners[0].hand)}.`,
     timestamp: Date.now(),
   });
@@ -271,8 +328,10 @@ function toSimulationResult(
 ): SimulationResult {
   const evaluations = new Map<string, EvaluatedHand>();
 
+  const minBoardForEval = gameMode === "agent-vs-agent" ? 5 : 3;
+
   for (const player of state.players) {
-    if (!player.hasFolded && state.communityCards.length >= 3) {
+    if (!player.hasFolded && state.communityCards.length >= minBoardForEval) {
       evaluations.set(
         player.id,
         evaluateBestHand([...player.holeCards, ...state.communityCards]),
@@ -366,10 +425,50 @@ export function simulateSimpleHand(): SimulationResult {
   return simulateHumanVsAi();
 }
 
+/**
+ * Agent Battle spectator sim: preflop agent decisions, then full board runout
+ * (no turn/river betting). Human vs AI legacy sim stays on {@link simulateHand}.
+ */
+export function simulateAgentBattleHand(state: GameState): SimulationResult {
+  const gameMode: GameMode = "agent-vs-agent";
+
+  dealNewHand(
+    state,
+    `Agent Battle begins — ${state.players.length} AI agents at the table.`,
+  );
+
+  console.debug("[poker/engine] agent battle started", {
+    gameId: state.id,
+    players: state.players.map((p) => p.name),
+  });
+
+  runBettingRound(state, "preflop");
+
+  if (getActivePlayers(state).length <= 1) {
+    const result = determineWinner(state, { gameMode });
+    return toSimulationResult(state, result, gameMode);
+  }
+
+  runAgentBattleBoardRunout(state);
+
+  const result = determineWinner(state, { gameMode });
+  const simulation = toSimulationResult(state, result, gameMode);
+
+  console.debug("[poker/engine] agent battle complete", {
+    gameMode,
+    winner: simulation.winner.name,
+    hand: simulation.winningHand.rankName,
+    pot: simulation.pot,
+    communityCards: simulation.communityCards.length,
+  });
+
+  return simulation;
+}
+
 export function simulateAgentBattle(): SimulationResult {
   runEvaluatorSelfCheck();
   const state = createAgentBattleGame();
-  return simulateHand(state, "agent-vs-agent");
+  return simulateAgentBattleHand(state);
 }
 
 export function runEngineSelfCheck(): SimulationResult[] {

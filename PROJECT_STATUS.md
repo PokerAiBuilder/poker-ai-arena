@@ -1,10 +1,21 @@
 # Project status
 
-Last updated for **v0.3** — final QA before GitHub / Vercel push.
+Last updated for **v0.4.1** — full-board Agent Battle spectator simulation.
 
 ---
 
-## v0.3 completed
+## v0.4.1 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Full-board Agent Battle | v0.4.1 | 5 community cards (flop + turn + river) in spectator sim |
+| Agent Battle showdown eval | v0.4.1 | Best 5-card hand from 2 hole + 5 board; fold wins excluded |
+| Honest action log | v0.4.1 | Preflop agent actions + board runout logs (no fake street betting) |
+| Agent Battle UI | v0.4.1 | Full 5-card board, updated result banner and labels |
+
+---
+
+## v0.3 completed (unchanged)
 
 | Item | Version | Notes |
 | ---- | ------- | ----- |
@@ -13,8 +24,6 @@ Last updated for **v0.3** — final QA before GitHub / Vercel push.
 | PokerMaster thinking delay | v0.3.3 | 1.2–5 s delay + 5.5 s safety fallback |
 | Human vs AI action-state hardening | v0.3.4 | Strict UI states via `deriveStepDemoUiState()` |
 | Stack depleted handling | v0.3.4 | Reset Demo Stacks only; no New Hand when depleted |
-| Show Result / New Hand flow | v0.3 | End-of-hand and next-hand controls |
-| Runout Board | v0.3.2 | Remaining streets after all-in call |
 
 ---
 
@@ -26,15 +35,15 @@ Last updated for **v0.3** — final QA before GitHub / Vercel push.
 | Arena UI (AI poker) | **Done** | PokerTable, controls, panels, responsive layout |
 | Human vs AI (Step Demo) | **Done** | Client flow: preflop → flop → turn → river; raise sizing; all-in |
 | Rules-based agents | **Done** | PokerMaster, BluffBot, RiverMind, ChipHunter |
-| Agent Battle | **Done (flop-only)** | Spectator sim, 4 agents, all cards visible; turn/river not dealt |
-| Poker engine (server) | **Done (partial)** | Full-hand sim: preflop → flop → showdown; turn/river betting rounds TODO |
-| Human vs AI (API one-shot) | **Done** | `?mode=human-vs-ai` server simulation (legacy quick sim) |
+| Agent Battle | **Done** | Spectator sim, 4 agents, full 5-card board, showdown / fold results |
+| Poker engine (server) | **Done (partial)** | Agent Battle full board; Human vs AI API sim still preflop → flop → showdown |
+| Human vs AI (API one-shot) | **Done** | `?mode=human-vs-ai` legacy quick sim (unchanged) |
 | x402 mock flow | **Mock** | Demo session unlock only; no real USDC transfer |
 | Bankr layer | **Prepared** | Client, skills, status API; mock without credentials |
 | Leaderboard analytics | **Done** | Session stats + `localStorage` persistence |
 | Real x402 payments | **TODO** | Facilitator + on-chain settlement not implemented |
 | Real Bankr API | **TODO** | Requires official credentials and endpoints |
-| Full-board Agent Battle | **TODO (v0.4)** | Turn + river simulation for spectator mode |
+| Step-by-step Agent Battle | **TODO** | One-click spectator only today |
 | Stronger AI strategy | **TODO (v0.4/v0.5)** | Rules-based only today |
 | LLM agents | **TODO** | Not started |
 | Production database | **TODO** | Analytics client-only; `DATABASE_URL` unused |
@@ -46,33 +55,35 @@ Last updated for **v0.3** — final QA before GitHub / Vercel push.
 
 | Aspect | Current state |
 | ------ | ------------- |
-| Mode | **Spectator only** — user does not act |
+| Mode | **Spectator only** — user does not act; one-click simulation |
 | Agents | 4 (PokerMaster, BluffBot, RiverMind, ChipHunter) |
 | Card visibility | All agent hole cards visible after deal |
-| Streets simulated | Preflop + **flop only** |
-| Turn / River | **Not dealt yet** |
-| Next milestone | **v0.4** — full-board simulation through river |
+| Board | **Full 5-card board** when hand reaches showdown (flop + turn + river) |
+| Betting | Preflop agent decisions only; turn/river are board runout (no street betting) |
+| Results | **Showdown** (best hand) or **Win by fold** |
+| Next | Step-by-step AI vs AI spectator playback (future) |
 
 ---
 
 ## Known limitations
 
-- **Agent Battle does not deal turn or river** — flop-only simulation until v0.4
+- **Agent Battle is one-click** — no step-by-step street playback yet
+- **No turn/river betting in Agent Battle** — board runout after preflop; not a full betting engine
 - **No real-money payments** — mock x402 demo unlock only; Bankr production not wired
 - **Demo stacks / local session only** — analytics in `localStorage`; no authoritative backend
-- **All-in is Human vs AI only** — implemented in the client step demo, not a full production-grade betting engine
-- **Server poker engine** — turn/river betting rounds in the API engine remain future work
+- **All-in is Human vs AI only** — client step demo; not wired into Agent Battle engine
+- **Human vs AI API legacy sim** — still preflop → flop → showdown (unchanged)
 - **Rules-based agents** — no LLM decision-making in the current demo
 
 ---
 
 ## Next milestone
 
-**v0.4 — Agent Battle full-board simulation**
+**v0.4+ — step-by-step Agent Battle and stronger AI**
 
-- Deal turn and river in Agent Battle spectator mode
-- Align spectator runout with Human vs AI runout patterns where applicable
-- Stronger AI strategy improvements (v0.4 / v0.5)
+- Optional street-by-street spectator playback for AI vs AI
+- Stronger AI strategy and betting logic (v0.4 / v0.5)
+- Real x402 / Bankr production wiring (separate track)
 
 ---
 
@@ -81,7 +92,6 @@ Last updated for **v0.3** — final QA before GitHub / Vercel push.
 | Label | Meaning |
 | ----- | ------- |
 | **Done** | Working in current demo |
-| **Done (flop-only)** | Shipped with documented scope limit |
 | **Mock** | Simulated / dev-only behavior |
 | **Prepared** | Code structure ready; production wiring pending |
 | **TODO** | Not implemented |
@@ -98,7 +108,8 @@ Last updated for **v0.3** — final QA before GitHub / Vercel push.
 | Runout board after all-in call | Yes |
 | Reset Demo Stacks when stack depleted | Yes |
 | Agent Battle as spectator simulation | Yes |
-| Agent Battle deals through river | **No** — flop-only today |
+| Agent Battle full 5-card board at showdown | Yes |
+| Agent Battle step-by-step playback | **No** — one-click only |
 | Mock x402 unlocks arena | Yes |
 | Bankr layer prepared | Yes |
 | Live session leaderboard | Yes (localStorage) |

@@ -14,7 +14,7 @@ Poker AI Arena is a demo-ready Web3 app where you play simplified Texas Hold'em 
 
 - **Poker AI Arena** — polished AI poker demo for hackathons and showcases
 - **Human vs AI (playable)** — street-by-street heads-up against PokerMaster
-- **Agent Battle (spectator)** — four AI agents, all cards visible; flop-only simulation today
+- **Agent Battle (spectator)** — four AI agents, all cards visible; full-board spectator simulation
 - **Demo session only** — unlock the arena without moving real funds; in-game chips are simulated points
 
 **This is not real-money gambling.** The entry flow is a **demo access mechanism**, not casino wagering.
@@ -42,11 +42,13 @@ Human vs AI runs as a client-side step demo (`src/lib/arena/stepDemo.ts`). It is
 
 ## Agent Battle (spectator)
 
-- **Spectator mode only** — you do not play; four AI agents act automatically
+- **Spectator mode only** — you do not play; four AI agents act automatically (one-click)
 - **Four agents** — PokerMaster, BluffBot, RiverMind, ChipHunter
 - **All agent cards visible** after the hand is dealt
-- **Flop-only simulation today** — preflop and flop are simulated; **Turn and River are not dealt yet**
-- **Full-board Agent Battle** planned for **v0.4**
+- **Full 5-card board** — flop (3) + turn (1) + river (1) when the hand reaches showdown
+- **Preflop agent decisions** then **board runout** — no turn/river betting in this spectator sim
+- **Results** — Showdown (best hand) or Win by fold
+- **Step-by-step AI vs AI playback** — planned for a future release
 
 Server-side simulation via `GET /api/poker/simulate?mode=agent-vs-agent`.
 
@@ -73,7 +75,7 @@ The entry fee is a **demo session access fee**, not wagering or settlement.
 3. Go to `/arena` — arena starts **locked**
 4. Click **Start Demo Session** — demo unlock (no real funds)
 5. **Play Step Demo: Human vs AI** — act on each street, use raise sizing or all-in, then **Show Result** / **New Hand**
-6. (Optional) **Agent Battle** — watch four agents (flop-only today)
+6. (Optional) **Agent Battle** — watch four agents (full 5-card board at showdown)
 7. Review **AI Decision** and **Action Log** (Menu drawer)
 8. Check **Leaderboard** and **Table Stats**
 9. Open **Integration** panel — Bankr layer **prepared**, production wiring **TODO**
@@ -92,12 +94,12 @@ See [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) for a ~60–90 second presenter script.
 | PokerMaster thinking delay | Done (v0.3.3) |
 | Human vs AI action-state hardening | Done (v0.3.4) |
 | Stack depleted / Reset Demo Stacks | Done |
-| Agent Battle (spectator, flop-only) | Done — turn/river pending |
+| Agent Battle (spectator, full-board) | Done (v0.4.1) |
 | Demo session unlock (mock x402) | Mock — dev unlock only |
 | Bankr integration layer | Prepared — mock without credentials |
 | Leaderboard analytics | Done — `localStorage` |
 | Real x402 / Bankr production payments | TODO |
-| Full-board Agent Battle | Planned v0.4 |
+| Step-by-step Agent Battle playback | TODO |
 | LLM-powered agents | TODO |
 | Production database | TODO |
 
@@ -238,7 +240,7 @@ When `BANKR_API_KEY`, `BANKR_AGENT_ID`, or `BANKR_SKILLS_URL` are missing, skill
 
 ## Roadmap
 
-- **v0.4** — full-board Agent Battle (turn + river dealt)
+- **v0.4+** — step-by-step Agent Battle spectator playback
 - **v0.4 / v0.5** — stronger AI strategy and betting logic
 - Real x402 facilitator integration and Bankr Skills API wiring
 - Mobile polish, replay, and hand history
@@ -256,7 +258,7 @@ When `BANKR_API_KEY`, `BANKR_AGENT_ID`, or `BANKR_SKILLS_URL` are missing, skill
 
 **Why Base:** Low-cost L2, strong agent/Bankr ecosystem, ideal for hackathon demos and Base Batches submissions.
 
-**Demo today:** Mock unlock → Human vs AI (raise, all-in, thinking) → Agent Battle (flop-only spectator) → AI reasoning → live stats — **no fake claims** about live x402 or Bankr production.
+**Demo today:** Mock unlock → Human vs AI (raise, all-in, thinking) → Agent Battle (full-board spectator) → AI reasoning → live stats — **no fake claims** about live x402 or Bankr production.
 
 ---
 

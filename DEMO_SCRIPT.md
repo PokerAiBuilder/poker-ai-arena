@@ -44,7 +44,7 @@ Use this script when presenting **Poker AI Arena** to the Bankr community, Base 
 ### 6. Agent Battle
 
 - Click **Agent Battle**.
-- **Say:** "Spectator mode — four agents (PokerMaster, BluffBot, RiverMind, ChipHunter) with different strategies. All cards visible. Flop-only today — turn and river come in v0.4."
+- **Say:** "Spectator mode — four agents with different strategies. All cards visible. Full 5-card board at showdown; preflop agent actions then board runout."
 
 ### 7. AI reasoning
 
