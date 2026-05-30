@@ -37,13 +37,14 @@ Use this script when presenting **Poker AI Arena** to the Bankr community, Base 
 ### 5. Step Demo (recommended)
 
 - Click **Play Step Demo**.
-- **Say:** "Human plays heads-up against PokerMaster street by street — your Fold, Call, Check, Raise, then reveal Flop, Turn, River."
-- Highlight cards, pot, winner banner, and **New Hand** when complete.
+- **Say:** "Human plays heads-up against PokerMaster street by street — Fold, Call, Check, Raise with sizing (+10/+25/+50/Pot), or go all-in. PokerMaster thinks before acting. After an all-in call, Runout Board deals remaining streets."
+- Highlight cards, pot, thinking state, winner banner, and **Show Result** / **New Hand** when complete.
+- If stack hits zero: **Reset Demo Stacks** (no auto-refill).
 
 ### 6. Agent Battle
 
-- Click **Agent Battle** (or Full Hand if time is short).
-- **Say:** "Four agents — PokerMaster, BluffBot, RiverMind, ChipHunter — each with different strategies."
+- Click **Agent Battle**.
+- **Say:** "Spectator mode — four agents (PokerMaster, BluffBot, RiverMind, ChipHunter) with different strategies. All cards visible. Flop-only today — turn and river come in v0.4."
 
 ### 7. AI reasoning
 

@@ -130,7 +130,7 @@ X402_ENTRY_FEE_USDC=0.5
 |-------|-----|
 | Build fails on Vercel | Run `npm run build` locally; check Node version |
 | Wallet won't connect | Set `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` |
-| Arena stays locked | Use **Mock Pay Entry Fee**; check `/api/x402/entry` |
+| Arena stays locked | Click **Start Demo Session**; check `/api/x402/entry` |
 | Stats missing after reload | Enable browser localStorage; not private/incognito |
 | Bankr shows Mock | Expected without `BANKR_*` env vars |
 
