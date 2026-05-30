@@ -34,6 +34,20 @@ export function getNetworkLabel(network: X402Network): string {
   return network === "base" ? "Base Mainnet" : "Base Sepolia";
 }
 
+/** Primary network label for main UI cards */
+export function getUserNetworkLabel(network: X402Network): string {
+  return network === "base" ? "Base mainnet" : "Base testnet";
+}
+
+/** Technical network name for integration/docs panels */
+export function getTechnicalNetworkLabel(network: X402Network): string {
+  return getNetworkLabel(network);
+}
+
+export function getPaymentModeUserLabel(mode: X402PaymentMode): string {
+  return mode === "mock" ? "Demo" : "Live";
+}
+
 export function getEntryFeeConfig(): X402PaymentRequest {
   const amount = process.env.X402_ENTRY_FEE_USDC?.trim() || "0.01";
   const receiverAddress =
@@ -44,7 +58,7 @@ export function getEntryFeeConfig(): X402PaymentRequest {
     currency: "USDC",
     network: resolveNetwork(),
     receiverAddress,
-    description: "Poker AI Arena session entry fee (demo access)",
+    description: "Poker AI Arena demo session access",
   };
 }
 

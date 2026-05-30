@@ -725,7 +725,7 @@ export function PokerTable({
           variant="secondary"
           className="absolute left-5 top-5 z-[35] max-w-[220px] border-emerald-400/40 bg-emerald-950/80 text-center text-[9px] font-medium leading-snug text-emerald-100"
         >
-          Human vs AI Mode — guided poker hand
+          Human vs AI — current hand
         </Badge>
       ) : null}
 
@@ -841,7 +841,7 @@ export function PokerTable({
           <div className="mx-4 max-w-sm rounded-2xl border border-casino-gold/40 bg-black/75 px-6 py-5 text-center backdrop-blur-md">
             <p className="text-sm font-semibold text-casino-goldLight">Arena Locked</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Pay the mock entry fee to start the demo session.
+              Start demo session to play Human vs AI and Agent Battle.
             </p>
             {onPayEntryFee ? (
               <>
@@ -858,11 +858,11 @@ export function PokerTable({
                       Processing…
                     </>
                   ) : (
-                    "Mock Pay Entry Fee"
+                    "Start Demo Session"
                   )}
                 </Button>
                 <p className="mt-3 text-[10px] leading-relaxed text-amber-200/80">
-                  Demo payment only — no real funds moved.
+                  Demo only — no real funds moved.
                 </p>
                 {paymentError ? (
                   <p className="mt-2 text-[10px] text-red-400">{paymentError}</p>

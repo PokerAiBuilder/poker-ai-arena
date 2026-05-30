@@ -5,7 +5,7 @@ Last updated for **MVP demo / Vercel deploy** readiness.
 | Module | Status | Notes |
 | ------ | ------ | ----- |
 | Next.js app | **Done** | App Router, landing + `/arena` |
-| Casino cockpit UI | **Done** | PokerTable, controls, panels, responsive layout |
+| Arena UI (AI poker) | **Done** | PokerTable, controls, panels, responsive layout |
 | Poker engine | **Done** | Full-hand sim: preflop → flop → showdown; deck, evaluator, betting |
 | Step Demo (Human vs AI) | **Done** | Client flow: preflop → flop → turn → river; human Fold/Call/Check/Raise |
 | Rules-based agents | **Done** | PokerMaster, BluffBot, RiverMind, ChipHunter |

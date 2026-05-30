@@ -4,7 +4,7 @@ import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { Loader2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DEFAULT_CHAIN_ID, getTargetChain } from "@/lib/onchain/chains";
+import { DEFAULT_CHAIN_ID, getTargetChain, getUserChainLabel } from "@/lib/onchain/chains";
 import { cn } from "@/lib/utils";
 
 type ConnectWalletButtonProps = {
@@ -41,7 +41,7 @@ export function ConnectWalletButton({
         {isSwitching ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          `Switch to ${targetChain.name}`
+          `Switch to ${getUserChainLabel(DEFAULT_CHAIN_ID)}`
         )}
       </Button>
     );
@@ -51,7 +51,7 @@ export function ConnectWalletButton({
     return (
       <div className={cn("flex items-center gap-2", className)}>
         <span className="hidden rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-muted-foreground sm:inline">
-          {chain?.name ?? targetChain.name}
+          {getUserChainLabel(chain?.id) ?? getUserChainLabel(DEFAULT_CHAIN_ID)}
         </span>
         <Button
           type="button"

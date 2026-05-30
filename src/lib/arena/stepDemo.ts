@@ -84,20 +84,45 @@ export type StepDemoHumanActions = {
 };
 
 export const STEP_DEMO_LABELS: Record<StepDemoStep, string> = {
-  idle: "Ready to start",
-  "preflop-human": "Preflop — your action",
-  "preflop-human-vs-raise": "Preflop — respond to AI raise",
-  "preflop-complete": "Preflop complete — reveal flop",
-  "flop-human": "Flop — your action",
-  "flop-human-vs-raise": "Flop — respond to AI raise",
-  "flop-complete": "Flop complete — reveal turn",
-  "turn-human": "Turn — your action",
-  "turn-human-vs-raise": "Turn — respond to AI raise",
-  "turn-complete": "Turn complete — reveal river",
-  "river-human": "River — your action",
-  "river-human-vs-raise": "River — respond to AI raise",
-  "river-complete": "River complete — showdown",
+  idle: "Ready to play",
+  "preflop-human": "Your turn — preflop",
+  "preflop-human-vs-raise": "Respond to PokerMaster's raise",
+  "preflop-complete": "Preflop complete — reveal the flop",
+  "flop-human": "Your turn — flop",
+  "flop-human-vs-raise": "Respond to PokerMaster's raise",
+  "flop-complete": "Flop complete — reveal the turn",
+  "turn-human": "Your turn — turn",
+  "turn-human-vs-raise": "Respond to PokerMaster's raise",
+  "turn-complete": "Turn complete — reveal the river",
+  "river-human": "Your turn — river",
+  "river-human-vs-raise": "Respond to PokerMaster's raise",
+  "river-complete": "River complete — show result",
   result: "Hand complete",
+};
+
+export type StepDemoGameplayPhase =
+  | "start-hand"
+  | "your-turn"
+  | "waiting"
+  | "advance-street"
+  | "hand-complete";
+
+export type StepDemoNextStepAction =
+  | "reveal-flop"
+  | "reveal-turn"
+  | "reveal-river"
+  | "show-result";
+
+export type StepDemoNextStep = {
+  label: string;
+  action: StepDemoNextStepAction;
+};
+
+export type StepDemoGameplayGuidance = {
+  phase: StepDemoGameplayPhase | null;
+  banner: string;
+  actionHint: string;
+  nextStep?: StepDemoNextStep;
 };
 
 export function createInitialStepDemoState(): StepDemoState {
@@ -111,7 +136,7 @@ export function createInitialStepDemoState(): StepDemoState {
     players: {
       human: {
         id: "human",
-        name: "Human Player",
+        name: "You",
         holeCards: [],
         stack: DEFAULT_STARTING_STACK,
         hasFolded: false,
@@ -195,13 +220,13 @@ function streetCompleteStep(street: StepDemoStreet): StepDemoStep {
 function streetCompleteMessage(street: StepDemoStreet): string {
   switch (street) {
     case "preflop":
-      return "Preflop betting complete.";
+      return "Preflop complete — reveal the flop.";
     case "flop":
-      return "Flop betting complete.";
+      return "Flop complete — reveal the turn.";
     case "turn":
-      return "Turn betting complete.";
+      return "Turn complete — reveal the river.";
     case "river":
-      return "River betting complete — ready for showdown.";
+      return "River complete — show the result.";
   }
 }
 
@@ -438,7 +463,7 @@ export function dealStepDemoHand(sessionStacks: SessionStacksState): StepDemoSta
     players: {
       human: {
         id: "human",
-        name: "Human Player",
+        name: "You",
         holeCards: humanDeal.dealt,
         stack: humanStack,
         hasFolded: false,
@@ -452,9 +477,9 @@ export function dealStepDemoHand(sessionStacks: SessionStacksState): StepDemoSta
       },
     },
     actionLog: [
-      systemLog("New step demo hand dealt."),
+      systemLog("New hand dealt."),
       systemLog(
-        `Blinds posted — Human SB ${DEFAULT_SMALL_BLIND}, ${PokerMaster.name} BB ${DEFAULT_BIG_BLIND}. Pot ${pot}. Your turn.`,
+        `Blinds posted — You SB ${DEFAULT_SMALL_BLIND}, ${PokerMaster.name} BB ${DEFAULT_BIG_BLIND}. Pot ${pot}. Your turn.`,
       ),
     ],
     aiDecision: null,
@@ -480,7 +505,7 @@ export function applyHumanFold(state: StepDemoState): StepDemoState {
     human.id,
     human.name,
     "fold",
-    "Human folds.",
+    "You fold.",
     gameStage(state),
   );
 
@@ -548,7 +573,7 @@ function promptHumanVsAiRaise(
     aiDecision: toSimulationAgentDecision(decision, stage, base),
     actionLog: [
       ...base.actionLog,
-      systemLog(`${PokerMaster.name} raised. Your response required.`, stage),
+      systemLog(`${PokerMaster.name} raised — your response needed.`, stage),
     ],
   };
 }
@@ -674,7 +699,7 @@ export function applyHumanCall(state: StepDemoState): StepDemoState {
     human.id,
     human.name,
     "call",
-    `Human calls ${pay}.`,
+    `You call ${pay}.`,
     gameStage(state),
   );
 
@@ -700,7 +725,7 @@ export function applyHumanCheck(state: StepDemoState): StepDemoState {
     state.players.human.id,
     state.players.human.name,
     "check",
-    "Human checks.",
+    "You check.",
     gameStage(state),
   );
 
@@ -730,7 +755,7 @@ export function applyHumanRaise(state: StepDemoState): StepDemoState {
     human.id,
     human.name,
     "raise",
-    `Human ${state.currentBet === 0 ? "bets" : "raises"} ${pay} (total bet ${newHumanStreetBet}).`,
+    `You ${state.currentBet === 0 ? "bet" : "raise"} ${pay} (total bet ${newHumanStreetBet}).`,
     gameStage(state),
   );
 
@@ -850,19 +875,22 @@ export function getStepDemoHumanActions(state: StepDemoState): StepDemoHumanActi
     state.turn === "human" && isHumanActionStep(state.step);
 
   if (!state.isActive || !isHumanTurn) {
-    let disabledHint = "Play vs PokerMaster and wait for your turn.";
-    if (isHumanFacingAiRaiseStep(state.step)) {
-      disabledHint = `${PokerMaster.name} raised — use Fold / Call / Raise above.`;
-    } else if (state.step === "preflop-complete") {
-      disabledHint = "Preflop done — use Reveal Flop in the panel below.";
-    } else if (state.step === "flop-complete") {
-      disabledHint = "Flop done — use Reveal Turn in the panel below.";
-    } else if (state.step === "turn-complete") {
-      disabledHint = "Turn done — use Reveal River in the panel below.";
-    } else if (state.step === "river-complete") {
-      disabledHint = "River done — use Show Result in the panel below.";
+    let disabledHint = "Waiting for PokerMaster.";
+    if (!state.isActive) {
+      disabledHint = "Start a hand first.";
     } else if (state.step === "result") {
-      disabledHint = "Hand finished — reset or start a new demo.";
+      disabledHint = "Hand complete — start a new hand.";
+    } else if (isHumanFacingAiRaiseStep(state.step)) {
+      disabledHint = `${PokerMaster.name} raised — choose Call, Raise, or Fold.`;
+    } else if (
+      state.step === "preflop-complete" ||
+      state.step === "flop-complete" ||
+      state.step === "turn-complete" ||
+      state.step === "river-complete"
+    ) {
+      disabledHint = getStepDemoStatusMessage(state);
+    } else if (state.turn === "poker-master") {
+      disabledHint = "Waiting for PokerMaster.";
     }
 
     return {
@@ -888,14 +916,14 @@ export function getStepDemoHumanActions(state: StepDemoState): StepDemoHumanActi
     canRaise: facingRaise ? canReRaise : true,
     raiseAmount: STEP_DEMO_RAISE,
     disabledHint: facingRaise
-      ? `${PokerMaster.name} raised. Your response required.`
-      : "Choose your action.",
+      ? `${PokerMaster.name} raised — choose Call, Raise, or Fold.`
+      : "Your turn — choose Fold, Call, Check, or Raise.",
   };
 }
 
 export function getStepDemoTurnLabel(state: StepDemoState): string {
   if (state.step === "result") return "Showdown";
-  if (state.turn === "human") return "Human Player";
+  if (state.turn === "human") return "You";
   if (state.turn === "poker-master") return PokerMaster.name;
   if (
     state.step === "preflop-complete" ||
@@ -903,9 +931,116 @@ export function getStepDemoTurnLabel(state: StepDemoState): string {
     state.step === "turn-complete" ||
     state.step === "river-complete"
   ) {
-    return "Waiting — use panel";
+    return "Next step";
   }
   return "—";
+}
+
+export function getStepDemoStatusMessage(state: StepDemoState): string {
+  if (!state.isActive) return "Start a hand to play vs PokerMaster.";
+
+  if (state.step === "result") {
+    return "Hand complete — start a new hand.";
+  }
+
+  if (state.turn === "human" && isHumanActionStep(state.step)) {
+    if (isHumanFacingAiRaiseStep(state.step)) {
+      return `${PokerMaster.name} raised. Choose Call, Raise, or Fold.`;
+    }
+    const toCall = getStepDemoHumanCallAmount(state);
+    if (toCall > 0) {
+      return `Your turn — call ${toCall} or raise.`;
+    }
+    return "Your turn — choose Fold, Check, or Raise.";
+  }
+
+  switch (state.step) {
+    case "preflop-complete":
+      return "Preflop complete — reveal the flop.";
+    case "flop-complete":
+      return "Flop complete — reveal the turn.";
+    case "turn-complete":
+      return "Turn complete — reveal the river.";
+    case "river-complete":
+      return "River complete — show the result.";
+  }
+
+  if (state.turn === "poker-master") {
+    return "Waiting for PokerMaster…";
+  }
+
+  return STEP_DEMO_LABELS[state.step];
+}
+
+export function getStepDemoNextStep(
+  state: StepDemoState,
+): StepDemoNextStep | null {
+  if (!state.isActive || isStepDemoBettingInProgress(state)) return null;
+
+  switch (state.step) {
+    case "preflop-complete":
+      return { label: "Reveal Flop", action: "reveal-flop" };
+    case "flop-complete":
+      return { label: "Reveal Turn", action: "reveal-turn" };
+    case "turn-complete":
+      return { label: "Reveal River", action: "reveal-river" };
+    case "river-complete":
+      return { label: "Show Result", action: "show-result" };
+    default:
+      return null;
+  }
+}
+
+export function getStepDemoGameplayGuidance(
+  state: StepDemoState,
+): StepDemoGameplayGuidance {
+  if (!state.isActive) {
+    return {
+      phase: "start-hand",
+      banner: "START HAND",
+      actionHint: "Start a hand first — tap Play vs PokerMaster.",
+    };
+  }
+
+  if (state.step === "result") {
+    return {
+      phase: "hand-complete",
+      banner: "HAND COMPLETE",
+      actionHint: "Hand complete — start a new hand.",
+    };
+  }
+
+  if (state.turn === "human" && isHumanActionStep(state.step)) {
+    return {
+      phase: "your-turn",
+      banner: "YOUR TURN",
+      actionHint: getStepDemoStatusMessage(state),
+    };
+  }
+
+  const nextStep = getStepDemoNextStep(state);
+  if (nextStep) {
+    return {
+      phase: "advance-street",
+      banner: "NEXT STEP",
+      actionHint: getStepDemoStatusMessage(state),
+      nextStep,
+    };
+  }
+
+  if (state.turn === "poker-master") {
+    return {
+      phase: "waiting",
+      banner: "POKERMASTER THINKING",
+      actionHint: "Waiting for PokerMaster…",
+    };
+  }
+
+  return {
+    phase: "advance-street",
+    banner: "NEXT STEP",
+    actionHint: getStepDemoStatusMessage(state),
+  };
 }
 
 export function getStepDemoStreetLabel(state: StepDemoState): string {

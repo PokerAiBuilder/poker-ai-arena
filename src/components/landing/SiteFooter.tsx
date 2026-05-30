@@ -25,7 +25,7 @@ export function SiteFooter() {
 
           <div className="space-y-4 text-xs leading-relaxed text-muted-foreground">
             <p className="max-w-sm">
-              Demo chips only · Mock payment flow · No real-money gambling
+              Demo chips only · Demo session unlock · No real-money gambling
             </p>
             <p className="text-[10px] text-white/40">
               Built with Next.js · Base-ready · Bankr/x402 integration layer

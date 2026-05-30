@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { SessionStats } from "@/lib/analytics/types";
 import type { X402PaymentMode } from "@/lib/bankr/x402Client";
+import { getPaymentModeUserLabel } from "@/lib/bankr/x402Client";
 import { cn } from "@/lib/utils";
 
 type TableStatsProps = {
@@ -89,14 +90,14 @@ export function TableStats({
       live: true,
     },
     {
-      label: "Entry Fee",
+      label: "Demo Access",
       value: `${entryFee} USDC`,
       icon: CreditCard,
       live: false,
     },
     {
-      label: "Payment Mode",
-      value: paymentMode ? paymentMode.toUpperCase() : "—",
+      label: "Session Mode",
+      value: paymentMode ? getPaymentModeUserLabel(paymentMode) : "—",
       icon: Coins,
       live: paymentMode === "mock",
     },

@@ -1,24 +1,24 @@
 # Poker AI Arena
 
-**Autonomous AI poker cockpit on Base** — watch agents compete, explain decisions, and track live arena stats.
+**Autonomous AI poker on Base** — watch agents compete, explain decisions, and track live arena stats.
 
 ---
 
 ## One-liner
 
-Poker AI Arena is a demo-ready Web3 MVP where rules-based AI agents play simplified Texas Hold'em on Base, users unlock the arena via an x402-style entry fee (mock in dev), and the cockpit surfaces AI reasoning, session analytics, and Bankr-ready integration layers for future production wiring.
+Poker AI Arena is a demo-ready Web3 MVP where rules-based AI agents play simplified Texas Hold'em on Base, users unlock the arena via an x402-style entry fee (mock in dev), and the arena surfaces AI reasoning, session analytics, and Bankr-ready integration layers for future production wiring.
 
 ---
 
 ## What it does
 
-- **Landing + arena UI** — premium casino cockpit for demos and hackathons
+- **Landing + arena UI** — polished AI poker demo for hackathons and showcases
 - **Step Demo (recommended)** — street-by-street Human vs PokerMaster with your own Fold / Call / Check / Raise; Flop → Turn → River on the board
 - **Poker engine (full-hand sim)** — server-side preflop → flop → showdown MVP (turn/river not in engine yet)
 - **Rules-based agents** — PokerMaster, BluffBot, RiverMind, ChipHunter
 - **Human vs AI (full hand)** — one-click heads-up simulation against PokerMaster
 - **Agent Battle** — spectator simulation: four agents, all cards visible after the hand
-- **x402 entry fee (mock)** — unlock arena session without moving real USDC in dev
+- **Demo session unlock** — start playing without moving real USDC in dev without moving real USDC in dev
 - **Bankr integration layer** — prepared skills client and status API; mock when unconfigured
 - **Live leaderboard** — session stats in React state + `localStorage` (no DB yet)
 
@@ -29,9 +29,9 @@ Poker AI Arena is a demo-ready Web3 MVP where rules-based AI agents play simplif
 ## Demo flow
 
 1. Open `/` — landing page and pitch
-2. (Optional) Connect wallet — scaffold on Base Sepolia
-3. Go to `/arena` — cockpit starts **locked**
-4. Click **Mock Pay Entry Fee** — mock x402 unlock (no real funds)
+2. (Optional) Connect wallet — scaffold on Base testnet
+3. Go to `/arena` — arena starts **locked**
+4. Click **Start Demo Session** — demo session unlock (no real funds)
 5. **Play Step Demo: Human vs AI** — act on each street, reveal Flop / Turn / River, then **Show Result**
 6. (Optional) **Full Hand: Human vs AI** or **Agent Battle**
 7. Review **AI Decision** and **Action Log** (Menu drawer)
@@ -46,7 +46,7 @@ See [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) for a ~60–90 second presenter script.
 
 | Feature | Status |
 | ------- | ------ |
-| Next.js 15 app + casino UI | Done |
+| Next.js 15 app + arena UI | Done |
 | Step Demo (Human vs AI, Flop/Turn/River) | Done — client-side demo flow |
 | Poker engine (full-hand preflop/flop/showdown) | Done |
 | Rules-based agents | Done |
@@ -73,7 +73,7 @@ Full matrix: [PROJECT_STATUS.md](./PROJECT_STATUS.md)
 | Framework | Next.js 15 (App Router), React 19, TypeScript |
 | Styling | Tailwind CSS, shadcn/ui, Lucide icons |
 | Wallet | wagmi, viem |
-| Chain | **Base Sepolia (`84532`)** first; Base Mainnet (`8453`) later |
+| Chain | **Base testnet (`84532`, Base Sepolia)** first; Base Mainnet (`8453`) later |
 | Payments | x402 abstraction (`src/lib/bankr/x402Client.ts`) — mock in MVP |
 | Agents | Rules-based strategies + Bankr-ready registry |
 | Analytics | Client `localStorage` (`poker-ai-arena-analytics-v1`) |
@@ -87,7 +87,7 @@ Full matrix: [PROJECT_STATUS.md](./PROJECT_STATUS.md)
 src/
 ├── app/
 │   ├── page.tsx                 # Landing
-│   ├── arena/page.tsx           # Casino cockpit
+│   ├── arena/page.tsx           # AI poker arena
 │   └── api/
 │       ├── poker/simulate/      # Human vs AI | Agent Battle
 │       ├── x402/entry/          # Mock entry fee
@@ -124,7 +124,7 @@ npm run dev
 Open:
 
 - http://localhost:3000 — landing
-- http://localhost:3000/arena — cockpit
+- http://localhost:3000/arena - arena
 
 **Quality checks**
 
@@ -195,7 +195,7 @@ The entry fee is a **demo session access fee**, not casino wagering or settlemen
 - **Entry fee = demo access**, not wagering
 - **Bankr production** not connected unless you configure env (still mock skill HTTP until implemented)
 - **Analytics in localStorage** — not authoritative on-chain data
-- Use **Base Sepolia (`84532`)** for wallet demos first
+- Use **Base testnet** for wallet demos first
 
 ---
 
@@ -213,9 +213,9 @@ The entry fee is a **demo session access fee**, not casino wagering or settlemen
 
 ## Pitch for Bankr / Base Batches
 
-**Problem:** AI agent demos on Base often lack a cohesive “watch agents compete” experience with readable decisions and session stats in one cockpit.
+**Problem:** AI agent demos on Base often lack a cohesive “watch agents compete” experience with readable decisions and session stats in one place.
 
-**Solution:** Poker AI Arena is an autonomous AI poker cockpit on Base where agents battle in readable hands, log reasoning, and feed a live leaderboard. The MVP ships with **Bankr-ready** integration layers and **x402-style** session access (mock today), with a clear path to real payments and production Bankr skills.
+**Solution:** Poker AI Arena is an autonomous AI poker demo on Base where agents battle in readable hands, log reasoning, and feed a live leaderboard. The MVP ships with **Bankr-ready** integration layers and **x402-style** session access (mock today), with a clear path to real payments and production Bankr skills.
 
 **Why Base:** Low-cost L2, strong agent/Bankr ecosystem, ideal for hackathon demos and Base Batches submissions.
 

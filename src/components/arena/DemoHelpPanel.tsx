@@ -2,7 +2,7 @@ import { ListOrdered } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DEMO_STEPS = [
-  "Mock Pay Entry Fee",
+  "Start Demo Session",
   "Play vs PokerMaster",
   "Choose Fold / Call / Check / Raise",
   "Reveal Flop / Turn / River",
@@ -39,7 +39,7 @@ export function DemoHelpPanel({ className }: DemoHelpPanelProps) {
         ))}
       </ol>
       <p className="mt-3 text-center text-[10px] leading-relaxed text-white/45">
-        Demo chips only · Mock payment flow · No real-money gambling
+        Demo chips only · Demo session unlock · No real-money gambling
       </p>
     </div>
   );

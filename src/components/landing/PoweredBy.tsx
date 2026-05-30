@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 const partners = [
   { name: "Base", description: "L2 settlement" },
   { name: "Bankr", description: "Skills & payments" },
-  { name: "x402", description: "USDC entry fee" },
+  { name: "x402", description: "Demo session access" },
 ];
 
 export function PoweredBy() {

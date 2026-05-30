@@ -20,9 +20,9 @@ const features = [
   },
   {
     icon: Coins,
-    title: "Mock x402 Entry",
+    title: "Demo Session Unlock",
     description:
-      "Demo unlock flow for the arena cockpit — no real funds move in this MVP.",
+      "Start a demo session to play Human vs AI and Agent Battle — demo chips only, no real funds move.",
     accent: "border-casino-gold/30 bg-casino-gold/5",
     iconClass: "text-casino-goldLight",
   },

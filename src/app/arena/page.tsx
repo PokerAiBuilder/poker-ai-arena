@@ -1,5 +1,9 @@
 import { ArenaShell } from "@/components/arena/ArenaShell";
 
 export default function ArenaPage() {
-  return <ArenaShell />;
+  return (
+    <div className="h-dvh overflow-hidden">
+      <ArenaShell />
+    </div>
+  );
 }

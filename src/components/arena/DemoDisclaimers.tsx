@@ -8,7 +8,7 @@ type DemoDisclaimersProps = {
 export function DemoDisclaimers({ className, compact = false }: DemoDisclaimersProps) {
   const items = [
     "Demo chips only",
-    "Mock payment flow",
+    "Demo session unlock",
     "No real-money gambling",
   ] as const;
 

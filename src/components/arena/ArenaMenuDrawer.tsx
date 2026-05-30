@@ -195,7 +195,7 @@ export function ArenaMenuDrawer({
               </p>
               <p className="text-[10px] leading-relaxed text-white/40">
                 Built with Next.js · Base-ready · Bankr/x402 integration layer
-                prepared (demo mock).
+                (x402-style access flow mocked in this MVP).
               </p>
             </div>
           ) : null}

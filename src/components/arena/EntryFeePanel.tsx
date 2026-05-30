@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Lock, ShieldCheck, Unlock } from "lucide-react";
+import { ChevronDown, Loader2, Lock, ShieldCheck, Unlock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type {
   X402PaymentRequest,
   X402PaymentResult,
 } from "@/lib/bankr/x402Client";
-import { getNetworkLabel } from "@/lib/bankr/x402Client";
+import {
+  getPaymentModeUserLabel,
+  getUserNetworkLabel,
+} from "@/lib/bankr/x402Client";
 import { cn } from "@/lib/utils";
 
 type EntryFeePanelProps = {
@@ -20,6 +23,11 @@ type EntryFeePanelProps = {
   compact?: boolean;
   className?: string;
 };
+
+function truncateMiddle(value: string, head = 6, tail = 4): string {
+  if (value.length <= head + tail + 1) return value;
+  return `${value.slice(0, head)}…${value.slice(-tail)}`;
+}
 
 export function EntryFeePanel({
   paymentResult,
@@ -41,7 +49,7 @@ export function EntryFeePanel({
           currency: "USDC",
           network: "base-sepolia",
           receiverAddress: "0x0000000000000000000000000000000000000000",
-          description: "Poker AI Arena session entry fee (demo access)",
+          description: "Poker AI Arena demo session access",
         });
       });
   }, []);
@@ -49,11 +57,15 @@ export function EntryFeePanel({
   const isUnlocked = paymentResult?.success === true;
   const amount = paymentResult?.amount ?? config?.amount ?? "0.01";
   const network = paymentResult?.network ?? config?.network ?? "base-sepolia";
+  const hasReceiptDetails =
+    Boolean(paymentResult?.receiptId) ||
+    Boolean(paymentResult?.txHash) ||
+    Boolean(paymentResult?.paidAt);
 
   return (
     <div
       className={cn(
-        "glass-panel overflow-hidden rounded-2xl border shadow-lg",
+        "glass-panel shrink-0 overflow-hidden rounded-2xl border shadow-lg",
         isUnlocked
           ? "border-emerald-500/30 shadow-[0_0_32px_rgba(16,185,129,0.1)]"
           : "border-casino-gold/30 shadow-glow",
@@ -62,38 +74,42 @@ export function EntryFeePanel({
     >
       <div
         className={cn(
-          "border-b border-white/5 px-4 py-3",
+          "border-b border-white/5 px-3 py-2",
           isUnlocked ? "bg-emerald-500/5" : "bg-casino-gold/5",
         )}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1.5">
             {isUnlocked ? (
-              <Unlock className="h-4 w-4 text-emerald-400" />
+              <Unlock className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
             ) : (
-              <Lock className="h-4 w-4 text-casino-gold" />
+              <Lock className="h-3.5 w-3.5 shrink-0 text-casino-gold" />
             )}
-            <h3 className="text-sm font-semibold text-casino-goldLight">
-              {isUnlocked ? "Arena Unlocked" : "Unlock Poker AI Arena"}
+            <h3 className="truncate text-xs font-semibold text-casino-goldLight">
+              {isUnlocked ? "Arena Unlocked" : "Demo Access"}
             </h3>
           </div>
-          <Badge variant={isUnlocked ? "default" : "secondary"}>
-            {isUnlocked ? "Ready to play" : "Dev mode"}
+          <Badge
+            variant={isUnlocked ? "default" : "secondary"}
+            className="shrink-0 text-[9px]"
+          >
+            {isUnlocked ? "Demo session active" : "Demo Mode"}
           </Badge>
         </div>
       </div>
 
-      <div className={cn(compact ? "space-y-2 p-3" : "space-y-3 p-4", "text-xs")}>
+      <div className={cn(compact ? "space-y-2 p-2.5" : "space-y-3 p-4", "text-xs")}>
         {!isUnlocked ? (
           <>
             {compact ? (
               <p className="text-[10px] leading-relaxed text-muted-foreground">
-                Mock x402 demo unlock — no real funds moved.
+                Start a demo session to play. Demo only — no real funds moved.
               </p>
             ) : (
               <p className="leading-relaxed text-muted-foreground">
-                Pay a small USDC entry fee to launch an AI poker session. This is a
-                demo access fee — not real-money gambling settlement.
+                Start a demo session to play Human vs AI and Agent Battle. This
+                unlocks the arena for the current browser session only — not
+                real-money gambling.
               </p>
             )}
 
@@ -104,7 +120,7 @@ export function EntryFeePanel({
               )}
             >
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Entry fee
+                Demo access
               </p>
               <p
                 className={cn(
@@ -115,7 +131,7 @@ export function EntryFeePanel({
                 {amount} USDC
               </p>
               <p className="mt-0.5 text-[10px] text-muted-foreground">
-                Network: {getNetworkLabel(network)}
+                Network: {getUserNetworkLabel(network)}
               </p>
             </div>
 
@@ -128,84 +144,99 @@ export function EntryFeePanel({
               {paying ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Processing…
+                  Starting…
                 </>
               ) : (
-                "Mock Pay Entry Fee"
+                "Start Demo Session"
               )}
             </Button>
 
             {compact ? (
               <p className="text-[9px] leading-relaxed text-amber-200/75">
-                Demo payment only — no real funds moved.
+                Demo only — no real funds moved.
               </p>
             ) : (
               <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5">
                 <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
                 <p className="text-[10px] leading-relaxed text-amber-200/80">
-                  Mock payment only. No real funds are moved. Real x402 mode is not
-                  implemented yet.
+                  Demo only — no real funds moved. This is a simulated session
+                  unlock for the MVP demo.
                 </p>
               </div>
             )}
           </>
         ) : (
           <>
-            <p className="font-medium text-emerald-400">
-              {compact ? "Session active" : "Session access granted"}
-            </p>
-
-            {!compact ? (
-            <dl className="space-y-2 rounded-xl border border-white/10 bg-black/30 p-3">
-              <div className="flex justify-between gap-2">
+            <dl className="space-y-1.5 rounded-lg border border-white/10 bg-black/30 p-2.5">
+              <div className="flex justify-between gap-2 text-[11px]">
                 <dt className="text-muted-foreground">Amount</dt>
-                <dd className="font-semibold text-white">{amount} USDC</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-muted-foreground">Network</dt>
-                <dd className="text-white">{getNetworkLabel(network)}</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-muted-foreground">Mode</dt>
-                <dd className="uppercase text-casino-goldLight">
-                  {paymentResult.mode}
+                <dd className="text-right font-semibold text-white">
+                  {amount} USDC demo access
                 </dd>
               </div>
-              {paymentResult.receiptId ? (
-                <div className="flex justify-between gap-2">
-                  <dt className="text-muted-foreground">Receipt</dt>
-                  <dd className="truncate font-mono text-[10px] text-white/80">
-                    {paymentResult.receiptId}
-                  </dd>
-                </div>
-              ) : null}
-              {paymentResult.txHash ? (
-                <div className="flex justify-between gap-2">
-                  <dt className="text-muted-foreground">Tx hash</dt>
-                  <dd className="truncate font-mono text-[10px] text-white/80">
-                    {paymentResult.txHash}
-                  </dd>
-                </div>
-              ) : null}
-              <div className="flex justify-between gap-2">
-                <dt className="text-muted-foreground">Paid at</dt>
-                <dd className="text-white/80">
-                  {new Date(paymentResult.paidAt).toLocaleString()}
+              <div className="flex justify-between gap-2 text-[11px]">
+                <dt className="text-muted-foreground">Network</dt>
+                <dd className="text-right text-white">
+                  {getUserNetworkLabel(network)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2 text-[11px]">
+                <dt className="text-muted-foreground">Mode</dt>
+                <dd className="text-right text-casino-goldLight">
+                  {getPaymentModeUserLabel(paymentResult.mode)}
                 </dd>
               </div>
             </dl>
+
+            {hasReceiptDetails ? (
+              <details className="rounded-lg border border-white/10 bg-black/20 text-[10px]">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
+                  <span>Demo receipt details</span>
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                </summary>
+                <dl className="max-h-20 space-y-1 overflow-y-auto overscroll-contain border-t border-white/5 px-2.5 py-2">
+                  {paymentResult.receiptId ? (
+                    <div className="flex justify-between gap-2">
+                      <dt className="shrink-0 text-muted-foreground">Receipt</dt>
+                      <dd
+                        className="truncate font-mono text-[9px] text-white/75"
+                        title={paymentResult.receiptId}
+                      >
+                        {truncateMiddle(paymentResult.receiptId, 8, 6)}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {paymentResult.txHash ? (
+                    <div className="flex justify-between gap-2">
+                      <dt className="shrink-0 text-muted-foreground">Demo tx</dt>
+                      <dd
+                        className="truncate font-mono text-[9px] text-white/75"
+                        title={paymentResult.txHash}
+                      >
+                        {truncateMiddle(paymentResult.txHash, 6, 4)}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {paymentResult.paidAt ? (
+                    <div className="flex justify-between gap-2">
+                      <dt className="shrink-0 text-muted-foreground">Unlocked</dt>
+                      <dd className="text-right text-[9px] text-white/70">
+                        {new Date(paymentResult.paidAt).toLocaleString()}
+                      </dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </details>
             ) : null}
 
-            <p className="text-center text-[10px] leading-relaxed text-emerald-400/80">
-              {compact
-                ? "Ready — use Play vs PokerMaster below."
-                : "Ready to play — start with Human vs AI below, or try Agent Battle."}
+            <p className="text-center text-[9px] leading-none text-emerald-400/75">
+              No real funds moved.
             </p>
           </>
         )}
 
         {error ? (
-          <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-red-400">
+          <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-[10px] text-red-400">
             {error}
           </p>
         ) : null}

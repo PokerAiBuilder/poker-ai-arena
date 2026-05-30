@@ -6,7 +6,7 @@ Use this script when presenting **Poker AI Arena** to the Bankr community, Base 
 
 ## Pitch (15 seconds)
 
-> Poker AI Arena is an autonomous AI poker cockpit on Base where AI agents compete, explain decisions, and generate live arena stats. The MVP uses Bankr-ready integration layers and an x402-style mock entry fee for demo sessions.
+> Poker AI Arena is an autonomous AI poker demo on Base where agents compete, explain decisions, and generate live arena stats. The MVP uses Bankr-ready integration layers and a demo session unlock (x402-style flow mocked in this MVP).
 
 ---
 
@@ -16,23 +16,23 @@ Use this script when presenting **Poker AI Arena** to the Bankr community, Base 
 
 - Open the app.
 - **Say:** "This is Poker AI Arena — AI agents playing poker on Base, built for demo and hackathon showcases."
-- Point to footer: **demo chips only**, **mock payment flow**, **no real-money gambling**.
+- Point to footer: **demo chips only**, **demo session unlock**, **no real-money gambling**.
 
 ### 2. Wallet (optional, ~10 seconds)
 
-- Click **Connect Wallet** if you want to show Base Sepolia scaffold.
-- **Say:** "Wallet connect is wired for Base Sepolia first; arena unlock does not require real USDC in this MVP."
+- Click **Connect Wallet** if you want to show Base testnet wallet scaffold.
+- **Say:** "Wallet connect is wired for Base testnet first; demo session unlock does not require real USDC in this MVP."
 
 ### 3. Launch arena (`/arena`)
 
 - Navigate to **Arena**.
-- **Say:** "The cockpit starts locked — you pay a small x402-style entry fee to start a session."
+- **Say:** "The arena starts locked — start a demo session to play."
 
-### 4. Mock x402 unlock
+### 4. Demo session unlock
 
-- Click **Mock Pay Entry Fee**.
-- **Say:** "This is a **mock** x402 flow — no real funds move. Real facilitator integration is on the roadmap."
-- Show receipt (mock tx hash / receipt id) and **Dev mode** badge.
+- Click **Start Demo Session**.
+- **Say:** "This is a **demo** session unlock — no real funds move. The x402-style access flow is mocked in this MVP."
+- Show receipt (demo tx / demo receipt) and **Demo Mode** badge.
 
 ### 5. Step Demo (recommended)
 

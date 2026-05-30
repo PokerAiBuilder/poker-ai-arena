@@ -48,7 +48,7 @@ export function TablePreview() {
     <section className="mx-auto max-w-5xl px-4 pb-16 md:pb-20">
       <div className="mb-6 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          Live cockpit preview
+          Live arena preview
         </p>
         <h2 className="mt-2 text-xl font-bold text-white md:text-2xl">
           The same table you will use in the arena
@@ -136,7 +136,7 @@ export function TablePreview() {
         </div>
 
         <div className="mt-3 rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-center text-xs leading-relaxed text-muted-foreground">
-          Human vs AI · Agent Battle · Mock entry unlock — demo chips only, no
+          Human vs AI · Agent Battle · Demo session unlock — demo chips only, no
           real-money gambling.
         </div>
       </div>

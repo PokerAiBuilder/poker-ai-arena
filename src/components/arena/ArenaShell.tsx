@@ -41,6 +41,7 @@ import {
   dealStepDemoHand,
   getStepDemoHumanActions,
   getStepDemoHumanCallAmount,
+  getStepDemoGameplayGuidance,
   getStepDemoPotDisplay,
   getStepDemoStackUpdates,
   type StepDemoState,
@@ -152,7 +153,7 @@ export function ArenaShell() {
       setSessionLog((prev) => [
         ...prev,
         createSessionLogEntry(
-          `Arena unlocked via ${data.mode} x402 payment (${data.amount} USDC).`,
+          `Demo session started (${data.amount} USDC demo access).`,
         ),
       ]);
     } catch (err) {
@@ -167,7 +168,7 @@ export function ArenaShell() {
   const runSimulation = useCallback(
     async (mode: GameMode) => {
       if (!isArenaUnlocked) {
-        setError("Pay entry fee first to launch the arena.");
+        setError("Start demo session to play.");
         return;
       }
 
@@ -227,7 +228,7 @@ export function ArenaShell() {
 
   const handlePlayStepDemo = useCallback(() => {
     if (!isArenaUnlocked) {
-      setError("Pay entry fee first to launch the arena.");
+      setError("Start demo session to play.");
       return;
     }
     setError(null);
@@ -236,7 +237,7 @@ export function ArenaShell() {
     setStepDemo(dealStepDemoHand(sessionStacks));
     setSessionLog((prev) => [
       ...prev,
-      createSessionLogEntry("Human vs AI hand started — guided mode."),
+      createSessionLogEntry("Human vs AI — new hand started."),
     ]);
   }, [isArenaUnlocked, sessionStacks]);
 
@@ -260,7 +261,7 @@ export function ArenaShell() {
     setPreferredSeatLayout("human-vs-ai");
     setSessionLog((prev) => [
       ...prev,
-      createSessionLogEntry("Human vs AI hand reset."),
+      createSessionLogEntry("Human vs AI — hand ended."),
     ]);
   }, []);
 
@@ -298,6 +299,11 @@ export function ArenaShell() {
 
   const stepDemoHumanActions = useMemo(
     () => getStepDemoHumanActions(stepDemo),
+    [stepDemo],
+  );
+
+  const stepDemoGuidance = useMemo(
+    () => getStepDemoGameplayGuidance(stepDemo),
     [stepDemo],
   );
 
@@ -373,9 +379,6 @@ export function ArenaShell() {
             <p className="text-sm font-bold tracking-[0.2em] text-casino-goldLight">
               POKER AI ARENA
             </p>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Casino Cockpit
-            </p>
           </div>
 
           <ConnectWalletButton size="sm" />
@@ -386,13 +389,8 @@ export function ArenaShell() {
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-2">
           <Badge className="gap-1">
             <Sparkles className="h-3 w-3" />
-            {isArenaUnlocked ? "Session active" : "Pay to unlock"}
+            {isArenaUnlocked ? "Demo session active" : "Start demo to play"}
           </Badge>
-          {stepDemo.isActive ? (
-            <Badge className="border-emerald-500/40 bg-emerald-950/50 text-emerald-100">
-              Human vs AI
-            </Badge>
-          ) : null}
           {result && !stepDemo.isActive ? (
             <Badge variant="secondary">Hand #{result.handNumber}</Badge>
           ) : null}
@@ -416,20 +414,15 @@ export function ArenaShell() {
             </Badge>
           ) : null}
           {!isArenaUnlocked ? (
-            <Badge variant="secondary">x402 entry required</Badge>
+            <Badge variant="secondary">Demo access required</Badge>
           ) : null}
         </div>
       </div>
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col lg:flex-row">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-3 pb-1 pt-2 sm:px-4 lg:overflow-hidden lg:pr-2">
-          <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col">
-            <div
-              className="relative mx-auto w-full max-w-4xl shrink-0"
-              style={{
-                height: "clamp(380px, calc(100dvh - 15.5rem), 620px)",
-              }}
-            >
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-3 pt-2 sm:px-4 lg:overflow-hidden lg:pr-2 lg:pb-0">
+          <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col lg:min-h-0">
+            <div className="relative mx-auto min-h-[280px] w-full max-w-4xl flex-1 lg:min-h-0">
               <PokerTable
                 className="absolute inset-0 h-full w-full"
                 roomLayout
@@ -461,7 +454,7 @@ export function ArenaShell() {
               />
             </div>
 
-            <div className="mt-2 h-14 shrink-0 overflow-visible sm:h-16">
+            <div className="mt-2 shrink-0">
               <StepDemoStatusStrip
                 stepDemo={stepDemo}
                 onRevealFlop={handleStepDemoRevealFlop}
@@ -475,18 +468,20 @@ export function ArenaShell() {
           </div>
         </div>
 
-        <aside className="hidden w-[248px] shrink-0 flex-col gap-3 border-l border-white/5 bg-black/20 p-3 lg:flex">
-          <EntryFeePanel
-            compact={!isArenaUnlocked}
-            paymentResult={paymentResult}
-            onPayMock={payEntryFee}
-            paying={paying}
-            error={paymentError}
-          />
-          {isArenaUnlocked ? (
-            <>
+        <aside className="hidden min-h-0 w-[240px] shrink-0 flex-col border-l border-white/5 bg-black/20 p-2 lg:flex">
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain">
+            <EntryFeePanel
+              compact
+              paymentResult={paymentResult}
+              onPayMock={payEntryFee}
+              paying={paying}
+              error={paymentError}
+            />
+            {isArenaUnlocked ? (
               <AiDecisionPanel
+                compact
                 latest={latestAiDecision}
+                guidedHand={stepDemo.isActive}
                 humanCallAmount={
                   stepDemo.isActive ? stepDemoHumanCallAmount : undefined
                 }
@@ -498,27 +493,29 @@ export function ArenaShell() {
                     : aiDecisions.length
                 }
               />
-              <p className="text-center text-[9px] leading-relaxed text-muted-foreground/70">
-                Demo chips only · local session stacks
-              </p>
-            </>
-          ) : null}
+            ) : null}
+          </div>
           <ArenaMenuTrigger
             onClick={() => setMenuOpen(true)}
-            className="w-full"
+            className="mt-2 w-full shrink-0"
           />
         </aside>
       </div>
 
       <ArenaActionBar
-        className="relative z-30"
+        className="relative z-30 shrink-0"
         onSimulateAgentBattle={handleSimulateAgentBattle}
         onPlayStepDemo={handlePlayStepDemo}
         onOpenMenu={() => setMenuOpen(true)}
         stepDemoActive={stepDemo.isActive}
         stepDemoHumanActions={stepDemoHumanActions}
+        stepDemoGuidance={stepDemoGuidance}
         stepDemoHandComplete={stepDemo.isActive && stepDemo.step === "result"}
         onStepDemoReset={handleResetStepDemo}
+        onRevealFlop={handleStepDemoRevealFlop}
+        onRevealTurn={handleStepDemoRevealTurn}
+        onRevealRiver={handleStepDemoRevealRiver}
+        onShowResult={handleStepDemoShowResult}
         onHumanFold={handleHumanFold}
         onHumanCall={handleHumanCall}
         onHumanCheck={handleHumanCheck}
@@ -528,7 +525,7 @@ export function ArenaShell() {
         disabled={!isArenaUnlocked}
         disabledReason={
           !isArenaUnlocked
-            ? "Pay entry fee first to launch the arena."
+            ? "Start demo session to play."
             : undefined
         }
         error={error}

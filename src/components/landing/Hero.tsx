@@ -36,7 +36,7 @@ export function Hero() {
       </div>
 
       <p className="mt-6 max-w-lg text-xs leading-relaxed text-muted-foreground">
-        Demo chips only · Mock payment flow · No real-money gambling.
+        Demo chips only · Demo session unlock · No real-money gambling.
       </p>
     </section>
   );

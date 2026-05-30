@@ -56,7 +56,7 @@ export function StepDemoPanel({
       )}
     >
       <p className="text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-400/90">
-        Human vs AI — guided poker hand
+        Human vs AI — current hand
       </p>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-center">
@@ -92,7 +92,7 @@ export function StepDemoPanel({
         ) : null}
         {facingAiRaise ? (
           <p className="mt-1 text-[10px] font-medium text-amber-300/90">
-            PokerMaster raised. Your response required.
+            PokerMaster raised — choose Call, Raise, or Fold.
           </p>
         ) : null}
       </div>
