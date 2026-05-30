@@ -1,0 +1,295 @@
+import type { Card, Rank } from "@/lib/poker/types";
+import { RANK_VALUES } from "@/lib/poker/types";
+import { evaluateBestHand } from "@/lib/poker/evaluator";
+import type { AgentDecision, AgentInput, AgentStrategy } from "@/lib/agents/agentTypes";
+
+const HIGH_RANK_THRESHOLD = 11; // J+
+
+function cardValue(rank: Rank): number {
+  return RANK_VALUES[rank];
+}
+
+function isPocketPair(holeCards: Card[]): boolean {
+  return holeCards.length === 2 && holeCards[0].rank === holeCards[1].rank;
+}
+
+function isSuited(holeCards: Card[]): boolean {
+  return holeCards.length === 2 && holeCards[0].suit === holeCards[1].suit;
+}
+
+function hasHighCards(holeCards: Card[]): boolean {
+  if (holeCards.length !== 2) return false;
+  return (
+    cardValue(holeCards[0].rank) >= HIGH_RANK_THRESHOLD &&
+    cardValue(holeCards[1].rank) >= HIGH_RANK_THRESHOLD
+  );
+}
+
+function preflopStrength(holeCards: Card[]): number {
+  const [a, b] = holeCards.map((c) => cardValue(c.rank));
+  const high = Math.max(a, b);
+  const low = Math.min(a, b);
+  if (a === b) return high * 4;
+  if (isSuited(holeCards) && high >= 10) return high + low + 2;
+  if (hasHighCards(holeCards)) return high + low;
+  return high + low * 0.3;
+}
+
+function madeHandStrength(input: AgentInput): number {
+  const all = [...input.holeCards, ...input.communityCards];
+  if (all.length < 5) return preflopStrength(input.holeCards);
+  const evaluated = evaluateBestHand(all);
+  return evaluated.scores[0] * 100 + (evaluated.scores[1] ?? 0);
+}
+
+function hasFlushDraw(holeCards: Card[], communityCards: Card[]): boolean {
+  const all = [...holeCards, ...communityCards];
+  const suits = new Map<string, number>();
+  for (const card of all) {
+    suits.set(card.suit, (suits.get(card.suit) ?? 0) + 1);
+  }
+  return [...suits.values()].some((count) => count >= 4);
+}
+
+function hasStraightDraw(holeCards: Card[], communityCards: Card[]): boolean {
+  const values = [...holeCards, ...communityCards]
+    .map((c) => cardValue(c.rank))
+    .filter((v, i, arr) => arr.indexOf(v) === i)
+    .sort((a, b) => a - b);
+
+  if (values.includes(14)) values.unshift(1);
+
+  for (let i = 0; i <= values.length - 4; i += 1) {
+    const window = values.slice(i, i + 4);
+    if (window[3] - window[0] <= 4) return true;
+  }
+  return false;
+}
+
+function isStrongHand(input: AgentInput): boolean {
+  if (input.gameStage === "preflop") {
+    return isPocketPair(input.holeCards) || preflopStrength(input.holeCards) >= 26;
+  }
+  return madeHandStrength(input) >= 200;
+}
+
+function isWeakHand(input: AgentInput): boolean {
+  if (input.gameStage === "preflop") {
+    return preflopStrength(input.holeCards) < 18;
+  }
+  const strength = madeHandStrength(input);
+  return strength < 120 && !hasFlushDraw(input.holeCards, input.communityCards) &&
+    !hasStraightDraw(input.holeCards, input.communityCards);
+}
+
+function bluffRoll(strategy: AgentStrategy): boolean {
+  const chance =
+    strategy === "bluff" ? 0.12 : strategy === "aggressive" ? 0.08 : 0.05;
+  return Math.random() < chance;
+}
+
+function raiseAmount(input: AgentInput): number {
+  return input.currentBet + input.minRaise;
+}
+
+function strategyAggression(strategy: AgentStrategy): number {
+  switch (strategy) {
+    case "aggressive":
+      return 1.3;
+    case "tight":
+      return 0.7;
+    case "bluff":
+      return 1.1;
+    default:
+      return 1;
+  }
+}
+
+export function decidePokerAction(input: AgentInput): AgentDecision {
+  const {
+    agentName,
+    holeCards,
+    communityCards,
+    amountToCall,
+    stack,
+    gameStage,
+    strategy,
+  } = input;
+
+  const canCheck = amountToCall === 0;
+  const raiseTo = raiseAmount(input);
+  const aggression = strategyAggression(strategy);
+
+  if (amountToCall > stack * 0.4 && isWeakHand(input)) {
+    return {
+      action: "fold",
+      confidence: 0.82,
+      reasoning: "weak hand facing large bet",
+    };
+  }
+
+  if (stack <= input.minRaise * 3 && isStrongHand(input)) {
+    return {
+      action: "all-in",
+      amount: stack,
+      confidence: 0.91,
+      reasoning: "short stack shove with strong hand",
+    };
+  }
+
+  if (
+    strategy === "bluff" &&
+    bluffRoll(strategy) &&
+    !isStrongHand(input) &&
+    canCheck
+  ) {
+    return {
+      action: "raise",
+      amount: raiseTo,
+      confidence: 0.42,
+      reasoning: "bluffing to pressure the table",
+    };
+  }
+
+  if (gameStage === "preflop") {
+    if (isPocketPair(holeCards)) {
+      return {
+        action: canCheck ? "raise" : amountToCall <= input.minRaise * 2 ? "raise" : "call",
+        amount: canCheck || amountToCall <= input.minRaise * 2 ? raiseTo : amountToCall,
+        confidence: 0.88,
+        reasoning: "strong pocket pair preflop",
+      };
+    }
+
+    if (hasHighCards(holeCards)) {
+      if (canCheck) {
+        return aggression >= 1.2
+          ? {
+              action: "raise",
+              amount: raiseTo,
+              confidence: 0.72,
+              reasoning: "high cards — applying pressure preflop",
+            }
+          : {
+              action: "check",
+              confidence: 0.65,
+              reasoning: "high cards — pot control preflop",
+            };
+      }
+      if (amountToCall <= input.minRaise * 2 * aggression) {
+        return {
+          action: "call",
+          amount: amountToCall,
+          confidence: 0.74,
+          reasoning: "high cards with playable equity",
+        };
+      }
+    }
+
+    if (isSuited(holeCards)) {
+      if (canCheck) {
+        return {
+          action: "check",
+          confidence: 0.62,
+          reasoning: "suited hand — seeing flop cheaply",
+        };
+      }
+      if (amountToCall <= input.minRaise * aggression) {
+        return {
+          action: "call",
+          amount: amountToCall,
+          confidence: 0.68,
+          reasoning: "suited cards with playable equity",
+        };
+      }
+    }
+
+    if (canCheck) {
+      return {
+        action: "check",
+        confidence: 0.58,
+        reasoning: "marginal hand — checking preflop",
+      };
+    }
+
+    if (amountToCall > input.minRaise * 2) {
+      return {
+        action: "fold",
+        confidence: 0.8,
+        reasoning: "weak hand facing large bet",
+      };
+    }
+
+    return {
+      action: strategy === "tight" ? "fold" : "call",
+      amount: strategy === "tight" ? undefined : amountToCall,
+      confidence: 0.55,
+      reasoning: strategy === "tight" ? "tight fold preflop" : "loose call to see flop",
+    };
+  }
+
+  // Flop (and future turn/river reuse same heuristics)
+  const strength = madeHandStrength(input);
+  const hasDraw =
+    hasFlushDraw(holeCards, communityCards) ||
+    hasStraightDraw(holeCards, communityCards);
+
+  if (strength >= 200) {
+    if (canCheck) {
+      return {
+        action: aggression >= 1 ? "raise" : "check",
+        amount: aggression >= 1 ? raiseTo : undefined,
+        confidence: 0.86,
+        reasoning: strength >= 300 ? "strong made hand — value raise" : "pair or better — betting for value",
+      };
+    }
+    return {
+      action: amountToCall <= input.minRaise * 3 ? "call" : "fold",
+      amount: amountToCall <= input.minRaise * 3 ? amountToCall : undefined,
+      confidence: 0.8,
+      reasoning: "pair or better — continuing with equity",
+    };
+  }
+
+  if (hasDraw) {
+    if (canCheck) {
+      return {
+        action: "check",
+        confidence: 0.64,
+        reasoning: "drawing hand — checking to see next card",
+      };
+    }
+    if (amountToCall <= input.minRaise * 2 * aggression) {
+      return {
+        action: "call",
+        amount: amountToCall,
+        confidence: 0.7,
+        reasoning: hasFlushDraw(holeCards, communityCards)
+          ? "flush draw — calling with outs"
+          : "straight draw — calling with outs",
+      };
+    }
+  }
+
+  if (canCheck) {
+    return {
+      action: "check",
+      confidence: 0.6,
+      reasoning: "no connection — checking flop",
+    };
+  }
+
+  if (amountToCall > input.minRaise && isWeakHand(input)) {
+    return {
+      action: "fold",
+      confidence: 0.84,
+      reasoning: "weak hand facing large bet",
+    };
+  }
+
+  return {
+    action: "fold",
+    confidence: 0.75,
+    reasoning: `${agentName} folds — missed the board`,
+  };
+}
