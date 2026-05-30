@@ -955,7 +955,7 @@ function promptHumanVsAiRaise(
     aiDecision: toSimulationAgentDecision(decision, stage, base),
     actionLog: [
       ...base.actionLog,
-      systemLog("PokerMaster raised — respond to continue.", stage),
+      systemLog("PokerMaster raised — choose Call, Raise, or Fold.", stage),
     ],
   };
 }
@@ -1376,7 +1376,7 @@ export function advanceStepDemoRunoutBoard(state: StepDemoState): StepDemoState 
     actionLog: [
       ...state.actionLog,
       ...logs,
-      systemLog("All-in showdown.", "river"),
+      systemLog("Board runout complete — show result.", "river"),
     ],
   };
 }
@@ -1448,7 +1448,7 @@ export function getStepDemoHumanActions(state: StepDemoState): StepDemoHumanActi
     } else if (state.step === "result") {
       disabledHint = "Hand complete — start a new hand.";
     } else if (isHumanFacingAiRaiseStep(state.step)) {
-      disabledHint = "PokerMaster raised — respond to continue.";
+      disabledHint = "PokerMaster raised — choose Call, Raise, or Fold.";
     } else if (state.turn === "poker-master") {
       disabledHint = state.humanAllIn
         ? "You are all-in — PokerMaster is thinking..."
@@ -1512,7 +1512,7 @@ export function getStepDemoHumanActions(state: StepDemoState): StepDemoHumanActi
     raiseAmount: defaultRaise,
     raiseOptions,
     disabledHint: facingRaise
-      ? "PokerMaster raised — respond to continue."
+      ? "PokerMaster raised — choose Call, Raise, or Fold."
       : "Your turn — choose an action.",
   };
 }
@@ -1558,7 +1558,7 @@ export function getStepDemoStatusMessage(state: StepDemoState): string {
 
   if (state.turn === "human" && isHumanActionStep(state.step)) {
     if (isHumanFacingAiRaiseStep(state.step)) {
-      return "PokerMaster raised — respond to continue.";
+      return "PokerMaster raised — choose Call, Raise, or Fold.";
     }
     return "Your turn — choose an action.";
   }

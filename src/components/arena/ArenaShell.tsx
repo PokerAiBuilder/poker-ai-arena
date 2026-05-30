@@ -44,9 +44,7 @@ import {
   buildStepDemoSeats,
   createInitialStepDemoState,
   dealStepDemoHand,
-  getStepDemoHumanActions,
   getStepDemoHumanCallAmount,
-  getStepDemoGameplayGuidance,
   getStepDemoPotDisplay,
   getStepDemoStackUpdates,
   resolveStepDemoPendingAi,
@@ -56,6 +54,11 @@ import {
   type StepDemoRaiseSize,
   type StepDemoState,
 } from "@/lib/arena/stepDemo";
+import {
+  canApplyStepDemoTransition,
+  deriveStepDemoUiState,
+  stepDemoUiBannerPhase,
+} from "@/lib/arena/stepDemoUiState";
 import {
   getHandResultDisplayType,
   isWinByFoldResult,
@@ -140,7 +143,21 @@ export function ArenaShell() {
   const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thinkingGenerationRef = useRef(0);
   const pendingAiJobRef = useRef<PendingAiJob | null>(null);
+  const transitionLockRef = useRef(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const tryStepDemoTransition = useCallback((run: () => void) => {
+    if (pokerMasterThinkingRef.current || transitionLockRef.current) return false;
+    transitionLockRef.current = true;
+    try {
+      run();
+      return true;
+    } finally {
+      window.setTimeout(() => {
+        transitionLockRef.current = false;
+      }, 400);
+    }
+  }, []);
 
   const applyStepDemoStackUpdates = useCallback((state: StepDemoState) => {
     const stackUpdates = getStepDemoStackUpdates(state);
@@ -339,6 +356,7 @@ export function ArenaShell() {
   );
 
   const handlePlayStepDemo = useCallback(() => {
+    if (pokerMasterThinkingRef.current || transitionLockRef.current) return;
     if (!isArenaUnlocked) {
       setError("Start demo session to play.");
       return;
@@ -369,7 +387,7 @@ export function ArenaShell() {
     setPreferredSeatLayout("human-vs-ai");
     setSessionLog((prev) => [
       ...prev,
-      createSessionLogEntry("Demo stacks reset"),
+      createSessionLogEntry("Demo stacks reset."),
     ]);
   }, [clearPokerMasterThinking]);
 
@@ -387,7 +405,7 @@ export function ArenaShell() {
 
   const runHumanActionWithThinking = useCallback(
     (apply: (prev: StepDemoState) => StepDemoHumanActionOutcome) => {
-      if (pokerMasterThinkingRef.current) return;
+      if (pokerMasterThinkingRef.current || transitionLockRef.current) return;
 
       const outcome = apply(stepDemoRef.current);
       applyStepDemoStackUpdates(outcome.state);
@@ -400,39 +418,102 @@ export function ArenaShell() {
     [applyStepDemoStackUpdates, schedulePendingAiResponse],
   );
 
-  const handleResetStepDemo = useCallback(() => {
-    clearPokerMasterThinking();
-    setStepDemo(createInitialStepDemoState());
-    setResult(null);
-    setPreferredSeatLayout("human-vs-ai");
-    setSessionLog((prev) => [
-      ...prev,
-      createSessionLogEntry("Human vs AI — hand ended."),
-    ]);
-  }, [clearPokerMasterThinking]);
+  const headsUpStackDepleted = useMemo(
+    () => isHeadsUpStackDepleted(sessionStacks),
+    [sessionStacks],
+  );
+
+  const stepDemoUi = useMemo(
+    () =>
+      deriveStepDemoUiState(stepDemo, {
+        pokerMasterThinking,
+        headsUpStackDepleted,
+        arenaUnlocked: isArenaUnlocked,
+      }),
+    [stepDemo, pokerMasterThinking, headsUpStackDepleted, isArenaUnlocked],
+  );
+
+  const stepDemoGuidance = useMemo(
+    () => ({
+      phase: stepDemoUiBannerPhase(stepDemoUi.state),
+      banner: stepDemoUi.banner,
+      actionHint: stepDemoUi.actionHint,
+      nextStep: stepDemoUi.nextStep ?? undefined,
+    }),
+    [stepDemoUi],
+  );
+
+  const guardedStepDemoUpdate = useCallback(
+    (
+      action: NonNullable<
+        import("@/lib/arena/stepDemo").StepDemoNextStep["action"]
+      >,
+      updater: (prev: StepDemoState) => StepDemoState,
+    ) => {
+      tryStepDemoTransition(() => {
+        const ui = deriveStepDemoUiState(stepDemoRef.current, {
+          pokerMasterThinking: pokerMasterThinkingRef.current,
+          headsUpStackDepleted: isHeadsUpStackDepleted(
+            sanitizeSessionStacks(sessionStacks),
+          ),
+        });
+        if (!canApplyStepDemoTransition(stepDemoRef.current, ui, action)) {
+          return;
+        }
+        commitStepDemo(updater);
+      });
+    },
+    [commitStepDemo, sessionStacks, tryStepDemoTransition],
+  );
+
+  const handleNewHand = useCallback(() => {
+    tryStepDemoTransition(() => {
+      const ui = deriveStepDemoUiState(stepDemoRef.current, {
+        pokerMasterThinking: false,
+        headsUpStackDepleted: isHeadsUpStackDepleted(sessionStacks),
+      });
+      if (!ui.newHandEnabled) return;
+
+      clearPokerMasterThinking();
+      const readyStacks = sanitizeSessionStacks(sessionStacks);
+      if (!canStartHeadsUpHand(readyStacks)) return;
+
+      setResult(null);
+      setPreferredSeatLayout("human-vs-ai");
+      setStepDemo(dealStepDemoHand(readyStacks));
+      setSessionLog((prev) => [
+        ...prev,
+        createSessionLogEntry("New hand started."),
+      ]);
+    });
+  }, [
+    clearPokerMasterThinking,
+    sessionStacks,
+    tryStepDemoTransition,
+  ]);
 
   const handleStepDemoRevealFlop = useCallback(() => {
-    commitStepDemo((prev) => advanceStepDemoRevealFlop(prev));
-  }, [commitStepDemo]);
+    guardedStepDemoUpdate("reveal-flop", (prev) => advanceStepDemoRevealFlop(prev));
+  }, [guardedStepDemoUpdate]);
 
   const handleStepDemoRevealTurn = useCallback(() => {
-    commitStepDemo((prev) => advanceStepDemoRevealTurn(prev));
-  }, [commitStepDemo]);
+    guardedStepDemoUpdate("reveal-turn", (prev) => advanceStepDemoRevealTurn(prev));
+  }, [guardedStepDemoUpdate]);
 
   const handleStepDemoRevealRiver = useCallback(() => {
-    commitStepDemo((prev) => advanceStepDemoRevealRiver(prev));
-  }, [commitStepDemo]);
+    guardedStepDemoUpdate("reveal-river", (prev) => advanceStepDemoRevealRiver(prev));
+  }, [guardedStepDemoUpdate]);
 
   const handleStepDemoShowResult = useCallback(() => {
-    commitStepDemo((prev) => advanceStepDemoShowResult(prev));
-  }, [commitStepDemo]);
+    guardedStepDemoUpdate("show-result", (prev) => advanceStepDemoShowResult(prev));
+  }, [guardedStepDemoUpdate]);
 
   const handleStepDemoRunoutBoard = useCallback(() => {
-    commitStepDemo((prev) => advanceStepDemoRunoutBoard(prev));
-  }, [commitStepDemo]);
+    guardedStepDemoUpdate("runout-board", (prev) => advanceStepDemoRunoutBoard(prev));
+  }, [guardedStepDemoUpdate]);
 
   const handleHumanFold = useCallback(() => {
-    if (pokerMasterThinkingRef.current) return;
+    if (pokerMasterThinkingRef.current || transitionLockRef.current) return;
     commitStepDemo((prev) => applyHumanFold(prev));
   }, [commitStepDemo]);
 
@@ -455,24 +536,9 @@ export function ArenaShell() {
     runHumanActionWithThinking((prev) => applyHumanAllInWithOutcome(prev));
   }, [runHumanActionWithThinking]);
 
-  const stepDemoHumanActions = useMemo(
-    () => getStepDemoHumanActions(stepDemo),
-    [stepDemo],
-  );
-
-  const stepDemoGuidance = useMemo(
-    () => getStepDemoGameplayGuidance(stepDemo),
-    [stepDemo],
-  );
-
   const stepDemoHumanCallAmount = useMemo(
     () => getStepDemoHumanCallAmount(stepDemo),
     [stepDemo],
-  );
-
-  const headsUpStackDepleted = useMemo(
-    () => isHeadsUpStackDepleted(sessionStacks),
-    [sessionStacks],
   );
 
   const activeGameMode = stepDemo.isActive
@@ -669,11 +735,9 @@ export function ArenaShell() {
         onResetDemoStacks={handleResetDemoStacks}
         onOpenMenu={() => setMenuOpen(true)}
         stepDemoActive={stepDemo.isActive}
-        stepDemoHumanActions={stepDemoHumanActions}
+        stepDemoUi={isHeadsUpGuided ? stepDemoUi : undefined}
         stepDemoGuidance={stepDemo.isActive ? stepDemoGuidance : undefined}
-        stepDemoHandComplete={stepDemo.isActive && stepDemo.step === "result"}
-        headsUpStackDepleted={headsUpStackDepleted}
-        onStepDemoReset={handleResetStepDemo}
+        onStepDemoReset={handleNewHand}
         onRevealFlop={handleStepDemoRevealFlop}
         onRevealTurn={handleStepDemoRevealTurn}
         onRevealRiver={handleStepDemoRevealRiver}

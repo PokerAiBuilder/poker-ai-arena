@@ -7,6 +7,8 @@ import type {
   StepDemoHumanActions,
   StepDemoRaiseSize,
 } from "@/lib/arena/stepDemo";
+import type { StepDemoUiControls } from "@/lib/arena/stepDemoUiState";
+import { stepDemoUiBannerPhase } from "@/lib/arena/stepDemoUiState";
 import { cn } from "@/lib/utils";
 
 type ArenaActionBarProps = {
@@ -14,6 +16,7 @@ type ArenaActionBarProps = {
   onPlayStepDemo?: () => void;
   onOpenMenu?: () => void;
   stepDemoActive?: boolean;
+  stepDemoUi?: StepDemoUiControls;
   stepDemoHumanActions?: StepDemoHumanActions;
   stepDemoGuidance?: StepDemoGameplayGuidance;
   onHumanFold?: () => void;
@@ -66,6 +69,7 @@ export function ArenaActionBar({
   onPlayStepDemo,
   onOpenMenu,
   stepDemoActive = false,
+  stepDemoUi,
   stepDemoHumanActions,
   stepDemoGuidance,
   onHumanFold,
@@ -92,24 +96,27 @@ export function ArenaActionBar({
   pokerMasterThinking = false,
   className,
 }: ArenaActionBarProps) {
-  const controlsDisabled = disabled || loading || stepDemoActive;
-  const humanActionsBlocked = pokerMasterThinking;
-  const humanActions = stepDemoHumanActions;
-  const humanTurnActive =
-    stepDemoActive &&
-    !humanActionsBlocked &&
-    humanActions &&
-    (humanActions.canFold ||
-      humanActions.canCall ||
-      humanActions.canCheck ||
-      humanActions.canRaise ||
-      humanActions.canAllIn);
-  const agentBattleDisabled =
-    disabled || loading || pokerMasterThinking || (stepDemoActive && !stepDemoHandComplete);
-  const playStepDemoDisabled =
-    disabled || loading || stepDemoActive || headsUpStackDepleted || pokerMasterThinking;
-  const showStackDepletedUi =
-    headsUpStackDepleted && !agentBattleSpectator && !humanTurnActive;
+  const useHeadsUpUi = !agentBattleSpectator && stepDemoUi != null;
+  const humanActions = useHeadsUpUi ? stepDemoUi.humanActions : stepDemoHumanActions;
+  const humanTurnActive = useHeadsUpUi
+    ? stepDemoUi.pokerActionsEnabled
+    : stepDemoActive &&
+      !pokerMasterThinking &&
+      humanActions &&
+      (humanActions.canFold ||
+        humanActions.canCall ||
+        humanActions.canCheck ||
+        humanActions.canRaise ||
+        humanActions.canAllIn);
+  const playStepDemoDisabled = useHeadsUpUi
+    ? !stepDemoUi.playEnabled || disabled || loading
+    : disabled || loading || stepDemoActive || headsUpStackDepleted || pokerMasterThinking;
+  const agentBattleDisabled = useHeadsUpUi
+    ? !stepDemoUi.agentBattleEnabled || disabled || loading
+    : disabled || loading || pokerMasterThinking || (stepDemoActive && !stepDemoHandComplete);
+  const showStackDepletedUi = useHeadsUpUi
+    ? stepDemoUi.state === "stack_depleted"
+    : headsUpStackDepleted && !agentBattleSpectator && !humanTurnActive;
 
   const guidance: StepDemoGameplayGuidance | undefined = showStackDepletedUi
     ? {
@@ -117,6 +124,13 @@ export function ArenaActionBar({
         banner: "STACK DEPLETED",
         actionHint: "Stack depleted — reset demo stacks to continue.",
       }
+    : useHeadsUpUi
+      ? {
+          phase: stepDemoUiBannerPhase(stepDemoUi.state),
+          banner: stepDemoUi.banner,
+          actionHint: stepDemoUi.actionHint,
+          nextStep: stepDemoUi.nextStep ?? undefined,
+        }
     : stepDemoActive
     ? stepDemoGuidance
     : agentBattleSpectator
@@ -139,27 +153,39 @@ export function ArenaActionBar({
   const showGuidanceBanner =
     guidance && (!humanTurnActive || guidance.phase !== "your-turn");
 
-  const actionHint =
-    pokerMasterThinking && !agentBattleSpectator
+  const actionHint = useHeadsUpUi
+    ? stepDemoUi.actionHint
+    : pokerMasterThinking && !agentBattleSpectator
       ? stepDemoGuidance?.actionHint ?? "PokerMaster is thinking..."
       : humanTurnActive && humanActions?.disabledHint && !agentBattleSpectator
-      ? humanActions.disabledHint
-      : guidance?.actionHint ??
-        (agentBattleSpectator
-          ? "Spectator Mode — player actions are disabled while watching."
-          : humanActions?.disabledHint);
+        ? humanActions.disabledHint
+        : guidance?.actionHint ??
+          (agentBattleSpectator
+            ? "Spectator Mode — player actions are disabled while watching."
+            : humanActions?.disabledHint);
 
-  const nextStep = guidance?.nextStep;
-  const nextStepEnabled =
-    Boolean(nextStep) &&
-    stepDemoActive &&
-    !stepDemoHandComplete &&
-    !loading &&
-    !disabled &&
-    !pokerMasterThinking;
+  const nextStep = useHeadsUpUi ? stepDemoUi.nextStep : guidance?.nextStep;
+  const nextStepEnabled = useHeadsUpUi
+    ? stepDemoUi.nextStepEnabled && !disabled && !loading
+    : Boolean(nextStep) &&
+      stepDemoActive &&
+      !stepDemoHandComplete &&
+      !loading &&
+      !disabled &&
+      !pokerMasterThinking;
+  const newHandEnabled = useHeadsUpUi
+    ? stepDemoUi.newHandEnabled
+    : stepDemoHandComplete && !showStackDepletedUi;
+  const resetStacksEnabled = useHeadsUpUi
+    ? stepDemoUi.resetStacksEnabled
+    : showStackDepletedUi;
+
+  const controlsDisabled = disabled || loading || stepDemoActive;
 
   function handleNextStep() {
-    if (pokerMasterThinking || !nextStep) return;
+    if ((useHeadsUpUi ? !stepDemoUi.nextStepEnabled : pokerMasterThinking) || !nextStep) {
+      return;
+    }
     switch (nextStep.action) {
       case "reveal-flop":
         onRevealFlop?.();
@@ -405,7 +431,7 @@ export function ArenaActionBar({
               All-in
             </Button>
 
-            {nextStepEnabled && nextStep && !showStackDepletedUi ? (
+            {nextStepEnabled && nextStep && !resetStacksEnabled ? (
               <Button
                 type="button"
                 size="lg"
@@ -420,7 +446,7 @@ export function ArenaActionBar({
               </Button>
             ) : null}
 
-            {stepDemoHandComplete && onStepDemoReset && !showStackDepletedUi ? (
+            {newHandEnabled && onStepDemoReset ? (
               <Button
                 type="button"
                 size="lg"
@@ -435,7 +461,7 @@ export function ArenaActionBar({
               </Button>
             ) : null}
 
-            {showStackDepletedUi && onResetDemoStacks ? (
+            {resetStacksEnabled && onResetDemoStacks ? (
               <Button
                 type="button"
                 size="lg"
