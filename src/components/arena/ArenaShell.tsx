@@ -16,10 +16,14 @@ import {
   clearSessionStacks,
   createInitialArenaAnalytics,
   createInitialSessionStacks,
+  canStartHeadsUpHand,
+  isHeadsUpStackDepleted,
   loadArenaAnalytics,
   loadSessionStacks,
+  resetHeadsUpDemoStacks,
   saveArenaAnalytics,
   saveSessionStacks,
+  sanitizeSessionStacks,
   updateLeaderboardAfterGame,
   updateSessionStacksAfterGame,
   updateSessionStatsAfterGame,
@@ -43,6 +47,7 @@ import {
   getStepDemoGameplayGuidance,
   getStepDemoPotDisplay,
   getStepDemoStackUpdates,
+  type StepDemoRaiseSize,
   type StepDemoState,
 } from "@/lib/arena/stepDemo";
 import {
@@ -186,7 +191,7 @@ export function ArenaShell() {
         const data = (await response.json()) as SimulationResult;
         setResult(data);
         setAnalytics((prev) => applySimulationAnalytics(prev, data));
-        setSessionStacks((prev) => updateSessionStacksAfterGame(prev, data));
+        setSessionStacks((prev) => sanitizeSessionStacks(updateSessionStacksAfterGame(prev, data)));
 
         if (process.env.NODE_ENV === "development") {
           console.debug("[arena] simulation result", data);
@@ -230,15 +235,33 @@ export function ArenaShell() {
       setError("Start demo session to play.");
       return;
     }
+    const readyStacks = sanitizeSessionStacks(sessionStacks);
+    if (!canStartHeadsUpHand(readyStacks)) {
+      setError("One player is out of chips — reset demo stacks to continue.");
+      return;
+    }
     setError(null);
     setResult(null);
     setPreferredSeatLayout("human-vs-ai");
-    setStepDemo(dealStepDemoHand(sessionStacks));
+    setSessionStacks(readyStacks);
+    setStepDemo(dealStepDemoHand(readyStacks));
     setSessionLog((prev) => [
       ...prev,
       createSessionLogEntry("Human vs AI — new hand started."),
     ]);
   }, [isArenaUnlocked, sessionStacks]);
+
+  const handleResetDemoStacks = useCallback(() => {
+    setSessionStacks((prev) => resetHeadsUpDemoStacks(prev));
+    setStepDemo(createInitialStepDemoState());
+    setResult(null);
+    setError(null);
+    setPreferredSeatLayout("human-vs-ai");
+    setSessionLog((prev) => [
+      ...prev,
+      createSessionLogEntry("Demo stacks reset."),
+    ]);
+  }, []);
 
   const commitStepDemo = useCallback(
     (updater: (prev: StepDemoState) => StepDemoState) => {
@@ -246,7 +269,9 @@ export function ArenaShell() {
         const next = updater(prev);
         const stackUpdates = getStepDemoStackUpdates(next);
         if (stackUpdates) {
-          setSessionStacks((stacks) => ({ ...stacks, ...stackUpdates }));
+          setSessionStacks((stacks) =>
+            sanitizeSessionStacks({ ...stacks, ...stackUpdates }),
+          );
         }
         return next;
       });
@@ -292,8 +317,8 @@ export function ArenaShell() {
     commitStepDemo((prev) => applyHumanCheck(prev));
   }, [commitStepDemo]);
 
-  const handleHumanRaise = useCallback(() => {
-    commitStepDemo((prev) => applyHumanRaise(prev));
+  const handleHumanRaise = useCallback((size: StepDemoRaiseSize) => {
+    commitStepDemo((prev) => applyHumanRaise(prev, size));
   }, [commitStepDemo]);
 
   const stepDemoHumanActions = useMemo(
@@ -309,6 +334,11 @@ export function ArenaShell() {
   const stepDemoHumanCallAmount = useMemo(
     () => getStepDemoHumanCallAmount(stepDemo),
     [stepDemo],
+  );
+
+  const headsUpStackDepleted = useMemo(
+    () => isHeadsUpStackDepleted(sessionStacks),
+    [sessionStacks],
   );
 
   const activeGameMode = stepDemo.isActive
@@ -501,11 +531,13 @@ export function ArenaShell() {
         className="relative z-30 shrink-0"
         onSimulateAgentBattle={handleSimulateAgentBattle}
         onPlayStepDemo={handlePlayStepDemo}
+        onResetDemoStacks={handleResetDemoStacks}
         onOpenMenu={() => setMenuOpen(true)}
         stepDemoActive={stepDemo.isActive}
         stepDemoHumanActions={stepDemoHumanActions}
         stepDemoGuidance={stepDemo.isActive ? stepDemoGuidance : undefined}
         stepDemoHandComplete={stepDemo.isActive && stepDemo.step === "result"}
+        headsUpStackDepleted={headsUpStackDepleted}
         onStepDemoReset={handleResetStepDemo}
         onRevealFlop={handleStepDemoRevealFlop}
         onRevealTurn={handleStepDemoRevealTurn}

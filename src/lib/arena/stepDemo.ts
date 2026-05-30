@@ -17,8 +17,27 @@ import type {
   GameStage,
   SimulationAgentDecision,
 } from "@/lib/poker/types";
+import {
+  STEP_DEMO_RAISE,
+  STEP_DEMO_RAISE_MIN,
+  STEP_DEMO_RAISE_SIZES,
+  type StepDemoRaiseSize,
+} from "@/lib/arena/stepDemoConstants";
 
-export const STEP_DEMO_RAISE = 10;
+export {
+  STEP_DEMO_RAISE,
+  STEP_DEMO_RAISE_MIN,
+  STEP_DEMO_RAISE_SIZES,
+  type StepDemoRaiseSize,
+} from "@/lib/arena/stepDemoConstants";
+
+export type StepDemoRaiseOption = {
+  size: StepDemoRaiseSize;
+  label: string;
+  increment: number;
+  enabled: boolean;
+  cappedToStack?: boolean;
+};
 
 export type StepDemoStep =
   | "idle"
@@ -69,6 +88,8 @@ export type StepDemoState = {
   aiRaisedThisStreet: boolean;
   /** Human already re-raised once after an AI raise this street. */
   humanReRaisedAfterAiRaise: boolean;
+  /** Increment of the human's most recent raise/bet this street (for AI tuning). */
+  lastHumanRaiseIncrement: number;
   startStacks: { human: number; pokerMaster: number };
   revealAiCards: boolean;
 };
@@ -80,6 +101,7 @@ export type StepDemoHumanActions = {
   canCheck: boolean;
   canRaise: boolean;
   raiseAmount: number;
+  raiseOptions: StepDemoRaiseOption[];
   disabledHint: string;
 };
 
@@ -160,6 +182,7 @@ export function createInitialStepDemoState(): StepDemoState {
     aiStreetBet: 0,
     aiRaisedThisStreet: false,
     humanReRaisedAfterAiRaise: false,
+    lastHumanRaiseIncrement: 0,
     startStacks: { human: DEFAULT_STARTING_STACK, pokerMaster: DEFAULT_STARTING_STACK },
     revealAiCards: false,
   };
@@ -261,6 +284,7 @@ function completeStreet(state: StepDemoState): StepDemoState {
     step: streetCompleteStep(state.street),
     turn: null,
     humanReRaisedAfterAiRaise: false,
+    lastHumanRaiseIncrement: 0,
     actionLog: [
       ...state.actionLog,
       systemLog(streetCompleteMessage(state.street), gameStage(state)),
@@ -290,6 +314,7 @@ function revealCommunityStreet(
     aiStreetBet: 0,
     aiRaisedThisStreet: false,
     humanReRaisedAfterAiRaise: false,
+    lastHumanRaiseIncrement: 0,
     aiDecision: null,
     actionLog: [...state.actionLog, systemLog(logMessage, street)],
   };
@@ -338,7 +363,7 @@ function toSimulationAgentDecision(
 
   let amount = decision.amount;
   if (decision.action === "raise" || decision.action === "all-in") {
-    amount = STEP_DEMO_RAISE;
+    amount = decision.amount ?? STEP_DEMO_RAISE;
   } else if (decision.action === "call") {
     amount = decision.amount ?? (humanCall > 0 ? humanCall : undefined);
   }
@@ -366,9 +391,38 @@ function resolveStacks(
   sessionStacks: SessionStacksState,
 ): { human: number; pokerMaster: number } {
   return {
-    human: sessionStacks.human ?? DEFAULT_STARTING_STACK,
-    pokerMaster: sessionStacks[PokerMaster.id] ?? DEFAULT_STARTING_STACK,
+    human: clampStack(sessionStacks.human ?? DEFAULT_STARTING_STACK),
+    pokerMaster: clampStack(
+      sessionStacks[PokerMaster.id] ?? DEFAULT_STARTING_STACK,
+    ),
   };
+}
+
+function clampStack(stack: number): number {
+  if (!Number.isFinite(stack)) return 0;
+  return Math.max(0, Math.floor(stack));
+}
+
+/** Subtract chips from stack; never returns negative stack or over-payment. */
+function deductStack(
+  stack: number,
+  amount: number,
+): { stack: number; paid: number } {
+  const safeStack = clampStack(stack);
+  const requested = Math.max(0, amount);
+  const paid = Math.min(requested, safeStack);
+  return { stack: clampStack(safeStack - paid), paid };
+}
+
+function addToStack(stack: number, amount: number): number {
+  return clampStack(clampStack(stack) + Math.max(0, amount));
+}
+
+function humanRaisePay(state: StepDemoState, increment: number): number {
+  if (increment <= 0) return 0;
+  const newBet = targetRaiseBetFromIncrement(state, increment);
+  const owed = Math.max(0, newBet - state.humanStreetBet);
+  return deductStack(state.players.human.stack, owed).paid;
 }
 
 function gameStage(state: StepDemoState): GameStage {
@@ -394,10 +448,87 @@ function aiAmountToCall(state: StepDemoState): number {
   return Math.max(0, state.currentBet - state.aiStreetBet);
 }
 
+const RAISE_OPTION_LABELS: Record<StepDemoRaiseSize, string> = {
+  10: "Raise +10",
+  25: "+25",
+  50: "+50",
+  pot: "Pot",
+};
+
+function requestedHumanRaiseIncrement(
+  state: StepDemoState,
+  size: StepDemoRaiseSize,
+): number {
+  if (size === "pot") {
+    return Math.max(STEP_DEMO_RAISE_MIN, state.pot);
+  }
+  return size;
+}
+
+/** Max raise increment the human can afford (not all-in semantics). */
+export function maxHumanRaiseIncrement(state: StepDemoState): number {
+  const humanStack = clampStack(state.players.human.stack);
+  if (humanStack <= 0) return 0;
+  const toCall = humanAmountToCall(state);
+  if (state.currentBet === 0) {
+    return Math.max(0, humanStack + state.humanStreetBet);
+  }
+  return Math.max(0, humanStack - toCall);
+}
+
+export function resolveHumanRaiseIncrement(
+  state: StepDemoState,
+  size: StepDemoRaiseSize,
+): number {
+  const requested = requestedHumanRaiseIncrement(state, size);
+  const maxInc = maxHumanRaiseIncrement(state);
+  return Math.max(0, Math.min(requested, maxInc));
+}
+
+function targetRaiseBetFromIncrement(
+  state: StepDemoState,
+  increment: number,
+): number {
+  if (increment <= 0) return state.currentBet;
+  return state.currentBet === 0 ? increment : state.currentBet + increment;
+}
+
+function targetAiRaiseBet(state: StepDemoState): number {
+  return targetRaiseBetFromIncrement(state, STEP_DEMO_RAISE);
+}
+
+function buildRaiseOptions(state: StepDemoState): StepDemoRaiseOption[] {
+  return STEP_DEMO_RAISE_SIZES.map((size) => {
+    const requested = requestedHumanRaiseIncrement(state, size);
+    const increment = resolveHumanRaiseIncrement(state, size);
+    const pay = humanRaisePay(state, increment);
+    const enabled =
+      increment >= STEP_DEMO_RAISE_MIN &&
+      pay >= STEP_DEMO_RAISE_MIN &&
+      pay > 0 &&
+      clampStack(state.players.human.stack) > 0;
+    const cappedToStack = enabled && increment < requested;
+    let label = RAISE_OPTION_LABELS[size];
+    if (enabled && cappedToStack) {
+      label =
+        size === "pot"
+          ? `Pot (${pay})`
+          : size === 10
+            ? `Raise +${pay}`
+            : `+${pay}`;
+    }
+    return {
+      size,
+      label,
+      increment,
+      enabled,
+      cappedToStack,
+    };
+  });
+}
+
 function targetRaiseBet(state: StepDemoState): number {
-  return state.currentBet === 0
-    ? STEP_DEMO_RAISE
-    : state.currentBet + STEP_DEMO_RAISE;
+  return targetAiRaiseBet(state);
 }
 
 function finishHandByFold(
@@ -410,12 +541,15 @@ function finishHandByFold(
   const potAwarded = state.pot;
 
   if (winnerSide === "human") {
-    human.stack += potAwarded;
+    human.stack = addToStack(human.stack, potAwarded);
     ai.hasFolded = true;
   } else {
-    ai.stack += potAwarded;
+    ai.stack = addToStack(ai.stack, potAwarded);
     human.hasFolded = true;
   }
+
+  human.stack = clampStack(human.stack);
+  ai.stack = clampStack(ai.stack);
 
   const winner =
     winnerSide === "human"
@@ -449,9 +583,14 @@ export function dealStepDemoHand(sessionStacks: SessionStacksState): StepDemoSta
   const aiDeal = dealCards(deck, 2);
   deck = aiDeal.remaining;
 
-  const humanStack = stacks.human - DEFAULT_SMALL_BLIND;
-  const aiStack = stacks.pokerMaster - DEFAULT_BIG_BLIND;
-  const pot = DEFAULT_SMALL_BLIND + DEFAULT_BIG_BLIND;
+  const humanPrior = clampStack(stacks.human);
+  const aiPrior = clampStack(stacks.pokerMaster);
+  const humanBlind = deductStack(humanPrior, DEFAULT_SMALL_BLIND);
+  const aiBlind = deductStack(aiPrior, DEFAULT_BIG_BLIND);
+  const humanStreetBet = humanBlind.paid;
+  const aiStreetBet = aiBlind.paid;
+  const pot = humanStreetBet + aiStreetBet;
+  const currentBet = Math.max(humanStreetBet, aiStreetBet);
 
   return {
     isActive: true,
@@ -465,21 +604,21 @@ export function dealStepDemoHand(sessionStacks: SessionStacksState): StepDemoSta
         id: "human",
         name: "You",
         holeCards: humanDeal.dealt,
-        stack: humanStack,
+        stack: humanBlind.stack,
         hasFolded: false,
       },
       pokerMaster: {
         id: PokerMaster.id,
         name: PokerMaster.name,
         holeCards: aiDeal.dealt,
-        stack: aiStack,
+        stack: aiBlind.stack,
         hasFolded: false,
       },
     },
     actionLog: [
       systemLog("New hand dealt."),
       systemLog(
-        `Blinds posted — You SB ${DEFAULT_SMALL_BLIND}, ${PokerMaster.name} BB ${DEFAULT_BIG_BLIND}. Pot ${pot}. Your turn.`,
+        `Blinds posted — You SB ${humanStreetBet}, ${PokerMaster.name} BB ${aiStreetBet}. Pot ${pot}. Your turn.`,
       ),
     ],
     aiDecision: null,
@@ -487,11 +626,12 @@ export function dealStepDemoHand(sessionStacks: SessionStacksState): StepDemoSta
     winningHandName: null,
     pot,
     lastPotWon: 0,
-    currentBet: DEFAULT_BIG_BLIND,
-    humanStreetBet: DEFAULT_SMALL_BLIND,
-    aiStreetBet: DEFAULT_BIG_BLIND,
+    currentBet,
+    humanStreetBet,
+    aiStreetBet,
     aiRaisedThisStreet: false,
     humanReRaisedAfterAiRaise: false,
+    lastHumanRaiseIncrement: 0,
     startStacks: stacks,
     revealAiCards: false,
   };
@@ -536,26 +676,31 @@ function applyAiDecisionChips(
 
   switch (decision.action) {
     case "call": {
-      const pay = Math.min(amountToCall, nextAi.stack);
-      nextAi.stack -= pay;
-      aiStreetBet += pay;
-      pot += pay;
+      const chips = deductStack(nextAi.stack, amountToCall);
+      nextAi.stack = chips.stack;
+      aiStreetBet += chips.paid;
+      pot += chips.paid;
       break;
     }
     case "raise":
     case "all-in": {
       const newBet = targetRaiseBet(state);
-      const pay = Math.min(newBet - aiStreetBet, nextAi.stack);
-      nextAi.stack -= pay;
-      aiStreetBet += pay;
-      pot += pay;
-      currentBet = aiStreetBet;
-      aiRaisedThisStreet = true;
+      const owed = Math.max(0, newBet - aiStreetBet);
+      const chips = deductStack(nextAi.stack, owed);
+      nextAi.stack = chips.stack;
+      aiStreetBet += chips.paid;
+      pot += chips.paid;
+      if (chips.paid > 0) {
+        currentBet = aiStreetBet;
+        aiRaisedThisStreet = true;
+      }
       break;
     }
     default:
       break;
   }
+
+  nextAi.stack = clampStack(nextAi.stack);
 
   return { ai: nextAi, pot, currentBet, aiStreetBet, aiRaisedThisStreet };
 }
@@ -692,22 +837,23 @@ export function applyHumanCall(state: StepDemoState): StepDemoState {
   if (toCall <= 0) return applyHumanCheck(state);
 
   const human = { ...state.players.human };
-  const pay = Math.min(toCall, human.stack);
-  human.stack -= pay;
+  const chips = deductStack(human.stack, toCall);
+  if (chips.paid <= 0) return state;
+  human.stack = chips.stack;
 
   const log = playerLog(
     human.id,
     human.name,
     "call",
-    `You call ${pay}.`,
+    `You call ${chips.paid}.`,
     gameStage(state),
   );
 
   const next = {
     ...state,
     players: { human, pokerMaster: state.players.pokerMaster },
-    pot: state.pot + pay,
-    humanStreetBet: state.humanStreetBet + pay,
+    pot: state.pot + chips.paid,
+    humanStreetBet: state.humanStreetBet + chips.paid,
     actionLog: [...state.actionLog, log],
   };
 
@@ -735,7 +881,10 @@ export function applyHumanCheck(state: StepDemoState): StepDemoState {
   });
 }
 
-export function applyHumanRaise(state: StepDemoState): StepDemoState {
+export function applyHumanRaise(
+  state: StepDemoState,
+  size: StepDemoRaiseSize = 10,
+): StepDemoState {
   if (state.turn !== "human") return state;
 
   if (
@@ -745,26 +894,38 @@ export function applyHumanRaise(state: StepDemoState): StepDemoState {
     return state;
   }
 
+  const increment = resolveHumanRaiseIncrement(state, size);
+  if (increment < STEP_DEMO_RAISE_MIN || clampStack(state.players.human.stack) <= 0) {
+    return state;
+  }
+
   const human = { ...state.players.human };
-  const newBet = targetRaiseBet(state);
-  const pay = Math.min(newBet - state.humanStreetBet, human.stack);
-  human.stack -= pay;
-  const newHumanStreetBet = state.humanStreetBet + pay;
+  const pay = humanRaisePay(state, increment);
+  if (pay < STEP_DEMO_RAISE_MIN) return state;
+
+  const chips = deductStack(human.stack, pay);
+  human.stack = chips.stack;
+  const newHumanStreetBet = state.humanStreetBet + chips.paid;
+  if (chips.paid <= 0) return state;
+
+  const sizeLabel =
+    size === "pot" ? `pot-sized ${increment}` : `+${increment}`;
 
   const log = playerLog(
     human.id,
     human.name,
     "raise",
-    `You ${state.currentBet === 0 ? "bet" : "raise"} ${pay} (total bet ${newHumanStreetBet}).`,
+    `You ${state.currentBet === 0 ? "bet" : "raise"} ${sizeLabel} (${chips.paid} chips, total bet ${newHumanStreetBet}).`,
     gameStage(state),
   );
 
   const next = {
     ...state,
     players: { human, pokerMaster: state.players.pokerMaster },
-    pot: state.pot + pay,
+    pot: state.pot + chips.paid,
     humanStreetBet: newHumanStreetBet,
     currentBet: newHumanStreetBet,
+    lastHumanRaiseIncrement: increment,
     actionLog: [...state.actionLog, log],
   };
 
@@ -831,11 +992,11 @@ export function advanceStepDemoShowResult(state: StepDemoState): StepDemoState {
   if (ai.hasFolded) {
     winner = { id: human.id, name: human.name };
     winningHandName = "Win by fold";
-    human.stack += state.pot;
+    human.stack = addToStack(human.stack, state.pot);
   } else if (human.hasFolded) {
     winner = { id: ai.id, name: ai.name };
     winningHandName = "Win by fold";
-    ai.stack += state.pot;
+    ai.stack = addToStack(ai.stack, state.pot);
   } else {
     const humanEval = evaluateBestHand([
       ...human.holeCards,
@@ -847,14 +1008,17 @@ export function advanceStepDemoShowResult(state: StepDemoState): StepDemoState {
     if (cmp >= 0) {
       winner = { id: human.id, name: human.name };
       winningHandName = humanEval.rankName;
-      human.stack += state.pot;
+      human.stack = addToStack(human.stack, state.pot);
     } else {
       winner = { id: ai.id, name: ai.name };
       winningHandName = aiEval.rankName;
-      ai.stack += state.pot;
+      ai.stack = addToStack(ai.stack, state.pot);
     }
     revealAiCards = true;
   }
+
+  human.stack = clampStack(human.stack);
+  ai.stack = clampStack(ai.stack);
 
   return {
     ...state,
@@ -900,6 +1064,7 @@ export function getStepDemoHumanActions(state: StepDemoState): StepDemoHumanActi
       canCheck: false,
       canRaise: false,
       raiseAmount: STEP_DEMO_RAISE,
+      raiseOptions: [],
       disabledHint,
     };
   }
@@ -907,14 +1072,17 @@ export function getStepDemoHumanActions(state: StepDemoState): StepDemoHumanActi
   const toCall = getStepDemoHumanCallAmount(state);
   const facingRaise = isHumanFacingAiRaiseStep(state.step);
   const canReRaise = facingRaise && !state.humanReRaisedAfterAiRaise;
+  const raiseOptions = buildRaiseOptions(state);
+  const defaultRaise = raiseOptions.find((o) => o.size === 10)?.increment ?? STEP_DEMO_RAISE;
 
   return {
     canFold: true,
     canCall: toCall > 0,
     callAmount: toCall,
     canCheck: toCall === 0 && !facingRaise,
-    canRaise: facingRaise ? canReRaise : true,
-    raiseAmount: STEP_DEMO_RAISE,
+    canRaise: facingRaise ? canReRaise : raiseOptions.some((o) => o.enabled),
+    raiseAmount: defaultRaise,
+    raiseOptions,
     disabledHint: facingRaise
       ? `${PokerMaster.name} raised — choose Call, Raise, or Fold.`
       : "Your turn — choose Fold, Call, Check, or Raise.",
@@ -949,9 +1117,9 @@ export function getStepDemoStatusMessage(state: StepDemoState): string {
     }
     const toCall = getStepDemoHumanCallAmount(state);
     if (toCall > 0) {
-      return `Your turn — call ${toCall} or raise.`;
+      return `Your turn — call ${toCall} or choose a raise size (+10, +25, +50, Pot).`;
     }
-    return "Your turn — choose Fold, Check, or Raise.";
+    return "Your turn — choose Fold, Check, or a raise size (+10, +25, +50, Pot).";
   }
 
   switch (state.step) {
@@ -1063,8 +1231,8 @@ export function getStepDemoStackUpdates(
   if (state.step !== "result" || !state.winner) return null;
 
   return {
-    human: state.players.human.stack,
-    [PokerMaster.id]: state.players.pokerMaster.stack,
+    human: clampStack(state.players.human.stack),
+    [PokerMaster.id]: clampStack(state.players.pokerMaster.stack),
   };
 }
 
@@ -1086,14 +1254,16 @@ export function buildStepDemoSeats(
     return "idle";
   }
 
-  const humanStack =
+  const humanStack = clampStack(
     state.isActive && state.step !== "idle"
       ? human.stack
-      : (sessionStacks.human ?? DEFAULT_STARTING_STACK);
-  const aiStack =
+      : (sessionStacks.human ?? DEFAULT_STARTING_STACK),
+  );
+  const aiStack = clampStack(
     state.isActive && state.step !== "idle"
       ? ai.stack
-      : (sessionStacks[PokerMaster.id] ?? DEFAULT_STARTING_STACK);
+      : (sessionStacks[PokerMaster.id] ?? DEFAULT_STARTING_STACK),
+  );
 
   const revealAi = isShowdownResult(state) && state.revealAiCards;
 

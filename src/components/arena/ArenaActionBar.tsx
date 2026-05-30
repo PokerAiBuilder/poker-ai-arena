@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import type {
   StepDemoGameplayGuidance,
   StepDemoHumanActions,
+  StepDemoRaiseSize,
 } from "@/lib/arena/stepDemo";
 import { cn } from "@/lib/utils";
 
@@ -18,9 +19,11 @@ type ArenaActionBarProps = {
   onHumanFold?: () => void;
   onHumanCall?: () => void;
   onHumanCheck?: () => void;
-  onHumanRaise?: () => void;
+  onHumanRaise?: (size: StepDemoRaiseSize) => void;
   stepDemoHandComplete?: boolean;
   onStepDemoReset?: () => void;
+  onResetDemoStacks?: () => void;
+  headsUpStackDepleted?: boolean;
   onRevealFlop?: () => void;
   onRevealTurn?: () => void;
   onRevealRiver?: () => void;
@@ -64,6 +67,8 @@ export function ArenaActionBar({
   onHumanRaise,
   stepDemoHandComplete = false,
   onStepDemoReset,
+  onResetDemoStacks,
+  headsUpStackDepleted = false,
   onRevealFlop,
   onRevealTurn,
   onRevealRiver,
@@ -86,8 +91,20 @@ export function ArenaActionBar({
       humanActions.canCall ||
       humanActions.canCheck ||
       humanActions.canRaise);
+  const agentBattleDisabled =
+    disabled || loading || (stepDemoActive && !stepDemoHandComplete);
+  const playStepDemoDisabled =
+    disabled || loading || stepDemoActive || headsUpStackDepleted;
+  const showStackDepletedUi =
+    headsUpStackDepleted && !agentBattleSpectator && !humanTurnActive;
 
-  const guidance: StepDemoGameplayGuidance | undefined = stepDemoActive
+  const guidance: StepDemoGameplayGuidance | undefined = showStackDepletedUi
+    ? {
+        phase: "hand-complete",
+        banner: "STACK DEPLETED",
+        actionHint: "Stack depleted — reset demo stacks to continue.",
+      }
+    : stepDemoActive
     ? stepDemoGuidance
     : agentBattleSpectator
       ? {
@@ -187,7 +204,7 @@ export function ArenaActionBar({
               {onPlayStepDemo ? (
                 <Button
                   onClick={onPlayStepDemo}
-                  disabled={disabled || loading || stepDemoActive}
+                  disabled={playStepDemoDisabled}
                   size="lg"
                   variant="outline"
                   className="h-11 min-w-[200px] border-emerald-400/40 text-emerald-100 hover:bg-emerald-950/40"
@@ -213,6 +230,18 @@ export function ArenaActionBar({
                 )}
                 Run Agent Battle Again
               </Button>
+              {headsUpStackDepleted && onResetDemoStacks ? (
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="outline"
+                  className="h-11 min-w-[11rem] border-casino-gold/40 text-casino-goldLight hover:bg-casino-gold/15"
+                  onClick={onResetDemoStacks}
+                >
+                  <RotateCcw className="mr-1.5 h-4 w-4" />
+                  Reset Demo Stacks
+                </Button>
+              ) : null}
               {onOpenMenu ? (
                 <Button
                   type="button"
@@ -231,7 +260,7 @@ export function ArenaActionBar({
             {onPlayStepDemo ? (
               <Button
                 onClick={onPlayStepDemo}
-                disabled={disabled || loading || stepDemoActive}
+                disabled={playStepDemoDisabled}
                 size="lg"
                 className={cn(
                   "h-11 min-w-[200px] shadow-glow",
@@ -284,23 +313,53 @@ export function ArenaActionBar({
                 ? `Call ${humanActions.callAmount}`
                 : "Call"}
             </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              className={cn(
-                "h-11 min-w-[4.5rem] font-semibold",
-                humanTurnActive &&
-                  humanActions?.canRaise &&
-                  "border-casino-gold/40 bg-casino-gold/15 text-casino-goldLight hover:bg-casino-gold/25",
-              )}
-              disabled={!humanTurnActive || !humanActions?.canRaise}
-              title={humanActions?.disabledHint ?? actionHint ?? undefined}
-              onClick={onHumanRaise}
-            >
-              {humanTurnActive && humanActions?.canRaise
-                ? `+${humanActions.raiseAmount}`
-                : "Raise"}
-            </Button>
+            {showStackDepletedUi ? (
+              <Button
+                variant="secondary"
+                size="lg"
+                className="h-11 min-w-[4.5rem] font-semibold"
+                disabled
+              >
+                Raise
+              </Button>
+            ) : humanActions?.raiseOptions?.length ? (
+              humanActions.raiseOptions.map((option) => (
+                <Button
+                  key={option.size}
+                  variant="secondary"
+                  size="lg"
+                  className={cn(
+                    "h-11 font-semibold",
+                    option.size === 10 ? "min-w-[5.5rem]" : "min-w-[3.25rem] px-2",
+                    humanTurnActive &&
+                      option.enabled &&
+                      "border-casino-gold/40 bg-casino-gold/15 text-casino-goldLight hover:bg-casino-gold/25",
+                  )}
+                  disabled={
+                    !humanTurnActive ||
+                    !humanActions?.canRaise ||
+                    !option.enabled
+                  }
+                  title={
+                    option.cappedToStack
+                      ? `${option.label} — capped to ${option.increment} (stack limit)`
+                      : humanActions?.disabledHint ?? actionHint ?? option.label
+                  }
+                  onClick={() => onHumanRaise?.(option.size)}
+                >
+                  {option.label}
+                </Button>
+              ))
+            ) : (
+              <Button
+                variant="secondary"
+                size="lg"
+                className="h-11 min-w-[4.5rem] font-semibold"
+                disabled
+              >
+                Raise
+              </Button>
+            )}
             <Button
               variant="destructive"
               size="lg"
@@ -312,7 +371,7 @@ export function ArenaActionBar({
               All-in
             </Button>
 
-            {nextStepEnabled && nextStep ? (
+            {nextStepEnabled && nextStep && !showStackDepletedUi ? (
               <Button
                 type="button"
                 size="lg"
@@ -327,7 +386,7 @@ export function ArenaActionBar({
               </Button>
             ) : null}
 
-            {stepDemoHandComplete && onStepDemoReset ? (
+            {stepDemoHandComplete && onStepDemoReset && !showStackDepletedUi ? (
               <Button
                 type="button"
                 size="lg"
@@ -341,12 +400,27 @@ export function ArenaActionBar({
                 New Hand
               </Button>
             ) : null}
+
+            {showStackDepletedUi && onResetDemoStacks ? (
+              <Button
+                type="button"
+                size="lg"
+                className={cn(
+                  "ml-1 h-11 min-w-[11rem] border-2 border-casino-gold bg-casino-gold/25 font-bold text-casino-goldLight",
+                  "shadow-glow hover:bg-casino-gold/40",
+                )}
+                onClick={onResetDemoStacks}
+              >
+                <RotateCcw className="mr-1.5 h-4 w-4" />
+                Reset Demo Stacks
+              </Button>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-end">
             <Button
               onClick={onSimulateAgentBattle}
-              disabled={controlsDisabled}
+              disabled={agentBattleDisabled}
               size="lg"
               variant="outline"
               className="h-11 min-w-[160px] border-violet-400/35 text-sm font-semibold text-violet-100 hover:bg-violet-950/40"
@@ -397,7 +471,9 @@ export function ArenaActionBar({
                 ? "text-emerald-300/90"
                 : agentBattleSpectator
                   ? "text-violet-200/85"
-                  : nextStepEnabled
+                  : showStackDepletedUi
+                    ? "text-casino-goldLight/90"
+                    : nextStepEnabled
                     ? "font-medium text-emerald-200/90"
                     : "text-muted-foreground",
             )}

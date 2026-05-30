@@ -25,7 +25,11 @@ export {
   SESSION_STACKS_STORAGE_KEY,
   clearSessionStacks,
   createInitialSessionStacks,
+  canStartHeadsUpHand,
+  isHeadsUpStackDepleted,
   loadSessionStacks,
+  resetHeadsUpDemoStacks,
   saveSessionStacks,
+  sanitizeSessionStacks,
   updateSessionStacksAfterGame,
 } from "@/lib/analytics/sessionStacks";
