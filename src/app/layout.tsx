@@ -11,7 +11,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Poker AI Arena — Autonomous AI Poker on Base",
   description:
-    "Interactive poker demo with AI opponents on Base. Step Demo, Agent Battle, and mock x402 arena entry.",
+    "Interactive poker demo with AI opponents on Base. Human vs AI, Agent Battle, and mock x402 arena entry.",
 };
 
 export default function RootLayout({

@@ -11,6 +11,8 @@ export type AgentAvatarProps = {
   stack: number;
   status?: AgentStatus;
   compact?: boolean;
+  /** Text-only stack in tight heads-up zones (avoids chip overlap) */
+  stackTextOnly?: boolean;
   className?: string;
 };
 
@@ -28,6 +30,7 @@ export function AgentAvatar({
   stack,
   status = "idle",
   compact = false,
+  stackTextOnly = false,
   className,
 }: AgentAvatarProps) {
   const isWinner = status === "winner";
@@ -79,7 +82,13 @@ export function AgentAvatar({
         ) : null}
       </div>
 
-      <ChipStack amount={stack} size="sm" />
+      {stackTextOnly ? (
+        <p className="text-[9px] font-semibold tabular-nums leading-none text-casino-goldLight">
+          {stack.toLocaleString()}
+        </p>
+      ) : (
+        <ChipStack amount={stack} size="sm" />
+      )}
 
       {isFolded ? (
         <span className="rounded border border-red-400/40 bg-red-950/60 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-red-300">

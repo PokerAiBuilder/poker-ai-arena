@@ -203,7 +203,7 @@ function decideFacingReRaise(
     );
   }
   if (profile.tier === "medium") {
-    if (roll() < 0.38) {
+    if (roll() < 0.18) {
       return decision(
         "fold",
         `medium ${profile.label} — folding to your re-raise`,
@@ -217,7 +217,7 @@ function decideFacingReRaise(
       toCall,
     );
   }
-  if (roll() < 0.55) {
+  if (roll() < 0.35) {
     return decision(
       "fold",
       `weak hand (${profile.label}) facing re-raise — folding`,
@@ -284,14 +284,22 @@ function decidePreflop(
   }
 
   if (profile.tier === "strong") {
-    if (humanRaised && toCall > STEP_DEMO_RAISE && roll() < 0.35) {
+    if (humanRaised && toCall > STEP_DEMO_RAISE && roll() < 0.12) {
       return decision(
         "fold",
         `strong but not premium (${profile.label}) — folding to big raise`,
         0.55,
       );
     }
-    if (canRaise && roll() < 0.28) {
+    if (canRaise && humanRaised && roll() < 0.22) {
+      return decision(
+        "raise",
+        `strong preflop hand (${profile.label}) — re-raising your open`,
+        0.78,
+        STEP_DEMO_RAISE,
+      );
+    }
+    if (canRaise && roll() < 0.32) {
       return decision(
         "raise",
         `strong preflop hand (${profile.label}) — raising for value`,
@@ -308,14 +316,22 @@ function decidePreflop(
   }
 
   if (profile.tier === "medium") {
-    if (humanRaised && toCall >= STEP_DEMO_RAISE && roll() < 0.42) {
+    if (humanRaised && canRaise && roll() < 0.14) {
+      return decision(
+        "raise",
+        `medium hand (${profile.label}) — fighting back with a raise`,
+        0.58,
+        STEP_DEMO_RAISE,
+      );
+    }
+    if (humanRaised && toCall >= STEP_DEMO_RAISE && roll() < 0.18) {
       return decision(
         "fold",
         `medium hand (${profile.label}) — folding to pressure`,
         0.6,
       );
     }
-    if (toCall <= STEP_DEMO_RAISE && roll() < 0.62) {
+    if (toCall <= STEP_DEMO_RAISE && roll() < 0.78) {
       return decision(
         "call",
         `medium hand (${profile.label}) — calling with implied odds`,
@@ -323,20 +339,20 @@ function decidePreflop(
         toCall,
       );
     }
-    if (roll() < 0.5) {
+    if (roll() < 0.35) {
       return decision("fold", `medium hand (${profile.label}) — folding preflop`, 0.52);
     }
     return decision("call", `marginal hand — calling a small bet`, 0.48, toCall);
   }
 
-  if (humanRaised && toCall > 0 && roll() < 0.58) {
+  if (humanRaised && toCall > 0 && roll() < 0.48) {
     return decision(
       "fold",
       `trash hand (${profile.label}) facing raise — folding`,
       0.72,
     );
   }
-  if (toCall <= STEP_DEMO_RAISE && pot > toCall * 2 && roll() < 0.32) {
+  if (toCall <= STEP_DEMO_RAISE && pot > toCall * 2 && roll() < 0.42) {
     return decision(
       "call",
       `weak hand but good pot odds — calling`,
@@ -391,6 +407,14 @@ function decidePostflop(
   }
 
   if (profile.tier === "premium" || profile.tier === "strong") {
+    if (canRaise && humanRaised && roll() < 0.28) {
+      return decision(
+        "raise",
+        `${profile.label} — re-raising your bet on the ${streetLabel}`,
+        0.86,
+        STEP_DEMO_RAISE,
+      );
+    }
     if (canRaise && roll() < 0.38) {
       return decision(
         "raise",
@@ -408,7 +432,7 @@ function decidePostflop(
   }
 
   if (profile.tier === "medium") {
-    if (profile.hasDraw && roll() < 0.68) {
+    if (profile.hasDraw && roll() < 0.72) {
       return decision(
         "call",
         `${profile.label} — calling to chase equity on the ${streetLabel}`,
@@ -416,14 +440,22 @@ function decidePostflop(
         toCall,
       );
     }
-    if (humanRaised && toCall >= STEP_DEMO_RAISE && roll() < 0.4) {
+    if (humanRaised && canRaise && roll() < 0.12) {
+      return decision(
+        "raise",
+        `${profile.label} — raising back on the ${streetLabel}`,
+        0.6,
+        STEP_DEMO_RAISE,
+      );
+    }
+    if (humanRaised && toCall >= STEP_DEMO_RAISE && roll() < 0.2) {
       return decision(
         "fold",
         `${profile.label} — folding to ${streetLabel} pressure`,
         0.58,
       );
     }
-    if (roll() < 0.55) {
+    if (roll() < 0.68) {
       return decision(
         "call",
         `top pair on ${streetLabel} — calling with showdown value`,
@@ -438,14 +470,14 @@ function decidePostflop(
     );
   }
 
-  if (humanRaised && roll() < 0.62) {
+  if (humanRaised && roll() < 0.38) {
     return decision(
       "fold",
       `missed board on ${streetLabel} and facing pressure — folding`,
       0.7,
     );
   }
-  if (profile.hasDraw && roll() < 0.45) {
+  if (profile.hasDraw && roll() < 0.55) {
     return decision(
       "call",
       "draw or weak pair — calling once for pot odds",

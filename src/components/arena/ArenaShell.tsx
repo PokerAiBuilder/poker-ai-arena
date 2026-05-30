@@ -40,6 +40,7 @@ import {
   createInitialStepDemoState,
   dealStepDemoHand,
   getStepDemoHumanActions,
+  getStepDemoHumanCallAmount,
   getStepDemoPotDisplay,
   getStepDemoStackUpdates,
   type StepDemoState,
@@ -219,11 +220,6 @@ export function ArenaShell() {
     ]);
   }, []);
 
-  const handleSimulateHumanVsAi = useCallback(
-    () => runSimulation("human-vs-ai"),
-    [runSimulation],
-  );
-
   const handleSimulateAgentBattle = useCallback(
     () => runSimulation("agent-vs-agent"),
     [runSimulation],
@@ -240,7 +236,7 @@ export function ArenaShell() {
     setStepDemo(dealStepDemoHand(sessionStacks));
     setSessionLog((prev) => [
       ...prev,
-      createSessionLogEntry("Step demo hand started — Human vs AI."),
+      createSessionLogEntry("Human vs AI hand started — guided mode."),
     ]);
   }, [isArenaUnlocked, sessionStacks]);
 
@@ -260,9 +256,11 @@ export function ArenaShell() {
 
   const handleResetStepDemo = useCallback(() => {
     setStepDemo(createInitialStepDemoState());
+    setResult(null);
+    setPreferredSeatLayout("human-vs-ai");
     setSessionLog((prev) => [
       ...prev,
-      createSessionLogEntry("Step demo reset."),
+      createSessionLogEntry("Human vs AI hand reset."),
     ]);
   }, []);
 
@@ -303,20 +301,32 @@ export function ArenaShell() {
     [stepDemo],
   );
 
+  const stepDemoHumanCallAmount = useMemo(
+    () => getStepDemoHumanCallAmount(stepDemo),
+    [stepDemo],
+  );
+
+  const activeGameMode = stepDemo.isActive
+    ? "human-vs-ai"
+    : (result?.gameMode ?? preferredSeatLayout);
+  const isHeadsUpGuided = activeGameMode === "human-vs-ai";
+
   const seats = useMemo(() => {
-    if (stepDemo.isActive) {
+    if (isHeadsUpGuided) {
       return buildStepDemoSeats(stepDemo, sessionStacks);
     }
     return buildTableSeats(result, preferredSeatLayout, sessionStacks);
-  }, [stepDemo, result, preferredSeatLayout, sessionStacks]);
+  }, [stepDemo, result, preferredSeatLayout, sessionStacks, isHeadsUpGuided]);
 
   const aiDecisions = result?.agentDecisions ?? [];
   const latestAiDecision = stepDemo.isActive
     ? (stepDemo.aiDecision ?? undefined)
     : aiDecisions[aiDecisions.length - 1];
-  const activeGameMode = stepDemo.isActive
-    ? "human-vs-ai"
-    : (result?.gameMode ?? preferredSeatLayout);
+
+  const headsUpLayoutKey = isHeadsUpGuided
+    ? `${stepDemo.step}-${stepDemo.isActive}-${stepDemo.communityCards.length}-${stepDemo.players.pokerMaster.holeCards.length}-${stepDemo.players.human.holeCards.length}`
+    : undefined;
+
   const handResultType = stepDemo.isActive
     ? stepDemo.winner
       ? stepDemo.winningHandName === "Win by fold"
@@ -334,7 +344,7 @@ export function ArenaShell() {
       ? result.winningHand.rankName
       : undefined;
 
-  const tablePot = stepDemo.isActive
+  const tablePot = isHeadsUpGuided
     ? getStepDemoPotDisplay(stepDemo)
     : (result?.pot ?? null);
 
@@ -380,7 +390,7 @@ export function ArenaShell() {
           </Badge>
           {stepDemo.isActive ? (
             <Badge className="border-emerald-500/40 bg-emerald-950/50 text-emerald-100">
-              Step Demo
+              Human vs AI
             </Badge>
           ) : null}
           {result && !stepDemo.isActive ? (
@@ -428,7 +438,7 @@ export function ArenaShell() {
                 paymentError={paymentError}
                 pot={tablePot}
                 communityCards={
-                  stepDemo.isActive
+                  isHeadsUpGuided
                     ? stepDemo.communityCards
                     : (result?.communityCards ?? [])
                 }
@@ -436,20 +446,18 @@ export function ArenaShell() {
                 winnerName={
                   stepDemo.isActive
                     ? stepDemo.winner?.name
-                    : result?.winner.name
+                    : undefined
                 }
                 winningHand={showdownHandName}
                 resultType={handResultType}
                 locked={!isArenaUnlocked}
-                fourPlayerLayout={
-                  !stepDemo.isActive && activeGameMode === "agent-vs-agent"
-                }
+                fourPlayerLayout={activeGameMode === "agent-vs-agent"}
                 spectatorMode={
-                  !stepDemo.isActive &&
-                  activeGameMode === "agent-vs-agent" &&
-                  result != null
+                  activeGameMode === "agent-vs-agent" && result != null
                 }
-                stepDemoMode={stepDemo.isActive}
+                headsUpGuidedMode={isHeadsUpGuided}
+                showHumanVsAiBadge={stepDemo.isActive}
+                headsUpLayoutKey={headsUpLayoutKey}
               />
             </div>
 
@@ -479,6 +487,9 @@ export function ArenaShell() {
             <>
               <AiDecisionPanel
                 latest={latestAiDecision}
+                humanCallAmount={
+                  stepDemo.isActive ? stepDemoHumanCallAmount : undefined
+                }
                 totalDecisions={
                   stepDemo.isActive
                     ? stepDemo.aiDecision
@@ -501,7 +512,6 @@ export function ArenaShell() {
 
       <ArenaActionBar
         className="relative z-30"
-        onSimulateHumanVsAi={handleSimulateHumanVsAi}
         onSimulateAgentBattle={handleSimulateAgentBattle}
         onPlayStepDemo={handlePlayStepDemo}
         onOpenMenu={() => setMenuOpen(true)}

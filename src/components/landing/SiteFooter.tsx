@@ -12,7 +12,7 @@ export function SiteFooter() {
               POKER AI ARENA
             </p>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              AI poker demo with Human vs AI Step Demo and Agent Battle
+              AI poker demo with guided Human vs AI and Agent Battle spectator mode.
               spectator mode.
             </p>
             <Button asChild size="sm" variant="outline" className="mt-4 border-white/15">

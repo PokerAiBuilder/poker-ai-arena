@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import {
   getStepDemoStreetLabel,
   getStepDemoTurnLabel,
-  humanAmountToCall,
+  getStepDemoHumanCallAmount,
   isStepDemoBettingInProgress,
   isStepDemoFacingAiRaise,
   STEP_DEMO_LABELS,
@@ -44,7 +44,7 @@ export function StepDemoPanel({
     step === "turn-complete" && !disabled && !bettingPending;
   const canShowResult =
     step === "river-complete" && !disabled && !bettingPending;
-  const toCall = humanAmountToCall(stepDemo);
+  const toCall = getStepDemoHumanCallAmount(stepDemo);
 
   return (
     <div
@@ -56,7 +56,7 @@ export function StepDemoPanel({
       )}
     >
       <p className="text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-400/90">
-        Step Demo — Human vs AI
+        Human vs AI — guided poker hand
       </p>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-center">
@@ -98,7 +98,7 @@ export function StepDemoPanel({
       </div>
 
       <p className="mt-2 text-center text-[10px] leading-relaxed text-muted-foreground">
-        Step Demo: Flop → Turn → River. Use Fold / Call / Check / Raise above when
+        Human vs AI: Flop → Turn → River. Use Fold / Call / Check / Raise above when
         it is your turn.
       </p>
 
@@ -162,7 +162,7 @@ export function StepDemoPanel({
         className="mt-2 w-full border-white/10 text-xs"
         onClick={onReset}
       >
-        Reset Step Demo
+        New Hand
       </Button>
     </div>
   );

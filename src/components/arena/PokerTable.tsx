@@ -32,8 +32,12 @@ type PokerTableProps = {
   fourPlayerLayout?: boolean;
   /** Agent Battle: all hole cards shown for spectators */
   spectatorMode?: boolean;
-  /** Step-by-step Human vs AI demo */
-  stepDemoMode?: boolean;
+  /** Human vs AI guided table layout (5-slot board, fixed heads-up zones) */
+  headsUpGuidedMode?: boolean;
+  /** Show in-table badge while a guided hand is in progress */
+  showHumanVsAiBadge?: boolean;
+  /** Bumps keyed subtrees on hand reset so card visuals remount cleanly */
+  headsUpLayoutKey?: string;
   /** Fill parent height for poker-room viewport layout */
   roomLayout?: boolean;
   onPayEntryFee?: () => void;
@@ -90,11 +94,12 @@ function resolveBoardCardSize(layoutMode: SeatLayoutMode): CardSize {
 function holeCardSize(
   seat: TableSeat,
   layoutMode: SeatLayoutMode,
+  topSideByAvatar = false,
 ): CardSize {
   if (layoutMode === "compact") return "xs";
   if (layoutMode === "roomHeadsUp") {
     if (seat.position === "bottom") return "sm";
-    if (seat.position === "top") return "xs";
+    if (seat.position === "top") return topSideByAvatar ? "xs" : "xs";
     return "xs";
   }
   if (seat.status === "folded") return "xs";
@@ -183,14 +188,12 @@ function StepDemoBoardSlot({
         />
       ) : (
         <PlayingCard
-          locked
-          lockedLabel={kind === "flop" ? String(slotIndex + 1) : caption}
+          faceDown
           size={cardSize}
+          animate={false}
           className={cn(
-            "relative z-[2]",
-            kind === "flop"
-              ? "border-emerald-500/25 bg-emerald-950/25 text-emerald-200/50"
-              : "border-amber-500/20 bg-amber-950/20 text-amber-200/45",
+            "relative z-[2] border-sky-800/50 shadow-md",
+            "from-sky-950 via-indigo-950 to-blue-950",
           )}
         />
       )}
@@ -239,9 +242,13 @@ function StepDemoCommunityBoard({
           />
         ))}
       </div>
-      {roomLayout ? null : (
+      {roomLayout ? (
+        <p className="text-[7px] uppercase tracking-wider text-white/40">
+          Human vs AI: Preflop → Flop → Turn → River
+        </p>
+      ) : (
         <p className="text-[8px] uppercase tracking-wider text-white/45">
-          Step Demo: Preflop → Flop → Turn → River
+          Human vs AI: Preflop → Flop → Turn → River
         </p>
       )}
     </div>
@@ -374,6 +381,62 @@ function SeatHoleCards({
   );
 }
 
+function HeadsUpOpponentSeat({ seat }: { seat: TableSeat }) {
+  const cardSize: CardSize = "xs";
+  const isFolded = seat.status === "folded";
+  const isSpectator = seat.status === "idle" && !seat.revealCards;
+
+  return (
+    <div
+      className={cn(
+        "mx-auto flex w-[11.75rem] max-w-full flex-row items-center justify-center gap-1.5 sm:gap-2",
+        isFolded && "opacity-80",
+        isSpectator && "opacity-90",
+      )}
+    >
+      <div className="flex w-[3.5rem] shrink-0 items-center justify-center">
+        <AgentAvatar
+          name={seat.name}
+          avatar={seat.avatar}
+          strategy={seat.strategy}
+          stack={seat.stack}
+          status={seat.status}
+          compact
+          stackTextOnly
+          className={cn(isSpectator && "opacity-90")}
+        />
+      </div>
+      <div
+        className="flex h-[3rem] w-[4.1rem] shrink-0 items-center justify-center"
+        aria-label="Opponent hole cards"
+      >
+        <div className="flex scale-90 gap-0.5">
+          <SeatHoleCards seat={seat} cardSize={cardSize} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HeadsUpHumanCards({ seat }: { seat: TableSeat }) {
+  const cardSize: CardSize = "sm";
+  const isFolded = seat.status === "folded";
+
+  return (
+    <div
+      className={cn(
+        "flex h-[4.25rem] w-[5.75rem] items-end justify-center",
+        isFolded && "opacity-80",
+      )}
+      aria-label="Your hole cards"
+    >
+      <div className="flex gap-0.5">
+        <SeatHoleCards seat={seat} cardSize={cardSize} />
+      </div>
+    </div>
+  );
+}
+
 function RoomHeadsUpTableLayout({
   pot,
   communityCards,
@@ -381,9 +444,8 @@ function RoomHeadsUpTableLayout({
   winnerName,
   winningHand,
   resultType,
-  stepDemoMode,
   boardCardSize,
-  layoutMode,
+  headsUpLayoutKey,
 }: {
   pot: number | null;
   communityCards: Card[];
@@ -391,9 +453,8 @@ function RoomHeadsUpTableLayout({
   winnerName?: string;
   winningHand?: string;
   resultType: HandResultDisplayType;
-  stepDemoMode: boolean;
   boardCardSize: CardSize;
-  layoutMode: SeatLayoutMode;
+  headsUpLayoutKey?: string;
 }) {
   const topSeat = seats.find((s) => s.position === "top");
   const bottomSeat = seats.find((s) => s.position === "bottom");
@@ -403,35 +464,34 @@ function RoomHeadsUpTableLayout({
 
   return (
     <>
-      <div className="absolute inset-[5%] z-10 flex flex-col items-stretch overflow-hidden">
-        {/* Top seat zone — PokerMaster avatar + hole cards */}
-        <div className="flex h-[18%] max-h-[6.5rem] shrink-0 items-end justify-center pb-0.5">
+      <div className="absolute inset-x-[5%] inset-y-[6%] z-10 flex flex-col items-stretch">
+        {/* Top opponent zone — fixed size, avatar + cards side-by-side */}
+        <div className="flex h-[16%] min-h-[4.25rem] max-h-[6rem] shrink-0 items-end justify-center px-1 pb-0.5">
           {topSeat ? (
-            <TableSeatCluster
-              seat={topSeat}
-              layoutMode={layoutMode}
-              inZone
-            />
-          ) : null}
+            <div key={headsUpLayoutKey ?? topSeat.id}>
+              <HeadsUpOpponentSeat seat={topSeat} />
+            </div>
+          ) : (
+            <div className="h-[3.5rem] w-[11.75rem] shrink-0" aria-hidden />
+          )}
         </div>
 
-        {/* Board zone — pot + community cards */}
-        <div className="flex h-[28%] max-h-[10.5rem] shrink-0 flex-col items-center justify-center gap-0.5">
-          <ChipStack
-            amount={pot ?? "\u2014"}
-            size="md"
-            label="Pot"
-            className="mb-1 justify-center"
-          />
-          {stepDemoMode ? (
-            <StepDemoCommunityBoard
-              communityCards={communityCards}
-              cardSize={boardCardSize}
-              roomLayout
+        {/* Board zone — pot label above cards, separated from seat stacks */}
+        <div className="flex h-[28%] max-h-[10.5rem] shrink-0 flex-col items-center justify-center gap-1 pt-1">
+          <div className="flex min-h-[1.125rem] shrink-0 items-center justify-center rounded-full border border-casino-gold/20 bg-black/35 px-3 py-0.5 shadow-sm">
+            <ChipStack
+              amount={pot ?? "\u2014"}
+              size="sm"
+              label="Pot"
+              showIcons={false}
+              className="justify-center"
             />
-          ) : (
-            <CommunityBoard flopCards={communityCards} cardSize={boardCardSize} />
-          )}
+          </div>
+          <StepDemoCommunityBoard
+            communityCards={communityCards}
+            cardSize={boardCardSize}
+            roomLayout
+          />
         </div>
 
         {/* Result banner zone — reserved height, no layout shift */}
@@ -449,15 +509,15 @@ function RoomHeadsUpTableLayout({
           )}
         </div>
 
-        {/* Human hole cards zone */}
+        {/* Human hole cards zone — reserved height */}
         <div className="flex h-[13%] max-h-[5rem] shrink-0 items-end justify-center">
           {bottomSeat ? (
-            <TableSeatCluster
-              seat={bottomSeat}
-              layoutMode={layoutMode}
-              part="cards"
-            />
-          ) : null}
+            <div key={headsUpLayoutKey ?? bottomSeat.id}>
+              <HeadsUpHumanCards seat={bottomSeat} />
+            </div>
+          ) : (
+            <div className="h-[4.25rem] w-[5.75rem] shrink-0" aria-hidden />
+          )}
         </div>
 
         {/* Human avatar zone */}
@@ -465,7 +525,7 @@ function RoomHeadsUpTableLayout({
           {bottomSeat ? (
             <TableSeatCluster
               seat={bottomSeat}
-              layoutMode={layoutMode}
+              layoutMode="roomHeadsUp"
               part="avatar"
             />
           ) : null}
@@ -473,7 +533,7 @@ function RoomHeadsUpTableLayout({
       </div>
 
       {sideSeats.map((seat) => (
-        <TableSeatCluster key={seat.id} seat={seat} layoutMode={layoutMode} />
+        <TableSeatCluster key={seat.id} seat={seat} layoutMode="roomHeadsUp" />
       ))}
     </>
   );
@@ -484,13 +544,15 @@ function TableSeatCluster({
   layoutMode,
   part = "full",
   inZone = false,
+  topSideByAvatar = false,
 }: {
   seat: TableSeat;
   layoutMode: SeatLayoutMode;
   part?: "full" | "cards" | "avatar";
   inZone?: boolean;
+  topSideByAvatar?: boolean;
 }) {
-  const cardSize = holeCardSize(seat, layoutMode);
+  const cardSize = holeCardSize(seat, layoutMode, topSideByAvatar);
   const isFolded = seat.status === "folded";
   const isSpectator = seat.status === "idle" && !seat.revealCards;
 
@@ -498,7 +560,14 @@ function TableSeatCluster({
     <div
       className={cn(
         "flex shrink-0 gap-0.5",
-        layoutMode === "roomHeadsUp" && seat.position === "top" && "scale-[0.92] origin-top",
+        layoutMode === "roomHeadsUp" &&
+          seat.position === "top" &&
+          !topSideByAvatar &&
+          "scale-[0.92] origin-top",
+        layoutMode === "roomHeadsUp" &&
+          seat.position === "top" &&
+          topSideByAvatar &&
+          "scale-[0.9]",
       )}
     >
       <SeatHoleCards seat={seat} cardSize={cardSize} />
@@ -517,6 +586,7 @@ function TableSeatCluster({
         seat.position === "left" ||
         seat.position === "right"
       }
+      stackTextOnly={layoutMode === "roomHeadsUp"}
       className={cn(isSpectator && "scale-90 opacity-70")}
     />
   );
@@ -526,6 +596,21 @@ function TableSeatCluster({
   const roomSplit = layoutMode === "roomHeadsUp" && part !== "full";
 
   if (inZone && layoutMode === "roomHeadsUp" && seat.position === "top") {
+    if (topSideByAvatar) {
+      return (
+        <div
+          className={cn(
+            "flex max-w-full flex-row items-center justify-center gap-1 sm:gap-1.5",
+            isFolded && "opacity-80",
+            isSpectator && "scale-[0.88] opacity-70",
+          )}
+        >
+          {avatar}
+          {cards}
+        </div>
+      );
+    }
+
     return (
       <div
         className={cn(
@@ -615,8 +700,10 @@ export function PokerTable({
   locked = false,
   fourPlayerLayout = false,
   spectatorMode = false,
-  stepDemoMode = false,
+  headsUpGuidedMode = false,
+  showHumanVsAiBadge = false,
   roomLayout = false,
+  headsUpLayoutKey,
   onPayEntryFee,
   payingEntryFee = false,
   paymentError,
@@ -633,12 +720,12 @@ export function PokerTable({
         className,
       )}
     >
-      {stepDemoMode ? (
+      {showHumanVsAiBadge ? (
         <Badge
           variant="secondary"
           className="absolute left-5 top-5 z-[35] max-w-[220px] border-emerald-400/40 bg-emerald-950/80 text-center text-[9px] font-medium leading-snug text-emerald-100"
         >
-          Step Demo Mode — simplified Human vs AI
+          Human vs AI Mode — guided poker hand
         </Badge>
       ) : null}
 
@@ -692,9 +779,8 @@ export function PokerTable({
             winnerName={winnerName}
             winningHand={winningHand}
             resultType={resultType}
-            stepDemoMode={stepDemoMode}
             boardCardSize={boardCardSize}
-            layoutMode={layoutMode}
+            headsUpLayoutKey={headsUpLayoutKey}
           />
         ) : (
           <>
@@ -713,7 +799,7 @@ export function PokerTable({
               className="mb-2 justify-center"
             />
 
-            {stepDemoMode ? (
+            {headsUpGuidedMode ? (
               <StepDemoCommunityBoard
                 communityCards={communityCards}
                 cardSize={boardCardSize}

@@ -1,4 +1,3 @@
-import { BluffBot, RiverMind } from "@/lib/agents/agentRegistry";
 import { PokerMaster } from "@/lib/agents/pokerMaster";
 import { getStepDemoPokerMasterDecision } from "@/lib/arena/stepDemoAiDecision";
 import type { AgentDecision } from "@/lib/agents/agentTypes";
@@ -266,6 +265,7 @@ function revealCommunityStreet(
     aiStreetBet: 0,
     aiRaisedThisStreet: false,
     humanReRaisedAfterAiRaise: false,
+    aiDecision: null,
     actionLog: [...state.actionLog, systemLog(logMessage, street)],
   };
 }
@@ -306,16 +306,34 @@ function playerLog(
 function toSimulationAgentDecision(
   decision: AgentDecision,
   stage: GameStage,
+  stateAfterAction?: StepDemoState,
 ): SimulationAgentDecision {
+  const humanCall =
+    stateAfterAction != null ? humanAmountToCall(stateAfterAction) : 0;
+
+  let amount = decision.amount;
+  if (decision.action === "raise" || decision.action === "all-in") {
+    amount = STEP_DEMO_RAISE;
+  } else if (decision.action === "call") {
+    amount = decision.amount ?? (humanCall > 0 ? humanCall : undefined);
+  }
+
+  const reasoning =
+    stateAfterAction != null &&
+    (decision.action === "raise" || decision.action === "all-in") &&
+    humanCall > 0
+      ? `${decision.reasoning} You need to call ${humanCall} to continue.`
+      : decision.reasoning;
+
   return {
     agentId: PokerMaster.id,
     agentName: PokerMaster.name,
     strategy: PokerMaster.strategy,
     stage,
     action: decision.action,
-    amount: decision.amount,
+    amount,
     confidence: decision.confidence,
-    reasoning: decision.reasoning,
+    reasoning,
   };
 }
 
@@ -338,6 +356,13 @@ function gameStage(state: StepDemoState): GameStage {
 
 export function humanAmountToCall(state: StepDemoState): number {
   return Math.max(0, state.currentBet - state.humanStreetBet);
+}
+
+/** Single source of truth for UI call buttons when the human can act. */
+export function getStepDemoHumanCallAmount(state: StepDemoState): number {
+  if (!state.isActive || state.turn !== "human") return 0;
+  if (!isHumanActionStep(state.step)) return 0;
+  return humanAmountToCall(state);
 }
 
 function aiAmountToCall(state: StepDemoState): number {
@@ -514,11 +539,13 @@ function promptHumanVsAiRaise(
   state: StepDemoState,
   base: StepDemoState,
   stage: GameStage,
+  decision: AgentDecision,
 ): StepDemoState {
   return {
     ...base,
     step: humanVsRaiseStep(state.street),
     turn: "human",
+    aiDecision: toSimulationAgentDecision(decision, stage, base),
     actionLog: [
       ...base.actionLog,
       systemLog(`${PokerMaster.name} raised. Your response required.`, stage),
@@ -551,7 +578,7 @@ function runAiAfterHumanReRaise(state: StepDemoState): StepDemoState {
       {
         ...state,
         players: { human, pokerMaster: ai },
-        aiDecision: toSimulationAgentDecision(decision, stage),
+        aiDecision: toSimulationAgentDecision(decision, stage, state),
       },
       "human",
       logs,
@@ -560,15 +587,19 @@ function runAiAfterHumanReRaise(state: StepDemoState): StepDemoState {
 
   const chips = applyAiDecisionChips(state, ai, decision);
 
-  return completeStreet({
+  const afterChips: StepDemoState = {
     ...state,
     players: { human, pokerMaster: chips.ai },
     pot: chips.pot,
     currentBet: chips.currentBet,
     aiStreetBet: chips.aiStreetBet,
     aiRaisedThisStreet: chips.aiRaisedThisStreet,
-    aiDecision: toSimulationAgentDecision(decision, stage),
     actionLog: [...state.actionLog, ...logs],
+  };
+
+  return completeStreet({
+    ...afterChips,
+    aiDecision: toSimulationAgentDecision(decision, stage, afterChips),
   });
 }
 
@@ -596,7 +627,7 @@ function runAiStreetResponse(state: StepDemoState): StepDemoState {
       {
         ...state,
         players: { human, pokerMaster: ai },
-        aiDecision: toSimulationAgentDecision(decision, stage),
+        aiDecision: toSimulationAgentDecision(decision, stage, state),
       },
       "human",
       logs,
@@ -616,15 +647,17 @@ function runAiStreetResponse(state: StepDemoState): StepDemoState {
     humanStreetBet: state.humanStreetBet,
     aiStreetBet: chips.aiStreetBet,
     aiRaisedThisStreet: chips.aiRaisedThisStreet,
-    aiDecision: toSimulationAgentDecision(decision, stage),
     actionLog: [...state.actionLog, ...logs],
   };
 
   if (isAiRaise) {
-    return promptHumanVsAiRaise(state, base, stage);
+    return promptHumanVsAiRaise(state, base, stage, decision);
   }
 
-  return completeStreet(base);
+  return completeStreet({
+    ...base,
+    aiDecision: toSimulationAgentDecision(decision, stage, base),
+  });
 }
 
 export function applyHumanCall(state: StepDemoState): StepDemoState {
@@ -817,7 +850,7 @@ export function getStepDemoHumanActions(state: StepDemoState): StepDemoHumanActi
     state.turn === "human" && isHumanActionStep(state.step);
 
   if (!state.isActive || !isHumanTurn) {
-    let disabledHint = "Play Step Demo and wait for your turn.";
+    let disabledHint = "Play vs PokerMaster and wait for your turn.";
     if (isHumanFacingAiRaiseStep(state.step)) {
       disabledHint = `${PokerMaster.name} raised — use Fold / Call / Raise above.`;
     } else if (state.step === "preflop-complete") {
@@ -843,7 +876,7 @@ export function getStepDemoHumanActions(state: StepDemoState): StepDemoHumanActi
     };
   }
 
-  const toCall = humanAmountToCall(state);
+  const toCall = getStepDemoHumanCallAmount(state);
   const facingRaise = isHumanFacingAiRaiseStep(state.step);
   const canReRaise = facingRaise && !state.humanReRaisedAfterAiRaise;
 
@@ -951,28 +984,6 @@ export function buildStepDemoSeats(
       status: seatStatus(human.id, human.hasFolded),
       position: "bottom",
       revealCards: state.isActive,
-    },
-    {
-      id: BluffBot.id,
-      name: BluffBot.name,
-      avatar: BluffBot.avatar,
-      strategy: BluffBot.strategy,
-      stack: sessionStacks[BluffBot.id] ?? DEFAULT_STARTING_STACK,
-      holeCards: [],
-      status: "idle",
-      position: "left",
-      revealCards: false,
-    },
-    {
-      id: RiverMind.id,
-      name: RiverMind.name,
-      avatar: RiverMind.avatar,
-      strategy: RiverMind.strategy,
-      stack: sessionStacks[RiverMind.id] ?? DEFAULT_STARTING_STACK,
-      holeCards: [],
-      status: "idle",
-      position: "right",
-      revealCards: false,
     },
   ];
 }

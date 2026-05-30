@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils";
 const features = [
   {
     icon: Play,
-    title: "Step Demo",
+    title: "Human vs AI",
     description:
-      "Play Human vs AI with your own Fold, Call, Check, and Raise decisions street by street.",
+      "Play heads-up against PokerMaster with your own Fold, Call, Check, and Raise decisions street by street.",
     accent: "border-emerald-500/30 bg-emerald-950/20",
     iconClass: "text-emerald-400",
   },

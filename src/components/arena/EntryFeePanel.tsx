@@ -198,8 +198,8 @@ export function EntryFeePanel({
 
             <p className="text-center text-[10px] leading-relaxed text-emerald-400/80">
               {compact
-                ? "Ready — use Play Step Demo below."
-                : "Ready to play — start with Step Demo below, then try full-hand or Agent Battle."}
+                ? "Ready — use Play vs PokerMaster below."
+                : "Ready to play — start with Human vs AI below, or try Agent Battle."}
             </p>
           </>
         )}

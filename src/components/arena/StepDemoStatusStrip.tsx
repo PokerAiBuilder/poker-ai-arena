@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import {
   getStepDemoStreetLabel,
   getStepDemoTurnLabel,
-  humanAmountToCall,
+  getStepDemoHumanCallAmount,
   isStepDemoBettingInProgress,
   isStepDemoFacingAiRaise,
   STEP_DEMO_LABELS,
@@ -46,7 +46,7 @@ export function StepDemoStatusStrip({
   const canShowResult =
     step === "river-complete" && !disabled && !bettingPending;
   const handComplete = step === "result";
-  const toCall = humanAmountToCall(stepDemo);
+  const toCall = getStepDemoHumanCallAmount(stepDemo);
 
   const revealAction = canRevealFlop
     ? { label: "Reveal Flop", onClick: onRevealFlop }

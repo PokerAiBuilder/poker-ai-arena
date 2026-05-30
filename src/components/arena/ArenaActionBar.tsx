@@ -1,12 +1,11 @@
 "use client";
 
-import { Loader2, Play, RotateCcw, Swords, Users } from "lucide-react";
+import { Loader2, Play, RotateCcw, Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { StepDemoHumanActions } from "@/lib/arena/stepDemo";
 import { cn } from "@/lib/utils";
 
 type ArenaActionBarProps = {
-  onSimulateHumanVsAi: () => void;
   onSimulateAgentBattle: () => void;
   onPlayStepDemo?: () => void;
   onOpenMenu?: () => void;
@@ -27,7 +26,6 @@ type ArenaActionBarProps = {
 };
 
 export function ArenaActionBar({
-  onSimulateHumanVsAi,
   onSimulateAgentBattle,
   onPlayStepDemo,
   onOpenMenu,
@@ -104,7 +102,7 @@ export function ArenaActionBar({
                 )}
               >
                 <Play className="h-4 w-4" />
-                Play Step Demo
+                Play vs PokerMaster
               </Button>
             ) : null}
 
@@ -175,25 +173,11 @@ export function ArenaActionBar({
 
           <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-end">
             <Button
-              onClick={onSimulateHumanVsAi}
-              disabled={controlsDisabled}
-              size="sm"
-              variant="outline"
-              className="h-9 border-white/15 text-xs"
-            >
-              {loading && loadingMode === "human-vs-ai" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Users className="h-3.5 w-3.5" />
-              )}
-              Full Hand
-            </Button>
-            <Button
               onClick={onSimulateAgentBattle}
               disabled={controlsDisabled}
-              size="sm"
+              size="lg"
               variant="outline"
-              className="h-9 border-white/15 text-xs"
+              className="h-11 min-w-[160px] border-violet-400/35 text-sm font-semibold text-violet-100 hover:bg-violet-950/40"
             >
               {loading && loadingMode === "agent-vs-agent" ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />

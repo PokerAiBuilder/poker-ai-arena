@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 const DEMO_STEPS = [
   "Mock Pay Entry Fee",
-  "Play Step Demo: Human vs AI",
+  "Play vs PokerMaster",
   "Choose Fold / Call / Check / Raise",
   "Reveal Flop / Turn / River",
   "Show Result",

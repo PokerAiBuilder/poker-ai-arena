@@ -6,12 +6,15 @@ import { cn } from "@/lib/utils";
 type AiDecisionPanelProps = {
   latest?: SimulationAgentDecision;
   totalDecisions?: number;
+  /** Human vs AI — amount the player must call after the latest AI action */
+  humanCallAmount?: number;
   className?: string;
 };
 
 export function AiDecisionPanel({
   latest,
   totalDecisions = 0,
+  humanCallAmount,
   className,
 }: AiDecisionPanelProps) {
   if (!latest) {
@@ -68,14 +71,24 @@ export function AiDecisionPanel({
 
         <div className="flex items-center gap-3">
           <span className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-1.5 text-sm font-bold uppercase text-cyan-300">
-            {latest.action}
+            {latest.action === "raise" || latest.action === "all-in"
+              ? "Raise"
+              : latest.action}
           </span>
           {latest.amount != null ? (
             <span className="text-sm text-casino-goldLight">
-              {latest.amount} chips
+              {latest.action === "raise" || latest.action === "all-in"
+                ? `+${latest.amount} chips`
+                : `${latest.amount} chips`}
             </span>
           ) : null}
         </div>
+
+        {humanCallAmount != null && humanCallAmount > 0 ? (
+          <p className="text-[11px] font-medium text-amber-300/90">
+            Your call: {humanCallAmount} chips
+          </p>
+        ) : null}
 
         <div>
           <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">

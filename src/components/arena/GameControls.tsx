@@ -1,4 +1,4 @@
-import { Loader2, Play, Swords, Users } from "lucide-react";
+import { Loader2, Play, Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { StepDemoHumanActions } from "@/lib/arena/stepDemo";
 import { cn } from "@/lib/utils";
@@ -71,36 +71,16 @@ export function GameControls({
             )}
           >
             <Play className="h-4 w-4" />
-            Play Step Demo: Human vs AI
+            Play vs PokerMaster
           </Button>
         </div>
       ) : null}
 
       <p className="mt-4 mb-2 text-center text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-        Full-hand simulations (optional)
+        Spectator mode
       </p>
 
       <div className="flex flex-col items-stretch justify-center gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
-        <Button
-          onClick={onSimulateHumanVsAi}
-          disabled={controlsDisabled}
-          size="default"
-          variant="outline"
-          className="w-full border-white/15 sm:min-w-[200px] sm:w-auto"
-        >
-          {loading && loadingMode === "human-vs-ai" ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Simulating…
-            </>
-          ) : (
-            <>
-              <Users className="h-4 w-4" />
-              Full Hand: Human vs AI
-            </>
-          )}
-        </Button>
-
         <Button
           onClick={onSimulateAgentBattle}
           disabled={controlsDisabled}
@@ -116,7 +96,7 @@ export function GameControls({
           ) : (
             <>
               <Swords className="h-4 w-4" />
-              Full Hand: Agent Battle
+              Agent Battle
             </>
           )}
         </Button>
@@ -124,7 +104,7 @@ export function GameControls({
 
       <div className="mt-5 border-t border-white/10 pt-4">
         <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-          Your actions (Step Demo only)
+          Your actions (Human vs AI)
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Button
@@ -195,7 +175,7 @@ export function GameControls({
           {humanTurnActive
             ? humanActions?.disabledHint
             : (humanActions?.disabledHint ??
-              "Fold / Check / Call / Raise unlock during Step Demo on your turn.")}
+              "Fold / Check / Call / Raise unlock during Human vs AI on your turn.")}
         </p>
       </div>
 
@@ -206,8 +186,8 @@ export function GameControls({
       ) : null}
 
       <p className="mt-3 text-center text-[10px] leading-relaxed text-muted-foreground">
-        Start with Step Demo for the guided experience. Full-hand modes run the
-        engine in one click (MVP streets).
+        Start with Human vs AI for the guided heads-up experience. Agent Battle
+        runs a four-agent spectator simulation.
       </p>
     </div>
   );

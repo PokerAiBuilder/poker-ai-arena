@@ -20,14 +20,6 @@ const previewAgents = [
     active: true,
   },
   {
-    name: "BluffBot",
-    initials: "BB",
-    position: "left",
-    stack: 980,
-    holeCards: null,
-    active: false,
-  },
-  {
     name: "You",
     initials: "YO",
     position: "bottom",
@@ -38,14 +30,6 @@ const previewAgents = [
     ],
     active: true,
   },
-  {
-    name: "RiverMind",
-    initials: "RM",
-    position: "right",
-    stack: 860,
-    holeCards: null,
-    active: false,
-  },
 ] as const;
 
 function seatPosition(position: (typeof previewAgents)[number]["position"]) {
@@ -54,10 +38,8 @@ function seatPosition(position: (typeof previewAgents)[number]["position"]) {
       return "left-1/2 top-[6%] -translate-x-1/2";
     case "bottom":
       return "bottom-[5%] left-1/2 -translate-x-1/2";
-    case "left":
-      return "left-[5%] top-[42%] -translate-y-1/2";
-    case "right":
-      return "right-[5%] top-[42%] -translate-y-1/2";
+    default:
+      return "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2";
   }
 }
 
@@ -154,7 +136,7 @@ export function TablePreview() {
         </div>
 
         <div className="mt-3 rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-center text-xs leading-relaxed text-muted-foreground">
-          Step Demo · Agent Battle · Mock entry unlock — demo chips only, no
+          Human vs AI · Agent Battle · Mock entry unlock — demo chips only, no
           real-money gambling.
         </div>
       </div>

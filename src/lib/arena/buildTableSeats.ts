@@ -17,8 +17,6 @@ const SEAT_LAYOUT: Record<
   "human-vs-ai": {
     human: "bottom",
     [PokerMaster.id]: "top",
-    [BluffBot.id]: "left",
-    [RiverMind.id]: "right",
   },
   "agent-vs-agent": {
     [PokerMaster.id]: "bottom",
@@ -138,32 +136,6 @@ export function buildTableSeats(
         avatar: "HP",
         strategy: "balanced",
         defaultStack,
-      },
-      sessionStacks,
-    ),
-    buildSeatFromPlayer(
-      result,
-      gameMode,
-      {
-        id: BluffBot.id,
-        name: BluffBot.name,
-        avatar: BluffBot.avatar,
-        strategy: BluffBot.strategy,
-        defaultStack,
-        forceIdle: !result,
-      },
-      sessionStacks,
-    ),
-    buildSeatFromPlayer(
-      result,
-      gameMode,
-      {
-        id: RiverMind.id,
-        name: RiverMind.name,
-        avatar: RiverMind.avatar,
-        strategy: RiverMind.strategy,
-        defaultStack,
-        forceIdle: !result,
       },
       sessionStacks,
     ),
