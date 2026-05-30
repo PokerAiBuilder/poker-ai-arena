@@ -66,10 +66,13 @@ export function AiDecisionPanel({
   }
 
   const confidencePct = Math.round(latest.confidence * 100);
-  const actionLabel =
-    latest.action === "raise" || latest.action === "all-in"
-      ? "Raise"
-      : latest.action;
+  const actionLabel = (() => {
+    if (latest.reasoning.startsWith("CALL all-in")) return "CALL all-in";
+    if (latest.reasoning.startsWith("FOLD to all-in")) return "FOLD to all-in";
+    if (latest.action === "all-in") return "All-in";
+    if (latest.action === "raise") return "Raise";
+    return latest.action;
+  })();
 
   return (
     <div

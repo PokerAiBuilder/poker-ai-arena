@@ -20,6 +20,7 @@ type ArenaActionBarProps = {
   onHumanCall?: () => void;
   onHumanCheck?: () => void;
   onHumanRaise?: (size: StepDemoRaiseSize) => void;
+  onHumanAllIn?: () => void;
   stepDemoHandComplete?: boolean;
   onStepDemoReset?: () => void;
   onResetDemoStacks?: () => void;
@@ -27,6 +28,7 @@ type ArenaActionBarProps = {
   onRevealFlop?: () => void;
   onRevealTurn?: () => void;
   onRevealRiver?: () => void;
+  onRunoutBoard?: () => void;
   onShowResult?: () => void;
   loading?: boolean;
   loadingMode?: "human-vs-ai" | "agent-vs-agent" | null;
@@ -65,6 +67,7 @@ export function ArenaActionBar({
   onHumanCall,
   onHumanCheck,
   onHumanRaise,
+  onHumanAllIn,
   stepDemoHandComplete = false,
   onStepDemoReset,
   onResetDemoStacks,
@@ -72,6 +75,7 @@ export function ArenaActionBar({
   onRevealFlop,
   onRevealTurn,
   onRevealRiver,
+  onRunoutBoard,
   onShowResult,
   loading = false,
   loadingMode = null,
@@ -90,7 +94,8 @@ export function ArenaActionBar({
     (humanActions.canFold ||
       humanActions.canCall ||
       humanActions.canCheck ||
-      humanActions.canRaise);
+      humanActions.canRaise ||
+      humanActions.canAllIn);
   const agentBattleDisabled =
     disabled || loading || (stepDemoActive && !stepDemoHandComplete);
   const playStepDemoDisabled =
@@ -153,6 +158,9 @@ export function ArenaActionBar({
         break;
       case "reveal-river":
         onRevealRiver?.();
+        break;
+      case "runout-board":
+        onRunoutBoard?.();
         break;
       case "show-result":
         onShowResult?.();
@@ -363,10 +371,25 @@ export function ArenaActionBar({
             <Button
               variant="destructive"
               size="lg"
-              className="h-11 min-w-[4.5rem] font-semibold opacity-40"
-              disabled
-              title="Coming soon"
-              aria-label="All-in — coming soon"
+              className={cn(
+                "h-11 min-w-[4.5rem] font-semibold",
+                humanTurnActive &&
+                  humanActions?.canAllIn &&
+                  "border-red-400/50 bg-red-700 opacity-100 hover:bg-red-600",
+                !humanActions?.canAllIn && "opacity-40",
+              )}
+              disabled={!humanTurnActive || !humanActions?.canAllIn}
+              title={
+                humanActions?.canAllIn
+                  ? `All-in ${humanActions.allInAmount} chips`
+                  : humanActions?.disabledHint ?? actionHint ?? "All-in unavailable"
+              }
+              aria-label={
+                humanActions?.canAllIn
+                  ? `All-in ${humanActions.allInAmount} chips`
+                  : "All-in — unavailable"
+              }
+              onClick={onHumanAllIn}
             >
               All-in
             </Button>

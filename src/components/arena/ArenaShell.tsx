@@ -34,7 +34,9 @@ import {
   advanceStepDemoRevealFlop,
   advanceStepDemoRevealRiver,
   advanceStepDemoRevealTurn,
+  advanceStepDemoRunoutBoard,
   advanceStepDemoShowResult,
+  applyHumanAllIn,
   applyHumanCall,
   applyHumanCheck,
   applyHumanFold,
@@ -305,6 +307,10 @@ export function ArenaShell() {
     commitStepDemo((prev) => advanceStepDemoShowResult(prev));
   }, [commitStepDemo]);
 
+  const handleStepDemoRunoutBoard = useCallback(() => {
+    commitStepDemo((prev) => advanceStepDemoRunoutBoard(prev));
+  }, [commitStepDemo]);
+
   const handleHumanFold = useCallback(() => {
     commitStepDemo((prev) => applyHumanFold(prev));
   }, [commitStepDemo]);
@@ -319,6 +325,10 @@ export function ArenaShell() {
 
   const handleHumanRaise = useCallback((size: StepDemoRaiseSize) => {
     commitStepDemo((prev) => applyHumanRaise(prev, size));
+  }, [commitStepDemo]);
+
+  const handleHumanAllIn = useCallback(() => {
+    commitStepDemo((prev) => applyHumanAllIn(prev));
   }, [commitStepDemo]);
 
   const stepDemoHumanActions = useMemo(
@@ -542,11 +552,13 @@ export function ArenaShell() {
         onRevealFlop={handleStepDemoRevealFlop}
         onRevealTurn={handleStepDemoRevealTurn}
         onRevealRiver={handleStepDemoRevealRiver}
+        onRunoutBoard={handleStepDemoRunoutBoard}
         onShowResult={handleStepDemoShowResult}
         onHumanFold={handleHumanFold}
         onHumanCall={handleHumanCall}
         onHumanCheck={handleHumanCheck}
         onHumanRaise={handleHumanRaise}
+        onHumanAllIn={handleHumanAllIn}
         loading={loading}
         loadingMode={loadingMode}
         disabled={!isArenaUnlocked}

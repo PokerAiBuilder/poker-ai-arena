@@ -31,6 +31,8 @@ export type StepDemoAiDecisionOptions = {
   afterHumanReRaise?: boolean;
   /** AI already raised this street — no second raise. */
   aiAlreadyRaised?: boolean;
+  /** Human went all-in — call/fold only with pot-odds logic. */
+  humanWentAllIn?: boolean;
 };
 
 function cardValue(rank: Rank): number {
@@ -618,6 +620,103 @@ function decidePostflop(
   return decision("call", "weak hand but pot odds — calling", 0.42, toCall);
 }
 
+function decideFacingHumanAllIn(
+  state: StepDemoState,
+  profile: HandProfile,
+  toCall: number,
+): AgentDecision {
+  const aiStack = state.players.pokerMaster.stack;
+  const callAmount = Math.min(toCall, aiStack);
+  const potOdds = toCall > 0 ? state.pot / toCall : 999;
+
+  if (profile.tier === "premium") {
+    return decision(
+      "call",
+      `premium hand (${profile.label}) — calling your all-in`,
+      0.88,
+      callAmount,
+    );
+  }
+
+  if (profile.tier === "strong") {
+    if (potOdds >= 1.5 || roll() < 0.72) {
+      return decision(
+        "call",
+        `strong hand (${profile.label}) — calling all-in with good pot odds`,
+        0.78,
+        callAmount,
+      );
+    }
+    if (roll() < 0.38) {
+      return decision(
+        "fold",
+        `strong but not premium (${profile.label}) — folding to all-in`,
+        0.55,
+      );
+    }
+    return decision(
+      "call",
+      `strong hand (${profile.label}) — calling all-in`,
+      0.72,
+      callAmount,
+    );
+  }
+
+  if (profile.tier === "medium") {
+    if (profile.hasDraw && potOdds >= 2 && roll() < 0.58) {
+      return decision(
+        "call",
+        `${profile.label} with draws — calling all-in for pot odds`,
+        0.6,
+        callAmount,
+      );
+    }
+    if (potOdds >= 3 && roll() < 0.42) {
+      return decision(
+        "call",
+        `medium hand (${profile.label}) — calling with pot odds`,
+        0.52,
+        callAmount,
+      );
+    }
+    if (roll() < 0.58) {
+      return decision(
+        "fold",
+        `medium hand (${profile.label}) — folding to all-in`,
+        0.65,
+      );
+    }
+    return decision(
+      "call",
+      `medium hand (${profile.label}) — calling all-in`,
+      0.48,
+      callAmount,
+    );
+  }
+
+  if (potOdds >= 4 && roll() < 0.28) {
+    return decision(
+      "call",
+      `weak hand but long pot odds — calling all-in`,
+      0.38,
+      callAmount,
+    );
+  }
+  if (roll() < 0.68) {
+    return decision(
+      "fold",
+      `weak hand (${profile.label}) — folding to all-in`,
+      0.72,
+    );
+  }
+  return decision(
+    "call",
+    `weak hand (${profile.label}) — hero call all-in`,
+    0.35,
+    callAmount,
+  );
+}
+
 /**
  * Step Demo only — tuned PokerMaster decisions (not used in full-hand sim).
  */
@@ -634,7 +733,17 @@ export function getStepDemoPokerMasterDecision(
 
   let result: AgentDecision;
 
-  if (options.afterHumanReRaise && facingBet) {
+  if (options.humanWentAllIn) {
+    result =
+      toCall > 0
+        ? decideFacingHumanAllIn(state, profile, toCall)
+        : decision(
+            "call",
+            `${profile.label} — calling all-in (already matched)`,
+            0.85,
+            0,
+          );
+  } else if (options.afterHumanReRaise && facingBet) {
     result = decideFacingReRaise(state, profile, toCall);
   } else if (state.street === "preflop") {
     result = decidePreflop(
@@ -662,6 +771,15 @@ export function getStepDemoPokerMasterDecision(
       `${profile.label} — calling after your re-raise (demo cap)`,
       result.confidence * 0.9,
       toCall,
+    );
+  }
+
+  if (options.humanWentAllIn && result.action !== "fold") {
+    result = decision(
+      "call",
+      result.reasoning,
+      result.confidence,
+      Math.min(toCall, state.players.pokerMaster.stack),
     );
   }
 
