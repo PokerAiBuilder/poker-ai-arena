@@ -12,9 +12,9 @@ const features = [
   },
   {
     icon: Swords,
-    title: "Agent Battle",
+    title: "AI Agent Battle",
     description:
-      "Watch PokerMaster, BluffBot, RiverMind, and ChipHunter compete in spectator mode.",
+      "Spectator Mode: watch PokerMaster, BluffBot, RiverMind, and ChipHunter in a one-click simulated hand.",
     accent: "border-violet-500/30 bg-violet-950/20",
     iconClass: "text-violet-400",
   },

@@ -30,6 +30,9 @@ type ArenaActionBarProps = {
   disabled?: boolean;
   disabledReason?: string;
   error?: string | null;
+  /** AI Agent Battle spectator — override Human vs AI action hints */
+  agentBattleSpectator?: boolean;
+  agentBattleHasResult?: boolean;
   className?: string;
 };
 
@@ -70,6 +73,8 @@ export function ArenaActionBar({
   disabled = false,
   disabledReason,
   error,
+  agentBattleSpectator = false,
+  agentBattleHasResult = false,
   className,
 }: ArenaActionBarProps) {
   const controlsDisabled = disabled || loading || stepDemoActive;
@@ -82,23 +87,35 @@ export function ArenaActionBar({
       humanActions.canCheck ||
       humanActions.canRaise);
 
-  const guidance =
-    stepDemoGuidance ??
-    (stepDemoActive
-      ? undefined
-      : {
-          phase: "start-hand" as const,
+  const guidance: StepDemoGameplayGuidance | undefined = stepDemoActive
+    ? stepDemoGuidance
+    : agentBattleSpectator
+      ? {
+          phase: agentBattleHasResult ? "hand-complete" : "waiting",
+          banner: agentBattleHasResult ? "SPECTATOR RESULT" : "AI AGENT BATTLE",
+          actionHint: agentBattleHasResult
+            ? "Spectator result — run Agent Battle again or play vs PokerMaster."
+            : "Spectator Mode — player actions are disabled while watching.",
+        }
+      : stepDemoGuidance ?? {
+          phase: "start-hand",
           banner: "START HAND",
           actionHint: "Start a hand first — tap Play vs PokerMaster.",
-        });
+        };
+
+  const spectatorBannerClass =
+    "border-violet-400/45 bg-violet-950/70 text-violet-100 shadow-[0_0_12px_rgba(139,92,246,0.15)]";
 
   const showGuidanceBanner =
     guidance && (!humanTurnActive || guidance.phase !== "your-turn");
 
   const actionHint =
-    humanTurnActive && humanActions?.disabledHint
+    humanTurnActive && humanActions?.disabledHint && !agentBattleSpectator
       ? humanActions.disabledHint
-      : guidance?.actionHint ?? humanActions?.disabledHint;
+      : guidance?.actionHint ??
+        (agentBattleSpectator
+          ? "Spectator Mode — player actions are disabled while watching."
+          : humanActions?.disabledHint);
 
   const nextStep = guidance?.nextStep;
   const nextStepEnabled =
@@ -129,8 +146,11 @@ export function ArenaActionBar({
   return (
     <div
       className={cn(
-        "shrink-0 border-t border-emerald-500/20 bg-[#050508]/95 backdrop-blur-xl",
+        "shrink-0 border-t bg-[#050508]/95 backdrop-blur-xl",
         "shadow-[0_-8px_32px_rgba(0,0,0,0.45)]",
+        agentBattleSpectator
+          ? "border-violet-500/25"
+          : "border-emerald-500/20",
         className,
       )}
     >
@@ -151,7 +171,9 @@ export function ArenaActionBar({
             <span
               className={cn(
                 "rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]",
-                bannerStyles[guidance.phase],
+                agentBattleSpectator
+                  ? spectatorBannerClass
+                  : bannerStyles[guidance.phase],
               )}
             >
               {guidance.banner}
@@ -160,6 +182,51 @@ export function ArenaActionBar({
         ) : null}
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          {agentBattleSpectator ? (
+            <div className="flex flex-wrap items-center justify-center gap-2 lg:flex-1 lg:justify-start">
+              {onPlayStepDemo ? (
+                <Button
+                  onClick={onPlayStepDemo}
+                  disabled={disabled || loading || stepDemoActive}
+                  size="lg"
+                  variant="outline"
+                  className="h-11 min-w-[200px] border-emerald-400/40 text-emerald-100 hover:bg-emerald-950/40"
+                >
+                  <Play className="h-4 w-4" />
+                  Play vs PokerMaster
+                </Button>
+              ) : null}
+              <Button
+                onClick={onSimulateAgentBattle}
+                disabled={disabled || loading || stepDemoActive}
+                size="lg"
+                className={cn(
+                  "h-11 min-w-[220px] border-2 border-violet-400/50 bg-violet-700 font-semibold text-white",
+                  "shadow-glow hover:bg-violet-600",
+                )}
+                title="Spectator Mode — watch AI agents play a simulated hand"
+              >
+                {loading && loadingMode === "agent-vs-agent" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Swords className="h-4 w-4" />
+                )}
+                Run Agent Battle Again
+              </Button>
+              {onOpenMenu ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9 border-casino-gold/30 text-xs lg:hidden"
+                  onClick={onOpenMenu}
+                >
+                  Menu
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <>
           <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
             {onPlayStepDemo ? (
               <Button
@@ -172,6 +239,7 @@ export function ArenaActionBar({
                   stepDemoActive && "ring-2 ring-emerald-400/40",
                   !stepDemoActive &&
                     !disabled &&
+                    !agentBattleSpectator &&
                     guidance?.phase === "start-hand" &&
                     "ring-2 ring-casino-gold/30",
                 )}
@@ -285,7 +353,7 @@ export function ArenaActionBar({
               title={
                 controlsDisabled
                   ? actionHint ?? "Start a hand first or wait for your turn."
-                  : undefined
+                  : "Spectator Mode — watch AI agents play a simulated hand"
               }
             >
               {loading && loadingMode === "agent-vs-agent" ? (
@@ -307,6 +375,8 @@ export function ArenaActionBar({
               </Button>
             ) : null}
           </div>
+            </>
+          )}
         </div>
 
         {disabled && disabledReason ? (
@@ -325,9 +395,11 @@ export function ArenaActionBar({
               "mt-2 text-center text-xs leading-relaxed",
               humanTurnActive
                 ? "text-emerald-300/90"
-                : nextStepEnabled
-                  ? "font-medium text-emerald-200/90"
-                  : "text-muted-foreground",
+                : agentBattleSpectator
+                  ? "text-violet-200/85"
+                  : nextStepEnabled
+                    ? "font-medium text-emerald-200/90"
+                    : "text-muted-foreground",
             )}
           >
             {actionHint}

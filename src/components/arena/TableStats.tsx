@@ -24,7 +24,7 @@ type TableStatsProps = {
 
 function formatGameMode(mode: SessionStats["lastGameMode"]): string {
   if (!mode) return "—";
-  return mode === "agent-vs-agent" ? "Agent Battle" : "Human vs AI";
+  return mode === "agent-vs-agent" ? "AI Agent Battle" : "Human vs AI";
 }
 
 export function TableStats({

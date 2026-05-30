@@ -7,7 +7,6 @@ import { ArenaActionBar } from "@/components/arena/ArenaActionBar";
 import { ArenaMenuDrawer, ArenaMenuTrigger } from "@/components/arena/ArenaMenuDrawer";
 import { AiDecisionPanel } from "@/components/arena/AiDecisionPanel";
 import { EntryFeePanel } from "@/components/arena/EntryFeePanel";
-import { StepDemoStatusStrip } from "@/components/arena/StepDemoStatusStrip";
 import { PokerTable } from "@/components/arena/PokerTable";
 import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
 import { Badge } from "@/components/ui/badge";
@@ -70,7 +69,7 @@ function createErrorLogEntry(message: string): GameAction {
 }
 
 function gameModeLabel(mode: GameMode): string {
-  return mode === "agent-vs-agent" ? "Agent vs Agent" : "Human vs AI";
+  return mode === "agent-vs-agent" ? "AI Agent Battle" : "Human vs AI";
 }
 
 function applySimulationAnalytics(
@@ -198,7 +197,7 @@ export function ArenaShell() {
         setSessionLog((prev) => [
           ...prev,
           createErrorLogEntry(
-            `Simulation failed (${mode === "agent-vs-agent" ? "Agent Battle" : "Human vs AI"}): ${message}`,
+            `Simulation failed (${mode === "agent-vs-agent" ? "AI Agent Battle" : "Human vs AI"}): ${message}`,
           ),
         ]);
         console.error("[arena] simulation error", message);
@@ -354,6 +353,9 @@ export function ArenaShell() {
     ? getStepDemoPotDisplay(stepDemo)
     : (result?.pot ?? null);
 
+  const isAgentBattleSpectator =
+    activeGameMode === "agent-vs-agent" && !isHeadsUpGuided;
+
   const actionLogEntries = useMemo(
     () =>
       stepDemo.isActive
@@ -439,61 +441,54 @@ export function ArenaShell() {
                 winnerName={
                   stepDemo.isActive
                     ? stepDemo.winner?.name
-                    : undefined
+                    : isAgentBattleSpectator && result
+                      ? result.winner.name
+                      : undefined
                 }
                 winningHand={showdownHandName}
                 resultType={handResultType}
                 locked={!isArenaUnlocked}
-                fourPlayerLayout={activeGameMode === "agent-vs-agent"}
-                spectatorMode={
-                  activeGameMode === "agent-vs-agent" && result != null
-                }
+                fourPlayerLayout={isAgentBattleSpectator}
+                spectatorMode={isAgentBattleSpectator}
+                agentBattleMode={isAgentBattleSpectator}
                 headsUpGuidedMode={isHeadsUpGuided}
                 showHumanVsAiBadge={stepDemo.isActive}
                 headsUpLayoutKey={headsUpLayoutKey}
               />
             </div>
-
-            <div className="mt-2 shrink-0">
-              <StepDemoStatusStrip
-                stepDemo={stepDemo}
-                onRevealFlop={handleStepDemoRevealFlop}
-                onRevealTurn={handleStepDemoRevealTurn}
-                onRevealRiver={handleStepDemoRevealRiver}
-                onShowResult={handleStepDemoShowResult}
-                onReset={handleResetStepDemo}
-                disabled={!isArenaUnlocked}
-              />
-            </div>
           </div>
         </div>
 
-        <aside className="hidden min-h-0 w-[240px] shrink-0 flex-col border-l border-white/5 bg-black/20 p-2 lg:flex">
+        <aside className="hidden min-h-0 w-[240px] shrink-0 flex-col overflow-hidden border-l border-white/5 bg-black/20 p-2 lg:flex">
           <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain">
-            <EntryFeePanel
-              compact
-              paymentResult={paymentResult}
-              onPayMock={payEntryFee}
-              paying={paying}
-              error={paymentError}
-            />
-            {isArenaUnlocked ? (
-              <AiDecisionPanel
+            <div className="flex min-h-0 flex-col gap-1.5">
+              <EntryFeePanel
                 compact
-                latest={latestAiDecision}
-                guidedHand={stepDemo.isActive}
-                humanCallAmount={
-                  stepDemo.isActive ? stepDemoHumanCallAmount : undefined
-                }
-                totalDecisions={
-                  stepDemo.isActive
-                    ? stepDemo.aiDecision
-                      ? 1
-                      : 0
-                    : aiDecisions.length
-                }
+                className="min-h-0 shrink-0"
+                paymentResult={paymentResult}
+                onPayMock={payEntryFee}
+                paying={paying}
+                error={paymentError}
               />
-            ) : null}
+              {isArenaUnlocked ? (
+                <AiDecisionPanel
+                  compact
+                  latest={latestAiDecision}
+                  guidedHand={stepDemo.isActive}
+                  spectatorMode={isAgentBattleSpectator}
+                  humanCallAmount={
+                    stepDemo.isActive ? stepDemoHumanCallAmount : undefined
+                  }
+                  totalDecisions={
+                    stepDemo.isActive
+                      ? stepDemo.aiDecision
+                        ? 1
+                        : 0
+                      : aiDecisions.length
+                  }
+                />
+              ) : null}
+            </div>
           </div>
           <ArenaMenuTrigger
             onClick={() => setMenuOpen(true)}
@@ -509,7 +504,7 @@ export function ArenaShell() {
         onOpenMenu={() => setMenuOpen(true)}
         stepDemoActive={stepDemo.isActive}
         stepDemoHumanActions={stepDemoHumanActions}
-        stepDemoGuidance={stepDemoGuidance}
+        stepDemoGuidance={stepDemo.isActive ? stepDemoGuidance : undefined}
         stepDemoHandComplete={stepDemo.isActive && stepDemo.step === "result"}
         onStepDemoReset={handleResetStepDemo}
         onRevealFlop={handleStepDemoRevealFlop}
@@ -529,6 +524,8 @@ export function ArenaShell() {
             : undefined
         }
         error={error}
+        agentBattleSpectator={isAgentBattleSpectator && !stepDemo.isActive}
+        agentBattleHasResult={isAgentBattleSpectator && !stepDemo.isActive && result != null}
       />
 
       <ArenaMenuDrawer

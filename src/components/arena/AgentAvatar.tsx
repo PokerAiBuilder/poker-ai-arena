@@ -13,6 +13,8 @@ export type AgentAvatarProps = {
   compact?: boolean;
   /** Text-only stack in tight heads-up zones (avoids chip overlap) */
   stackTextOnly?: boolean;
+  /** Softer folded styling for spectator tables */
+  readableFold?: boolean;
   className?: string;
 };
 
@@ -31,6 +33,7 @@ export function AgentAvatar({
   status = "idle",
   compact = false,
   stackTextOnly = false,
+  readableFold = false,
   className,
 }: AgentAvatarProps) {
   const isWinner = status === "winner";
@@ -45,7 +48,10 @@ export function AgentAvatar({
         isActive && "border-cyan-400/50 shadow-[0_0_20px_rgba(34,211,238,0.2)]",
         isWinner &&
           "border-casino-gold shadow-[0_0_36px_rgba(212,175,55,0.55)] ring-2 ring-casino-gold/60",
-        isFolded && "scale-[0.92] border-white/5 bg-black/30 opacity-60",
+        isFolded &&
+          (readableFold
+            ? "scale-[0.96] border-white/10 bg-black/45 opacity-90"
+            : "scale-[0.92] border-white/5 bg-black/30 opacity-60"),
         isIdle && !isWinner && "opacity-75",
         compact ? "min-w-[76px]" : "min-w-[96px]",
         className,
@@ -59,7 +65,7 @@ export function AgentAvatar({
             "border-casino-gold text-casino-goldLight shadow-[0_0_28px_rgba(212,175,55,0.75)] ring-2 ring-amber-300/50",
           !isWinner && isActive && "border-cyan-400/60",
           !isWinner && !isActive && "border-white/20",
-          isFolded && "grayscale",
+          isFolded && (readableFold ? "grayscale-[0.35]" : "grayscale"),
         )}
       >
         {avatar.length <= 2 ? avatar : <span className="text-lg">{avatar}</span>}
@@ -70,7 +76,7 @@ export function AgentAvatar({
           className={cn(
             "font-semibold leading-tight text-white",
             compact ? "text-[9px]" : "text-[11px]",
-            isFolded && "text-white/50",
+            isFolded && (readableFold ? "text-white/90" : "text-white/50"),
           )}
         >
           {name}
@@ -83,7 +89,12 @@ export function AgentAvatar({
       </div>
 
       {stackTextOnly ? (
-        <p className="text-[9px] font-semibold tabular-nums leading-none text-casino-goldLight">
+        <p
+          className={cn(
+            "text-[9px] font-semibold tabular-nums leading-none text-casino-goldLight",
+            isFolded && readableFold && "text-casino-goldLight/90",
+          )}
+        >
           {stack.toLocaleString()}
         </p>
       ) : (

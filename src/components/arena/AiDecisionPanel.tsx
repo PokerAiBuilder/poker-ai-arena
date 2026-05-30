@@ -10,6 +10,8 @@ type AiDecisionPanelProps = {
   humanCallAmount?: number;
   /** Human vs AI guided hand — friendlier empty state copy */
   guidedHand?: boolean;
+  /** AI Agent Battle spectator simulation */
+  spectatorMode?: boolean;
   /** Tighter sidebar layout — hides long reasoning */
   compact?: boolean;
   className?: string;
@@ -20,6 +22,7 @@ export function AiDecisionPanel({
   totalDecisions = 0,
   humanCallAmount,
   guidedHand = false,
+  spectatorMode = false,
   compact = false,
   className,
 }: AiDecisionPanelProps) {
@@ -39,14 +42,21 @@ export function AiDecisionPanel({
         <p
           className={cn(
             "leading-snug text-muted-foreground",
-            compact ? "mt-1.5 line-clamp-2 text-[10px]" : "mt-3 text-xs",
+            compact ? "mt-1.5 line-clamp-3 text-[10px]" : "mt-3 text-xs",
           )}
         >
           {guidedHand
             ? "PokerMaster decisions will appear here during the hand."
-            : "Run a full-hand simulation to see the latest AI reasoning."}
+            : spectatorMode
+              ? "Latest agent decision appears here during AI Agent Battle."
+              : "Run a full-hand simulation to see the latest AI reasoning."}
         </p>
-        {!guidedHand && !compact ? (
+        {spectatorMode && compact ? (
+          <p className="mt-1 text-[9px] leading-none text-white/35">
+            Spectator Mode — watch only.
+          </p>
+        ) : null}
+        {!guidedHand && !spectatorMode && !compact ? (
           <p className="mt-1 text-[10px] text-white/40">
             Latest decision from Agent Battle or full-hand simulation.
           </p>
@@ -91,7 +101,13 @@ export function AiDecisionPanel({
           <p className="mt-1.5 text-[10px] text-white/45">
             {guidedHand
               ? "Latest PokerMaster decision this hand."
-              : "Latest decision from simulation."}
+              : spectatorMode
+                ? "Latest agent decision."
+                : "Latest decision from simulation."}
+          </p>
+        ) : spectatorMode ? (
+          <p className="mt-1 text-[9px] leading-none text-white/40">
+            Latest agent decision
           </p>
         ) : null}
       </div>
@@ -121,7 +137,7 @@ export function AiDecisionPanel({
           ) : null}
         </div>
 
-        {humanCallAmount != null && humanCallAmount > 0 ? (
+        {humanCallAmount != null && humanCallAmount > 0 && !spectatorMode ? (
           <p className="text-[10px] font-medium leading-none text-amber-300/90">
             Your call: {humanCallAmount} chips
           </p>
@@ -140,20 +156,33 @@ export function AiDecisionPanel({
           </div>
         </div>
 
-        {!compact ? (
+        {!compact && !spectatorMode ? (
           <p className="text-xs leading-relaxed text-muted-foreground">
             &ldquo;{latest.reasoning}&rdquo;
           </p>
         ) : (
           <p className="text-[9px] leading-none text-white/35">
-            Full reasoning in Action Log.
+            {spectatorMode
+              ? totalDecisions > 1
+                ? "Full agent sequence in Action Log."
+                : "Full reasoning in Action Log."
+              : guidedHand
+                ? "Full reasoning in Action Log."
+                : "Full reasoning in Action Log."}
           </p>
         )}
 
-        {totalDecisions > 1 && !guidedHand && !compact ? (
-          <p className="text-[10px] text-white/40">
+        {totalDecisions > 1 && spectatorMode && compact ? (
+          <p className="text-[9px] leading-none text-violet-300/50">
+            +{totalDecisions - 1} earlier agent decision
+            {totalDecisions - 1 === 1 ? "" : "s"}
+          </p>
+        ) : null}
+
+        {totalDecisions > 1 && !spectatorMode && !guidedHand && !compact ? (
+          <p className="text-[9px] leading-none text-white/35">
             +{totalDecisions - 1} earlier decision
-            {totalDecisions - 1 === 1 ? "" : "s"} this hand
+            {totalDecisions - 1 === 1 ? "" : "s"} — see Action Log
           </p>
         ) : null}
       </div>

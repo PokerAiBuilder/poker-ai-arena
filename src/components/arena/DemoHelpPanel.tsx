@@ -2,12 +2,12 @@ import { ListOrdered } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DEMO_STEPS = [
-  "Start Demo Session",
-  "Play vs PokerMaster",
-  "Choose Fold / Call / Check / Raise",
-  "Reveal Flop / Turn / River",
-  "Show Result",
-  "Try Agent Battle (spectator)",
+  "Start Demo Session — demo chips only, no real funds moved",
+  "Play vs PokerMaster — playable Human vs AI mode",
+  "Choose Fold / Call / Check / Raise on your turn",
+  "Reveal Flop / Turn / River and show the result",
+  "Try AI Agent Battle — spectator simulation (watch only)",
+  "Open Arena Menu for Action Log, stats, and full AI reasoning",
 ] as const;
 
 type DemoHelpPanelProps = {
@@ -39,7 +39,8 @@ export function DemoHelpPanel({ className }: DemoHelpPanelProps) {
         ))}
       </ol>
       <p className="mt-3 text-center text-[10px] leading-relaxed text-white/45">
-        Demo chips only · Demo session unlock · No real-money gambling
+        Human vs AI is playable · AI Agent Battle is spectator-only · Demo chips
+        only · No real funds moved
       </p>
     </div>
   );

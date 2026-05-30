@@ -98,7 +98,7 @@ export function EntryFeePanel({
         </div>
       </div>
 
-      <div className={cn(compact ? "space-y-2 p-2.5" : "space-y-3 p-4", "text-xs")}>
+      <div className={cn(compact ? "space-y-1.5 p-2" : "space-y-3 p-4", "text-xs")}>
         {!isUnlocked ? (
           <>
             {compact ? (
@@ -167,50 +167,55 @@ export function EntryFeePanel({
           </>
         ) : (
           <>
-            <dl className="space-y-1.5 rounded-lg border border-white/10 bg-black/30 p-2.5">
+            <dl
+              className={cn(
+                "space-y-1 rounded-lg border border-white/10 bg-black/30",
+                compact ? "p-2" : "p-2.5",
+              )}
+            >
               <div className="flex justify-between gap-2 text-[11px]">
                 <dt className="text-muted-foreground">Amount</dt>
-                <dd className="text-right font-semibold text-white">
+                <dd className="min-w-0 truncate text-right font-semibold text-white">
                   {amount} USDC demo access
                 </dd>
               </div>
               <div className="flex justify-between gap-2 text-[11px]">
-                <dt className="text-muted-foreground">Network</dt>
-                <dd className="text-right text-white">
+                <dt className="shrink-0 text-muted-foreground">Network</dt>
+                <dd className="min-w-0 truncate text-right text-white">
                   {getUserNetworkLabel(network)}
                 </dd>
               </div>
               <div className="flex justify-between gap-2 text-[11px]">
-                <dt className="text-muted-foreground">Mode</dt>
-                <dd className="text-right text-casino-goldLight">
+                <dt className="shrink-0 text-muted-foreground">Mode</dt>
+                <dd className="min-w-0 truncate text-right text-casino-goldLight">
                   {getPaymentModeUserLabel(paymentResult.mode)}
                 </dd>
               </div>
             </dl>
 
             {hasReceiptDetails ? (
-              <details className="rounded-lg border border-white/10 bg-black/20 text-[10px]">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
+              <details className="shrink-0 rounded-lg border border-white/10 bg-black/20 text-[10px]">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-1.5 text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
                   <span>Demo receipt details</span>
                   <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
                 </summary>
-                <dl className="max-h-20 space-y-1 overflow-y-auto overscroll-contain border-t border-white/5 px-2.5 py-2">
+                <dl className="max-h-14 space-y-0.5 overflow-y-auto overscroll-contain border-t border-white/5 px-2 py-1.5">
                   {paymentResult.receiptId ? (
-                    <div className="flex justify-between gap-2">
+                    <div className="flex min-w-0 items-center justify-between gap-2">
                       <dt className="shrink-0 text-muted-foreground">Receipt</dt>
                       <dd
-                        className="truncate font-mono text-[9px] text-white/75"
+                        className="min-w-0 max-w-[6.75rem] truncate text-right font-mono text-[9px] text-white/75"
                         title={paymentResult.receiptId}
                       >
-                        {truncateMiddle(paymentResult.receiptId, 8, 6)}
+                        {truncateMiddle(paymentResult.receiptId, 6, 4)}
                       </dd>
                     </div>
                   ) : null}
                   {paymentResult.txHash ? (
-                    <div className="flex justify-between gap-2">
+                    <div className="flex min-w-0 items-center justify-between gap-2">
                       <dt className="shrink-0 text-muted-foreground">Demo tx</dt>
                       <dd
-                        className="truncate font-mono text-[9px] text-white/75"
+                        className="min-w-0 max-w-[6.75rem] truncate text-right font-mono text-[9px] text-white/75"
                         title={paymentResult.txHash}
                       >
                         {truncateMiddle(paymentResult.txHash, 6, 4)}
@@ -218,10 +223,13 @@ export function EntryFeePanel({
                     </div>
                   ) : null}
                   {paymentResult.paidAt ? (
-                    <div className="flex justify-between gap-2">
+                    <div className="flex min-w-0 items-center justify-between gap-2">
                       <dt className="shrink-0 text-muted-foreground">Unlocked</dt>
-                      <dd className="text-right text-[9px] text-white/70">
-                        {new Date(paymentResult.paidAt).toLocaleString()}
+                      <dd className="min-w-0 truncate text-right text-[9px] text-white/70">
+                        {new Date(paymentResult.paidAt).toLocaleString(undefined, {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })}
                       </dd>
                     </div>
                   ) : null}
