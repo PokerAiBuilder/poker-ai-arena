@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Sparkles, Swords, Users } from "lucide-react";
 import { ArenaActionBar } from "@/components/arena/ArenaActionBar";
 import { ArenaMenuDrawer, ArenaMenuTrigger } from "@/components/arena/ArenaMenuDrawer";
@@ -36,11 +36,11 @@ import {
   advanceStepDemoRevealTurn,
   advanceStepDemoRunoutBoard,
   advanceStepDemoShowResult,
-  applyHumanAllIn,
-  applyHumanCall,
-  applyHumanCheck,
+  applyHumanAllInWithOutcome,
+  applyHumanCallWithOutcome,
+  applyHumanCheckWithOutcome,
   applyHumanFold,
-  applyHumanRaise,
+  applyHumanRaiseWithOutcome,
   buildStepDemoSeats,
   createInitialStepDemoState,
   dealStepDemoHand,
@@ -49,6 +49,10 @@ import {
   getStepDemoGameplayGuidance,
   getStepDemoPotDisplay,
   getStepDemoStackUpdates,
+  resolveStepDemoPendingAi,
+  resolveStepDemoPendingAiWithFallback,
+  type StepDemoHumanActionOutcome,
+  type StepDemoPendingAi,
   type StepDemoRaiseSize,
   type StepDemoState,
 } from "@/lib/arena/stepDemo";
@@ -78,6 +82,23 @@ function createErrorLogEntry(message: string): GameAction {
 function gameModeLabel(mode: GameMode): string {
   return mode === "agent-vs-agent" ? "AI Agent Battle" : "Human vs AI";
 }
+
+const POKERMASTER_THINKING_MIN_MS = 1200;
+const POKERMASTER_THINKING_MAX_MS = 5000;
+const POKERMASTER_THINKING_SAFETY_MS = 5500;
+
+function pokerMasterThinkingDelayMs(): number {
+  return (
+    POKERMASTER_THINKING_MIN_MS +
+    Math.random() * (POKERMASTER_THINKING_MAX_MS - POKERMASTER_THINKING_MIN_MS)
+  );
+}
+
+type PendingAiJob = {
+  generation: number;
+  snapshot: StepDemoState;
+  pending: StepDemoPendingAi;
+};
 
 function applySimulationAnalytics(
   prev: ArenaAnalyticsState,
@@ -111,7 +132,92 @@ export function ArenaShell() {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [sessionLog, setSessionLog] = useState<GameAction[]>([]);
   const [stepDemo, setStepDemo] = useState<StepDemoState>(createInitialStepDemoState);
+  const stepDemoRef = useRef(stepDemo);
+  stepDemoRef.current = stepDemo;
+  const [pokerMasterThinking, setPokerMasterThinking] = useState(false);
+  const pokerMasterThinkingRef = useRef(false);
+  const responseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const thinkingGenerationRef = useRef(0);
+  const pendingAiJobRef = useRef<PendingAiJob | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const applyStepDemoStackUpdates = useCallback((state: StepDemoState) => {
+    const stackUpdates = getStepDemoStackUpdates(state);
+    if (stackUpdates) {
+      setSessionStacks((stacks) =>
+        sanitizeSessionStacks({ ...stacks, ...stackUpdates }),
+      );
+    }
+  }, []);
+
+  const clearPokerMasterThinking = useCallback(() => {
+    if (responseTimerRef.current) {
+      clearTimeout(responseTimerRef.current);
+      responseTimerRef.current = null;
+    }
+    if (safetyTimerRef.current) {
+      clearTimeout(safetyTimerRef.current);
+      safetyTimerRef.current = null;
+    }
+    pendingAiJobRef.current = null;
+    pokerMasterThinkingRef.current = false;
+    setPokerMasterThinking(false);
+  }, []);
+
+  useEffect(() => () => clearPokerMasterThinking(), [clearPokerMasterThinking]);
+
+  const completePendingAiResponse = useCallback(
+    (generation: number, useFallback: boolean) => {
+      const job = pendingAiJobRef.current;
+      if (!job || job.generation !== generation) return;
+
+      if (responseTimerRef.current) {
+        clearTimeout(responseTimerRef.current);
+        responseTimerRef.current = null;
+      }
+      if (safetyTimerRef.current) {
+        clearTimeout(safetyTimerRef.current);
+        safetyTimerRef.current = null;
+      }
+      pendingAiJobRef.current = null;
+      pokerMasterThinkingRef.current = false;
+      setPokerMasterThinking(false);
+
+      if (useFallback) {
+        console.warn("PokerMaster thinking timeout fallback used");
+      }
+
+      setStepDemo(() => {
+        const resolved = useFallback
+          ? resolveStepDemoPendingAiWithFallback(job.snapshot, job.pending)
+          : resolveStepDemoPendingAi(job.snapshot, job.pending);
+        applyStepDemoStackUpdates(resolved);
+        return resolved;
+      });
+    },
+    [applyStepDemoStackUpdates],
+  );
+
+  const schedulePendingAiResponse = useCallback(
+    (snapshot: StepDemoState, pending: StepDemoPendingAi) => {
+      clearPokerMasterThinking();
+
+      const generation = ++thinkingGenerationRef.current;
+      pendingAiJobRef.current = { generation, snapshot, pending };
+      pokerMasterThinkingRef.current = true;
+      setPokerMasterThinking(true);
+
+      responseTimerRef.current = setTimeout(() => {
+        completePendingAiResponse(generation, false);
+      }, pokerMasterThinkingDelayMs());
+
+      safetyTimerRef.current = setTimeout(() => {
+        completePendingAiResponse(generation, true);
+      }, POKERMASTER_THINKING_SAFETY_MS);
+    },
+    [clearPokerMasterThinking, completePendingAiResponse],
+  );
 
   const isArenaUnlocked = paymentResult?.success === true;
 
@@ -242,6 +348,7 @@ export function ArenaShell() {
       setError("One player is out of chips — reset demo stacks to continue.");
       return;
     }
+    clearPokerMasterThinking();
     setError(null);
     setResult(null);
     setPreferredSeatLayout("human-vs-ai");
@@ -251,9 +358,10 @@ export function ArenaShell() {
       ...prev,
       createSessionLogEntry("Human vs AI — new hand started."),
     ]);
-  }, [isArenaUnlocked, sessionStacks]);
+  }, [isArenaUnlocked, sessionStacks, clearPokerMasterThinking]);
 
   const handleResetDemoStacks = useCallback(() => {
+    clearPokerMasterThinking();
     setSessionStacks((prev) => resetHeadsUpDemoStacks(prev));
     setStepDemo(createInitialStepDemoState());
     setResult(null);
@@ -261,27 +369,39 @@ export function ArenaShell() {
     setPreferredSeatLayout("human-vs-ai");
     setSessionLog((prev) => [
       ...prev,
-      createSessionLogEntry("Demo stacks reset."),
+      createSessionLogEntry("Demo stacks reset"),
     ]);
-  }, []);
+  }, [clearPokerMasterThinking]);
 
   const commitStepDemo = useCallback(
     (updater: (prev: StepDemoState) => StepDemoState) => {
+      if (pokerMasterThinkingRef.current) return;
       setStepDemo((prev) => {
         const next = updater(prev);
-        const stackUpdates = getStepDemoStackUpdates(next);
-        if (stackUpdates) {
-          setSessionStacks((stacks) =>
-            sanitizeSessionStacks({ ...stacks, ...stackUpdates }),
-          );
-        }
+        applyStepDemoStackUpdates(next);
         return next;
       });
     },
-    [],
+    [applyStepDemoStackUpdates],
+  );
+
+  const runHumanActionWithThinking = useCallback(
+    (apply: (prev: StepDemoState) => StepDemoHumanActionOutcome) => {
+      if (pokerMasterThinkingRef.current) return;
+
+      const outcome = apply(stepDemoRef.current);
+      applyStepDemoStackUpdates(outcome.state);
+      setStepDemo(outcome.state);
+
+      if (outcome.pendingAi) {
+        schedulePendingAiResponse(outcome.state, outcome.pendingAi);
+      }
+    },
+    [applyStepDemoStackUpdates, schedulePendingAiResponse],
   );
 
   const handleResetStepDemo = useCallback(() => {
+    clearPokerMasterThinking();
     setStepDemo(createInitialStepDemoState());
     setResult(null);
     setPreferredSeatLayout("human-vs-ai");
@@ -289,7 +409,7 @@ export function ArenaShell() {
       ...prev,
       createSessionLogEntry("Human vs AI — hand ended."),
     ]);
-  }, []);
+  }, [clearPokerMasterThinking]);
 
   const handleStepDemoRevealFlop = useCallback(() => {
     commitStepDemo((prev) => advanceStepDemoRevealFlop(prev));
@@ -312,24 +432,28 @@ export function ArenaShell() {
   }, [commitStepDemo]);
 
   const handleHumanFold = useCallback(() => {
+    if (pokerMasterThinkingRef.current) return;
     commitStepDemo((prev) => applyHumanFold(prev));
   }, [commitStepDemo]);
 
   const handleHumanCall = useCallback(() => {
-    commitStepDemo((prev) => applyHumanCall(prev));
-  }, [commitStepDemo]);
+    runHumanActionWithThinking((prev) => applyHumanCallWithOutcome(prev));
+  }, [runHumanActionWithThinking]);
 
   const handleHumanCheck = useCallback(() => {
-    commitStepDemo((prev) => applyHumanCheck(prev));
-  }, [commitStepDemo]);
+    runHumanActionWithThinking((prev) => applyHumanCheckWithOutcome(prev));
+  }, [runHumanActionWithThinking]);
 
-  const handleHumanRaise = useCallback((size: StepDemoRaiseSize) => {
-    commitStepDemo((prev) => applyHumanRaise(prev, size));
-  }, [commitStepDemo]);
+  const handleHumanRaise = useCallback(
+    (size: StepDemoRaiseSize) => {
+      runHumanActionWithThinking((prev) => applyHumanRaiseWithOutcome(prev, size));
+    },
+    [runHumanActionWithThinking],
+  );
 
   const handleHumanAllIn = useCallback(() => {
-    commitStepDemo((prev) => applyHumanAllIn(prev));
-  }, [commitStepDemo]);
+    runHumanActionWithThinking((prev) => applyHumanAllInWithOutcome(prev));
+  }, [runHumanActionWithThinking]);
 
   const stepDemoHumanActions = useMemo(
     () => getStepDemoHumanActions(stepDemo),
@@ -515,6 +639,7 @@ export function ArenaShell() {
                   compact
                   latest={latestAiDecision}
                   guidedHand={stepDemo.isActive}
+                  thinking={pokerMasterThinking}
                   spectatorMode={isAgentBattleSpectator}
                   humanCallAmount={
                     stepDemo.isActive ? stepDemoHumanCallAmount : undefined
@@ -559,6 +684,7 @@ export function ArenaShell() {
         onHumanCheck={handleHumanCheck}
         onHumanRaise={handleHumanRaise}
         onHumanAllIn={handleHumanAllIn}
+        pokerMasterThinking={pokerMasterThinking}
         loading={loading}
         loadingMode={loadingMode}
         disabled={!isArenaUnlocked}

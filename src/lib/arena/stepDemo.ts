@@ -133,7 +133,19 @@ export type StepDemoGameplayPhase =
   | "your-turn"
   | "waiting"
   | "advance-street"
-  | "hand-complete";
+  | "hand-complete"
+  | "all-in";
+
+/** Deferred PokerMaster response — resolved by ArenaShell after thinking delay. */
+export type StepDemoPendingAi =
+  | "street-response"
+  | "after-re-raise"
+  | "all-in-response";
+
+export type StepDemoHumanActionOutcome = {
+  state: StepDemoState;
+  pendingAi: StepDemoPendingAi | null;
+};
 
 export type StepDemoNextStepAction =
   | "reveal-flop"
@@ -252,11 +264,9 @@ function streetCompleteStep(street: StepDemoStreet): StepDemoStep {
 function streetCompleteMessage(street: StepDemoStreet): string {
   switch (street) {
     case "preflop":
-      return "Preflop complete — reveal the flop.";
     case "flop":
-      return "Flop complete — reveal the turn.";
     case "turn":
-      return "Turn complete — reveal the river.";
+      return "PokerMaster called — reveal the next street.";
     case "river":
       return "River complete — show the result.";
   }
@@ -360,6 +370,104 @@ function playerLog(
     message,
     timestamp: Date.now(),
   };
+}
+
+function formatPokerMasterActionMessage(
+  decision: AgentDecision,
+  chipsPaid?: number,
+): string {
+  switch (decision.action) {
+    case "fold":
+      return "PokerMaster folds";
+    case "check":
+      return "PokerMaster checks";
+    case "call": {
+      const amount = chipsPaid ?? decision.amount;
+      return amount != null && amount > 0
+        ? `PokerMaster calls ${amount} chips`
+        : "PokerMaster calls";
+    }
+    case "raise":
+    case "all-in":
+      return `PokerMaster raises +${decision.amount ?? STEP_DEMO_RAISE}`;
+    default:
+      return `PokerMaster ${decision.action}`;
+  }
+}
+
+function awaitingAiResponse(state: StepDemoState): StepDemoState {
+  return {
+    ...state,
+    turn: "poker-master",
+    aiDecision: null,
+  };
+}
+
+function buildSafeFallbackDecision(
+  state: StepDemoState,
+): AgentDecision {
+  const toCall = aiAmountToCall(state);
+  const aiStack = clampStack(state.players.pokerMaster.stack);
+
+  if (toCall === 0) {
+    return {
+      action: "check",
+      reasoning: "safe fallback — checking",
+      confidence: 0.5,
+    };
+  }
+  if (aiStack > 0) {
+    return {
+      action: "call",
+      amount: Math.min(toCall, aiStack),
+      reasoning: "safe fallback — calling",
+      confidence: 0.5,
+    };
+  }
+  return {
+    action: "fold",
+    reasoning: "safe fallback — folding",
+    confidence: 0.5,
+  };
+}
+
+export function resolveStepDemoPendingAiWithFallback(
+  state: StepDemoState,
+  pending: StepDemoPendingAi,
+): StepDemoState {
+  const base: StepDemoState = {
+    ...state,
+    actionLog: [
+      ...state.actionLog,
+      systemLog(
+        "PokerMaster took too long — safe fallback applied.",
+        gameStage(state),
+      ),
+    ],
+  };
+  const decision = buildSafeFallbackDecision(state);
+  switch (pending) {
+    case "street-response":
+      return runAiStreetResponse(base, decision);
+    case "after-re-raise":
+      return runAiAfterHumanReRaise(base, decision);
+    case "all-in-response":
+      return runAiResponseToHumanAllIn(base, decision);
+  }
+}
+
+export function resolveStepDemoPendingAi(
+  state: StepDemoState,
+  pending: StepDemoPendingAi,
+): StepDemoState {
+  switch (pending) {
+    case "street-response":
+      return runAiStreetResponse(state);
+    case "after-re-raise":
+      return runAiAfterHumanReRaise(state);
+    case "all-in-response":
+      return runAiResponseToHumanAllIn(state);
+  }
 }
 
 function toSimulationAgentDecision(
@@ -627,7 +735,7 @@ export function dealStepDemoHand(sessionStacks: SessionStacksState): StepDemoSta
     actionLog: [
       systemLog("New hand dealt."),
       systemLog(
-        `Blinds posted — You SB ${humanStreetBet}, ${PokerMaster.name} BB ${aiStreetBet}. Pot ${pot}. Your turn.`,
+        `Blinds posted — You ${humanStreetBet}, ${PokerMaster.name} ${aiStreetBet}. Pot ${pot}.`,
       ),
     ],
     aiDecision: null,
@@ -665,12 +773,17 @@ function settleUncalledAllInBet(state: StepDemoState): StepDemoState {
   };
 }
 
-function runAiResponseToHumanAllIn(state: StepDemoState): StepDemoState {
+function runAiResponseToHumanAllIn(
+  state: StepDemoState,
+  forcedDecision?: AgentDecision,
+): StepDemoState {
   const human = { ...state.players.human };
   const ai = { ...state.players.pokerMaster };
   const stage = gameStage(state);
 
-  const decision = getStepDemoPokerMasterDecision(state, { humanWentAllIn: true });
+  const decision =
+    forcedDecision ??
+    getStepDemoPokerMasterDecision(state, { humanWentAllIn: true });
 
   if (decision.action === "fold") {
     const foldDecision = {
@@ -682,7 +795,7 @@ function runAiResponseToHumanAllIn(state: StepDemoState): StepDemoState {
         ai.id,
         ai.name,
         "fold",
-        `${ai.name} FOLD to all-in — ${decision.reasoning}`,
+        "PokerMaster folds",
         stage,
       ),
       systemLog("PokerMaster folded — you win the pot.", stage),
@@ -716,7 +829,7 @@ function runAiResponseToHumanAllIn(state: StepDemoState): StepDemoState {
       ai.id,
       ai.name,
       "call",
-      `${ai.name} CALL all-in (${chips.paid} chips) — ${decision.reasoning}`,
+      `PokerMaster calls ${chips.paid} chips`,
       stage,
     ),
   ];
@@ -749,8 +862,8 @@ function runAiResponseToHumanAllIn(state: StepDemoState): StepDemoState {
       ...nextState.actionLog,
       systemLog(
         boardFull
-          ? "All-in showdown — show the result."
-          : "PokerMaster called — run out the board.",
+          ? "All-in showdown."
+          : "All-in called — run out the board.",
         stage,
       ),
     ],
@@ -769,7 +882,7 @@ export function applyHumanFold(state: StepDemoState): StepDemoState {
     human.id,
     human.name,
     "fold",
-    "You fold.",
+    "You fold",
     gameStage(state),
   );
 
@@ -842,27 +955,32 @@ function promptHumanVsAiRaise(
     aiDecision: toSimulationAgentDecision(decision, stage, base),
     actionLog: [
       ...base.actionLog,
-      systemLog(`${PokerMaster.name} raised — your response needed.`, stage),
+      systemLog("PokerMaster raised — respond to continue.", stage),
     ],
   };
 }
 
-function runAiAfterHumanReRaise(state: StepDemoState): StepDemoState {
+function runAiAfterHumanReRaise(
+  state: StepDemoState,
+  forcedDecision?: AgentDecision,
+): StepDemoState {
   const human = { ...state.players.human };
   const ai = { ...state.players.pokerMaster };
   const stage = gameStage(state);
 
-  const decision = getStepDemoPokerMasterDecision(state, {
-    afterHumanReRaise: true,
-    aiAlreadyRaised: true,
-  });
+  const decision =
+    forcedDecision ??
+    getStepDemoPokerMasterDecision(state, {
+      afterHumanReRaise: true,
+      aiAlreadyRaised: true,
+    });
 
   const logs: GameAction[] = [
     playerLog(
       ai.id,
       ai.name,
       decision.action,
-      `${ai.name} ${decision.action}${decision.amount != null ? ` ${decision.amount}` : ""} — ${decision.reasoning}`,
+      formatPokerMasterActionMessage(decision),
       stage,
     ),
   ];
@@ -897,21 +1015,26 @@ function runAiAfterHumanReRaise(state: StepDemoState): StepDemoState {
   });
 }
 
-function runAiStreetResponse(state: StepDemoState): StepDemoState {
+function runAiStreetResponse(
+  state: StepDemoState,
+  forcedDecision?: AgentDecision,
+): StepDemoState {
   const human = { ...state.players.human };
   const ai = { ...state.players.pokerMaster };
   const stage = gameStage(state);
 
-  const decision = getStepDemoPokerMasterDecision(state, {
-    aiAlreadyRaised: state.aiRaisedThisStreet,
-  });
+  const decision =
+    forcedDecision ??
+    getStepDemoPokerMasterDecision(state, {
+      aiAlreadyRaised: state.aiRaisedThisStreet,
+    });
 
   const logs: GameAction[] = [
     playerLog(
       ai.id,
       ai.name,
       decision.action,
-      `${ai.name} ${decision.action}${decision.amount != null ? ` ${decision.amount}` : ""} — ${decision.reasoning}`,
+      formatPokerMasterActionMessage(decision),
       stage,
     ),
   ];
@@ -954,22 +1077,26 @@ function runAiStreetResponse(state: StepDemoState): StepDemoState {
   });
 }
 
-export function applyHumanCall(state: StepDemoState): StepDemoState {
-  if (state.turn !== "human" || state.allInShowdown) return state;
+export function applyHumanCallWithOutcome(
+  state: StepDemoState,
+): StepDemoHumanActionOutcome {
+  if (state.turn !== "human" || state.allInShowdown) {
+    return { state, pendingAi: null };
+  }
 
   const toCall = humanAmountToCall(state);
-  if (toCall <= 0) return applyHumanCheck(state);
+  if (toCall <= 0) return applyHumanCheckWithOutcome(state);
 
   const human = { ...state.players.human };
   const chips = deductStack(human.stack, toCall);
-  if (chips.paid <= 0) return state;
+  if (chips.paid <= 0) return { state, pendingAi: null };
   human.stack = chips.stack;
 
   const log = playerLog(
     human.id,
     human.name,
     "call",
-    `You call ${chips.paid}.`,
+    `You call ${chips.paid} chips`,
     gameStage(state),
   );
 
@@ -982,66 +1109,96 @@ export function applyHumanCall(state: StepDemoState): StepDemoState {
   };
 
   if (isHumanFacingAiRaiseStep(state.step)) {
-    return completeStreet(next);
+    return { state: completeStreet(next), pendingAi: null };
   }
 
-  return runAiStreetResponse(next);
+  return {
+    state: awaitingAiResponse(next),
+    pendingAi: "street-response",
+  };
 }
 
-export function applyHumanCheck(state: StepDemoState): StepDemoState {
+export function applyHumanCall(state: StepDemoState): StepDemoState {
+  const outcome = applyHumanCallWithOutcome(state);
+  return outcome.pendingAi
+    ? resolveStepDemoPendingAi(outcome.state, outcome.pendingAi)
+    : outcome.state;
+}
+
+export function applyHumanCheckWithOutcome(
+  state: StepDemoState,
+): StepDemoHumanActionOutcome {
   if (state.turn !== "human" || state.allInShowdown || humanAmountToCall(state) > 0) {
-    return state;
+    return { state, pendingAi: null };
   }
 
   const log = playerLog(
     state.players.human.id,
     state.players.human.name,
     "check",
-    "You check.",
+    "You check",
     gameStage(state),
   );
 
-  return runAiStreetResponse({
+  const next = {
     ...state,
     actionLog: [...state.actionLog, log],
-  });
+  };
+
+  return {
+    state: awaitingAiResponse(next),
+    pendingAi: "street-response",
+  };
 }
 
-export function applyHumanRaise(
+export function applyHumanCheck(state: StepDemoState): StepDemoState {
+  const outcome = applyHumanCheckWithOutcome(state);
+  return outcome.pendingAi
+    ? resolveStepDemoPendingAi(outcome.state, outcome.pendingAi)
+    : outcome.state;
+}
+
+export function applyHumanRaiseWithOutcome(
   state: StepDemoState,
   size: StepDemoRaiseSize = 10,
-): StepDemoState {
-  if (state.turn !== "human" || state.allInShowdown) return state;
+): StepDemoHumanActionOutcome {
+  if (state.turn !== "human" || state.allInShowdown) {
+    return { state, pendingAi: null };
+  }
 
   if (
     isHumanFacingAiRaiseStep(state.step) &&
     state.humanReRaisedAfterAiRaise
   ) {
-    return state;
+    return { state, pendingAi: null };
   }
 
   const increment = resolveHumanRaiseIncrement(state, size);
   if (increment < STEP_DEMO_RAISE_MIN || clampStack(state.players.human.stack) <= 0) {
-    return state;
+    return { state, pendingAi: null };
   }
 
   const human = { ...state.players.human };
   const pay = humanRaisePay(state, increment);
-  if (pay < STEP_DEMO_RAISE_MIN) return state;
+  if (pay < STEP_DEMO_RAISE_MIN) return { state, pendingAi: null };
 
   const chips = deductStack(human.stack, pay);
   human.stack = chips.stack;
   const newHumanStreetBet = state.humanStreetBet + chips.paid;
-  if (chips.paid <= 0) return state;
+  if (chips.paid <= 0) return { state, pendingAi: null };
 
-  const sizeLabel =
-    size === "pot" ? `pot-sized ${increment}` : `+${increment}`;
+  const raiseLabel =
+    size === "pot"
+      ? `Pot (${pay} chips)`
+      : size === 10
+        ? `+${increment} chips`
+        : `+${increment} chips`;
 
   const log = playerLog(
     human.id,
     human.name,
     "raise",
-    `You ${state.currentBet === 0 ? "bet" : "raise"} ${sizeLabel} (${chips.paid} chips, total bet ${newHumanStreetBet}).`,
+    `You raise ${raiseLabel}`,
     gameStage(state),
   );
 
@@ -1056,40 +1213,54 @@ export function applyHumanRaise(
   };
 
   if (isHumanFacingAiRaiseStep(state.step)) {
-    return runAiAfterHumanReRaise({
-      ...next,
-      humanReRaisedAfterAiRaise: true,
-    });
+    return {
+      state: awaitingAiResponse({
+        ...next,
+        humanReRaisedAfterAiRaise: true,
+      }),
+      pendingAi: "after-re-raise",
+    };
   }
 
-  return runAiStreetResponse(next);
+  return {
+    state: awaitingAiResponse(next),
+    pendingAi: "street-response",
+  };
 }
 
-export function applyHumanAllIn(state: StepDemoState): StepDemoState {
+export function applyHumanRaise(
+  state: StepDemoState,
+  size: StepDemoRaiseSize = 10,
+): StepDemoState {
+  const outcome = applyHumanRaiseWithOutcome(state, size);
+  return outcome.pendingAi
+    ? resolveStepDemoPendingAi(outcome.state, outcome.pendingAi)
+    : outcome.state;
+}
+
+export function applyHumanAllInWithOutcome(
+  state: StepDemoState,
+): StepDemoHumanActionOutcome {
   if (state.turn !== "human" || state.step === "result" || state.allInShowdown) {
-    return state;
+    return { state, pendingAi: null };
   }
 
   const humanStack = clampStack(state.players.human.stack);
-  if (humanStack <= 0) return state;
+  if (humanStack <= 0) return { state, pendingAi: null };
 
   const human = { ...state.players.human };
   const chips = deductStack(human.stack, humanStack);
   human.stack = chips.stack;
-  if (chips.paid <= 0) return state;
+  if (chips.paid <= 0) return { state, pendingAi: null };
 
   const newHumanStreetBet = state.humanStreetBet + chips.paid;
   const increment = chips.paid;
 
-  const decidingLog = systemLog(
-    "You are all-in — PokerMaster is deciding.",
-    gameStage(state),
-  );
   const log = playerLog(
     human.id,
     human.name,
     "all-in",
-    `Human goes all-in for ${chips.paid} chips.`,
+    `You go all-in for ${chips.paid} chips`,
     gameStage(state),
   );
 
@@ -1101,10 +1272,20 @@ export function applyHumanAllIn(state: StepDemoState): StepDemoState {
     currentBet: Math.max(state.currentBet, newHumanStreetBet),
     lastHumanRaiseIncrement: increment,
     humanAllIn: true,
-    actionLog: [...state.actionLog, log, decidingLog],
+    actionLog: [...state.actionLog, log],
   };
 
-  return runAiResponseToHumanAllIn(next);
+  return {
+    state: awaitingAiResponse(next),
+    pendingAi: "all-in-response",
+  };
+}
+
+export function applyHumanAllIn(state: StepDemoState): StepDemoState {
+  const outcome = applyHumanAllInWithOutcome(state);
+  return outcome.pendingAi
+    ? resolveStepDemoPendingAi(outcome.state, outcome.pendingAi)
+    : outcome.state;
 }
 
 export function advanceStepDemoRevealFlop(state: StepDemoState): StepDemoState {
@@ -1116,7 +1297,7 @@ export function advanceStepDemoRevealFlop(state: StepDemoState): StepDemoState {
     "flop",
     flop.dealt,
     flop.remaining,
-    "Flop revealed. Your turn.",
+    "Flop revealed",
   );
 }
 
@@ -1129,7 +1310,7 @@ export function advanceStepDemoRevealTurn(state: StepDemoState): StepDemoState {
     "turn",
     turn.dealt,
     turn.remaining,
-    "Turn revealed. Your turn.",
+    "Turn revealed",
   );
 }
 
@@ -1142,7 +1323,7 @@ export function advanceStepDemoRevealRiver(state: StepDemoState): StepDemoState 
     "river",
     river.dealt,
     river.remaining,
-    "River revealed. Your turn.",
+    "River revealed",
   );
 }
 
@@ -1170,50 +1351,20 @@ export function advanceStepDemoRunoutBoard(state: StepDemoState): StepDemoState 
   }
 
   if (communityCards.length === 0) {
-    const flop = burnAndDeal(3);
-    logs.push(
-      systemLog(
-        `Runout — flop: ${flop.map((c) => c.rank + c.suit[0]).join(" ")}.`,
-        "flop",
-      ),
-    );
-    const turn = burnAndDeal(1);
-    logs.push(
-      systemLog(
-        `Runout — turn: ${turn.map((c) => c.rank + c.suit[0]).join(" ")}.`,
-        "turn",
-      ),
-    );
-    const river = burnAndDeal(1);
-    logs.push(
-      systemLog(
-        `Runout — river: ${river.map((c) => c.rank + c.suit[0]).join(" ")}.`,
-        "river",
-      ),
-    );
+    burnAndDeal(3);
+    logs.push(systemLog("Flop revealed", "flop"));
+    burnAndDeal(1);
+    logs.push(systemLog("Turn revealed", "turn"));
+    burnAndDeal(1);
+    logs.push(systemLog("River revealed", "river"));
   } else if (communityCards.length === 3) {
-    const turn = burnAndDeal(1);
-    logs.push(
-      systemLog(
-        `Runout — turn: ${turn.map((c) => c.rank + c.suit[0]).join(" ")}.`,
-        "turn",
-      ),
-    );
-    const river = burnAndDeal(1);
-    logs.push(
-      systemLog(
-        `Runout — river: ${river.map((c) => c.rank + c.suit[0]).join(" ")}.`,
-        "river",
-      ),
-    );
+    burnAndDeal(1);
+    logs.push(systemLog("Turn revealed", "turn"));
+    burnAndDeal(1);
+    logs.push(systemLog("River revealed", "river"));
   } else if (communityCards.length === 4) {
-    const river = burnAndDeal(1);
-    logs.push(
-      systemLog(
-        `Runout — river: ${river.map((c) => c.rank + c.suit[0]).join(" ")}.`,
-        "river",
-      ),
-    );
+    burnAndDeal(1);
+    logs.push(systemLog("River revealed", "river"));
   }
 
   return {
@@ -1225,7 +1376,7 @@ export function advanceStepDemoRunoutBoard(state: StepDemoState): StepDemoState 
     actionLog: [
       ...state.actionLog,
       ...logs,
-      systemLog("All-in showdown — show the result.", "river"),
+      systemLog("All-in showdown.", "river"),
     ],
   };
 }
@@ -1282,7 +1433,7 @@ export function advanceStepDemoShowResult(state: StepDemoState): StepDemoState {
     pot: 0,
     lastPotWon: potAwarded,
     revealAiCards,
-    actionLog: [...state.actionLog, systemLog("Showdown complete.", "showdown")],
+    actionLog: [...state.actionLog, systemLog("Showdown complete", "showdown")],
   };
 }
 
@@ -1291,13 +1442,17 @@ export function getStepDemoHumanActions(state: StepDemoState): StepDemoHumanActi
     state.turn === "human" && isHumanActionStep(state.step);
 
   if (!state.isActive || !isHumanTurn) {
-    let disabledHint = "Waiting for PokerMaster.";
+    let disabledHint = "PokerMaster is thinking...";
     if (!state.isActive) {
       disabledHint = "Start a hand first.";
     } else if (state.step === "result") {
       disabledHint = "Hand complete — start a new hand.";
     } else if (isHumanFacingAiRaiseStep(state.step)) {
-      disabledHint = `${PokerMaster.name} raised — choose Call, Raise, or Fold.`;
+      disabledHint = "PokerMaster raised — respond to continue.";
+    } else if (state.turn === "poker-master") {
+      disabledHint = state.humanAllIn
+        ? "You are all-in — PokerMaster is thinking..."
+        : "PokerMaster is thinking...";
     } else if (
       state.step === "preflop-complete" ||
       state.step === "flop-complete" ||
@@ -1305,8 +1460,6 @@ export function getStepDemoHumanActions(state: StepDemoState): StepDemoHumanActi
       state.step === "river-complete"
     ) {
       disabledHint = getStepDemoStatusMessage(state);
-    } else if (state.turn === "poker-master") {
-      disabledHint = "Waiting for PokerMaster.";
     }
 
     return {
@@ -1344,7 +1497,7 @@ export function getStepDemoHumanActions(state: StepDemoState): StepDemoHumanActi
       raiseOptions: [],
       disabledHint: state.allInShowdown
         ? "All-in showdown — use the next step button."
-        : "You are all-in — waiting for PokerMaster.",
+        : "You are all-in — PokerMaster is thinking...",
     };
   }
 
@@ -1359,8 +1512,8 @@ export function getStepDemoHumanActions(state: StepDemoState): StepDemoHumanActi
     raiseAmount: defaultRaise,
     raiseOptions,
     disabledHint: facingRaise
-      ? `${PokerMaster.name} raised — choose Call, Raise, All-in, or Fold.`
-      : "Your turn — choose Fold, Call, Check, Raise, or All-in.",
+      ? "PokerMaster raised — respond to continue."
+      : "Your turn — choose an action.",
   };
 }
 
@@ -1391,35 +1544,32 @@ export function getStepDemoStatusMessage(state: StepDemoState): string {
 
   if (state.allInShowdown) {
     if (state.communityCards.length < 5) {
-      return "PokerMaster called — run out the board.";
+      return "All-in called — run out the board.";
     }
     return "All-in showdown.";
   }
 
+  if (state.turn === "poker-master") {
+    if (state.humanAllIn) {
+      return "You are all-in — PokerMaster is thinking...";
+    }
+    return "PokerMaster is thinking...";
+  }
+
   if (state.turn === "human" && isHumanActionStep(state.step)) {
     if (isHumanFacingAiRaiseStep(state.step)) {
-      return `${PokerMaster.name} raised. Choose Call, Raise, or Fold.`;
+      return "PokerMaster raised — respond to continue.";
     }
-    const toCall = getStepDemoHumanCallAmount(state);
-    if (toCall > 0) {
-      return `Your turn — call ${toCall} or choose a raise size (+10, +25, +50, Pot).`;
-    }
-    return "Your turn — choose Fold, Check, or a raise size (+10, +25, +50, Pot).";
+    return "Your turn — choose an action.";
   }
 
   switch (state.step) {
     case "preflop-complete":
-      return "Preflop complete — reveal the flop.";
     case "flop-complete":
-      return "Flop complete — reveal the turn.";
     case "turn-complete":
-      return "Turn complete — reveal the river.";
+      return "PokerMaster called — reveal the next street.";
     case "river-complete":
       return "River complete — show the result.";
-  }
-
-  if (state.turn === "poker-master") {
-    return "Waiting for PokerMaster…";
   }
 
   return STEP_DEMO_LABELS[state.step];
@@ -1474,7 +1624,7 @@ export function getStepDemoGameplayGuidance(
           : "Hand complete — start a new hand.";
     return {
       phase: "hand-complete",
-      banner: state.humanAllIn ? "ALL-IN RESULT" : "HAND COMPLETE",
+      banner: "HAND COMPLETE",
       actionHint: hint,
     };
   }
@@ -1482,8 +1632,8 @@ export function getStepDemoGameplayGuidance(
   if (state.allInShowdown) {
     const nextStep = getStepDemoNextStep(state);
     return {
-      phase: "advance-street",
-      banner: "ALL-IN SHOWDOWN",
+      phase: "all-in",
+      banner: "ALL-IN",
       actionHint: getStepDemoStatusMessage(state),
       nextStep: nextStep ?? undefined,
     };
@@ -1511,7 +1661,9 @@ export function getStepDemoGameplayGuidance(
     return {
       phase: "waiting",
       banner: "POKERMASTER THINKING",
-      actionHint: "Waiting for PokerMaster…",
+      actionHint: state.humanAllIn
+        ? "You are all-in — PokerMaster is thinking..."
+        : "PokerMaster is thinking...",
     };
   }
 

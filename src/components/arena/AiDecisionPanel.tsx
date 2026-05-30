@@ -1,4 +1,4 @@
-import { Brain } from "lucide-react";
+import { Brain, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { SimulationAgentDecision } from "@/lib/poker/types";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,8 @@ type AiDecisionPanelProps = {
   humanCallAmount?: number;
   /** Human vs AI guided hand — friendlier empty state copy */
   guidedHand?: boolean;
+  /** PokerMaster is deciding — show thinking state */
+  thinking?: boolean;
   /** AI Agent Battle spectator simulation */
   spectatorMode?: boolean;
   /** Tighter sidebar layout — hides long reasoning */
@@ -22,10 +24,44 @@ export function AiDecisionPanel({
   totalDecisions = 0,
   humanCallAmount,
   guidedHand = false,
+  thinking = false,
   spectatorMode = false,
   compact = false,
   className,
 }: AiDecisionPanelProps) {
+  if (thinking && guidedHand) {
+    return (
+      <div
+        className={cn(
+          "glass-panel shrink-0 rounded-xl border border-cyan-500/25 shadow-[0_0_24px_rgba(34,211,238,0.08)]",
+          compact ? "p-2" : "p-4",
+          className,
+        )}
+      >
+        <div className="flex items-center gap-1.5">
+          <Brain className="h-3.5 w-3.5 animate-pulse text-cyan-400" />
+          <h3 className="text-xs font-semibold text-casino-goldLight">AI Decision</h3>
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-300" />
+          <p
+            className={cn(
+              "font-medium text-cyan-200/90",
+              compact ? "text-[10px]" : "text-xs",
+            )}
+          >
+            PokerMaster is thinking...
+          </p>
+        </div>
+        {!compact ? (
+          <p className="mt-2 text-[10px] text-white/40">
+            Decision will appear here once PokerMaster acts.
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
   if (!latest) {
     return (
       <div

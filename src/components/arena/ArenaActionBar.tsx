@@ -30,6 +30,8 @@ type ArenaActionBarProps = {
   onRevealRiver?: () => void;
   onRunoutBoard?: () => void;
   onShowResult?: () => void;
+  /** Human vs AI — PokerMaster is deciding after a human action */
+  pokerMasterThinking?: boolean;
   loading?: boolean;
   loadingMode?: "human-vs-ai" | "agent-vs-agent" | null;
   disabled?: boolean;
@@ -49,11 +51,14 @@ const bannerStyles: Record<
     "border-casino-gold/40 bg-casino-gold/10 text-casino-goldLight",
   "your-turn":
     "border-emerald-400/50 bg-emerald-950/80 text-emerald-300 shadow-[0_0_16px_rgba(16,185,129,0.25)] animate-pulse",
-  waiting: "border-cyan-400/30 bg-cyan-950/50 text-cyan-200",
+  waiting:
+    "border-cyan-400/40 bg-cyan-950/70 text-cyan-200 shadow-[0_0_14px_rgba(34,211,238,0.2)] animate-pulse",
   "advance-street":
     "border-emerald-400/50 bg-emerald-950/70 text-emerald-200 shadow-[0_0_16px_rgba(16,185,129,0.2)]",
   "hand-complete":
     "border-casino-gold/50 bg-casino-gold/15 text-casino-goldLight",
+  "all-in":
+    "border-red-400/45 bg-red-950/65 text-red-200 shadow-[0_0_14px_rgba(239,68,68,0.18)]",
 };
 
 export function ArenaActionBar({
@@ -84,12 +89,15 @@ export function ArenaActionBar({
   error,
   agentBattleSpectator = false,
   agentBattleHasResult = false,
+  pokerMasterThinking = false,
   className,
 }: ArenaActionBarProps) {
   const controlsDisabled = disabled || loading || stepDemoActive;
+  const humanActionsBlocked = pokerMasterThinking;
   const humanActions = stepDemoHumanActions;
   const humanTurnActive =
     stepDemoActive &&
+    !humanActionsBlocked &&
     humanActions &&
     (humanActions.canFold ||
       humanActions.canCall ||
@@ -97,9 +105,9 @@ export function ArenaActionBar({
       humanActions.canRaise ||
       humanActions.canAllIn);
   const agentBattleDisabled =
-    disabled || loading || (stepDemoActive && !stepDemoHandComplete);
+    disabled || loading || pokerMasterThinking || (stepDemoActive && !stepDemoHandComplete);
   const playStepDemoDisabled =
-    disabled || loading || stepDemoActive || headsUpStackDepleted;
+    disabled || loading || stepDemoActive || headsUpStackDepleted || pokerMasterThinking;
   const showStackDepletedUi =
     headsUpStackDepleted && !agentBattleSpectator && !humanTurnActive;
 
@@ -132,7 +140,9 @@ export function ArenaActionBar({
     guidance && (!humanTurnActive || guidance.phase !== "your-turn");
 
   const actionHint =
-    humanTurnActive && humanActions?.disabledHint && !agentBattleSpectator
+    pokerMasterThinking && !agentBattleSpectator
+      ? stepDemoGuidance?.actionHint ?? "PokerMaster is thinking..."
+      : humanTurnActive && humanActions?.disabledHint && !agentBattleSpectator
       ? humanActions.disabledHint
       : guidance?.actionHint ??
         (agentBattleSpectator
@@ -145,10 +155,11 @@ export function ArenaActionBar({
     stepDemoActive &&
     !stepDemoHandComplete &&
     !loading &&
-    !disabled;
+    !disabled &&
+    !pokerMasterThinking;
 
   function handleNextStep() {
-    if (!nextStep) return;
+    if (pokerMasterThinking || !nextStep) return;
     switch (nextStep.action) {
       case "reveal-flop":
         onRevealFlop?.();
