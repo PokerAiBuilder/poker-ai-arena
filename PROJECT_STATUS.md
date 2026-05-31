@@ -1,6 +1,19 @@
 # Project status
 
-Last updated for **v0.4.2** — Agent Battle personalities and action log readability.
+Last updated for **v0.4.3** — Arena hand history (session-only).
+
+---
+
+## v0.4.3 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Recent Hands / Hand History | v0.4.3 | Arena Menu **History** tab — last 10 hands, localStorage |
+| Human vs AI recording | v0.4.3 | Recorded when Step Demo reaches showdown result (deduped) |
+| Agent Battle recording | v0.4.3 | Recorded when spectator sim returns (per `gameId`) |
+| Clear History | v0.4.3 | Clears hand history only — not stacks or session stats |
+
+**Future:** full hand replay remains TODO.
 
 ---
 
@@ -60,7 +73,7 @@ Last updated for **v0.4.2** — Agent Battle personalities and action log readab
 | Stronger AI strategy | **TODO (v0.4/v0.5)** | Rules-based only today |
 | LLM agents | **TODO** | Not started |
 | Production database | **TODO** | Analytics client-only; `DATABASE_URL` unused |
-| Mobile polish / replay / hand history | **TODO** | Future |
+| Mobile polish / full hand replay | **TODO** | Hand history list done (v0.4.3); replay not started |
 
 ---
 

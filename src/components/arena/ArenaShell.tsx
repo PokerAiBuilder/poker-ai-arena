@@ -44,6 +44,17 @@ import type {
 } from "@/lib/analytics";
 import { buildTableSeats } from "@/lib/arena/buildTableSeats";
 import {
+  clearHandHistoryStorage,
+  createHandHistoryFromSimulation,
+  createHandHistoryFromStepDemo,
+  loadHandHistory,
+  prependHandHistory,
+  saveHandHistory,
+  simulationHistoryFingerprint,
+  stepDemoHistoryFingerprint,
+  type HandHistoryRecord,
+} from "@/lib/arena/handHistory";
+import {
   advanceStepDemoRevealFlop,
   advanceStepDemoRevealRiver,
   advanceStepDemoRevealTurn,
@@ -143,6 +154,10 @@ export function ArenaShell() {
   const [agentBattleStacks, setAgentBattleStacks] =
     useState<AgentBattleStacksState>(createInitialAgentBattleStacks);
   const [agentBattleStacksReady, setAgentBattleStacksReady] = useState(false);
+  const [handHistory, setHandHistory] = useState<HandHistoryRecord[]>([]);
+  const [handHistoryReady, setHandHistoryReady] = useState(false);
+  const lastSimHistoryKeyRef = useRef<string | null>(null);
+  const lastStepDemoHistoryKeyRef = useRef<string | null>(null);
   const [preferredSeatLayout, setPreferredSeatLayout] =
     useState<GameMode>("human-vs-ai");
   const [paymentResult, setPaymentResult] = useState<X402PaymentResult | null>(
@@ -271,6 +286,8 @@ export function ArenaShell() {
     setAnalyticsReady(true);
     setStacksReady(true);
     setAgentBattleStacksReady(true);
+    setHandHistory(loadHandHistory());
+    setHandHistoryReady(true);
   }, []);
 
   useEffect(() => {
@@ -287,6 +304,36 @@ export function ArenaShell() {
     if (!agentBattleStacksReady) return;
     saveAgentBattleStacks(agentBattleStacks);
   }, [agentBattleStacks, agentBattleStacksReady]);
+
+  useEffect(() => {
+    if (!handHistoryReady) return;
+    saveHandHistory(handHistory);
+  }, [handHistory, handHistoryReady]);
+
+  useEffect(() => {
+    if (!result || result.gameMode !== "agent-vs-agent") return;
+    const key = simulationHistoryFingerprint(result);
+    if (lastSimHistoryKeyRef.current === key) return;
+    lastSimHistoryKeyRef.current = key;
+    setHandHistory((prev) =>
+      prependHandHistory(prev, createHandHistoryFromSimulation(result)),
+    );
+  }, [result]);
+
+  useEffect(() => {
+    const key = stepDemoHistoryFingerprint(stepDemo);
+    if (!key) {
+      if (!stepDemo.isActive) {
+        lastStepDemoHistoryKeyRef.current = null;
+      }
+      return;
+    }
+    if (lastStepDemoHistoryKeyRef.current === key) return;
+    lastStepDemoHistoryKeyRef.current = key;
+    setHandHistory((prev) =>
+      prependHandHistory(prev, createHandHistoryFromStepDemo(stepDemo)),
+    );
+  }, [stepDemo]);
 
   const payEntryFee = useCallback(async () => {
     setPaying(true);
@@ -402,6 +449,13 @@ export function ArenaShell() {
       ...prev,
       createSessionLogEntry("Arena stats and demo stacks reset."),
     ]);
+  }, []);
+
+  const handleClearHandHistory = useCallback(() => {
+    clearHandHistoryStorage();
+    setHandHistory([]);
+    lastSimHistoryKeyRef.current = null;
+    lastStepDemoHistoryKeyRef.current = null;
   }, []);
 
   const handleResetAgentBattleStacks = useCallback(() => {
@@ -858,6 +912,8 @@ export function ArenaShell() {
         paymentMode={paymentResult?.mode ?? null}
         entryFee={paymentResult?.amount ?? "0.01"}
         onResetStats={handleResetStats}
+        handHistoryEntries={handHistory}
+        onClearHandHistory={handleClearHandHistory}
       />
     </div>
   );

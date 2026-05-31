@@ -7,6 +7,8 @@ import { ArenaInsightsTabs } from "@/components/arena/ArenaInsightsTabs";
 import { BankrStatusPanel } from "@/components/arena/BankrStatusPanel";
 import { DemoDisclaimers } from "@/components/arena/DemoDisclaimers";
 import { DemoHelpPanel } from "@/components/arena/DemoHelpPanel";
+import { HandHistoryPanel } from "@/components/arena/HandHistoryPanel";
+import type { HandHistoryRecord } from "@/lib/arena/handHistory";
 import { Button } from "@/components/ui/button";
 import type { LeaderboardEntry, SessionStats } from "@/lib/analytics/types";
 import type { GameAction } from "@/lib/poker/types";
@@ -16,6 +18,7 @@ import { cn } from "@/lib/utils";
 type DrawerTab =
   | "guide"
   | InsightsTab
+  | "history"
   | "integration"
   | "disclaimers";
 
@@ -31,6 +34,8 @@ type ArenaMenuDrawerProps = {
   paymentMode: X402PaymentMode | null;
   entryFee: string;
   onResetStats: () => void;
+  handHistoryEntries?: HandHistoryRecord[];
+  onClearHandHistory?: () => void;
 };
 
 const drawerTabs: { id: DrawerTab; label: string }[] = [
@@ -38,6 +43,7 @@ const drawerTabs: { id: DrawerTab; label: string }[] = [
   { id: "log", label: "Log" },
   { id: "leaderboard", label: "Board" },
   { id: "stats", label: "Stats" },
+  { id: "history", label: "History" },
   { id: "integration", label: "Integration" },
   { id: "disclaimers", label: "Info" },
 ];
@@ -82,6 +88,8 @@ export function ArenaMenuDrawer({
   paymentMode,
   entryFee,
   onResetStats,
+  handHistoryEntries = [],
+  onClearHandHistory,
 }: ArenaMenuDrawerProps) {
   const [tab, setTab] = useState<DrawerTab>("guide");
 
@@ -146,7 +154,7 @@ export function ArenaMenuDrawer({
         </div>
 
         <div className="border-b border-white/10 px-3 py-2">
-          <div className="flex gap-1 overflow-x-auto pb-1">
+          <div className="scrollbar-hide flex gap-1 overflow-x-auto pb-1">
             {drawerTabs.map(({ id, label }) => (
               <button
                 key={id}
@@ -184,6 +192,13 @@ export function ArenaMenuDrawer({
               paymentMode={paymentMode}
               entryFee={entryFee}
               onResetStats={onResetStats}
+            />
+          ) : null}
+
+          {tab === "history" ? (
+            <HandHistoryPanel
+              entries={handHistoryEntries}
+              onClear={() => onClearHandHistory?.()}
             />
           ) : null}
 
