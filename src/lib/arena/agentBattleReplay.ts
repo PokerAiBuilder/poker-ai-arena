@@ -13,9 +13,10 @@ import type {
   SimulationResult,
 } from "@/lib/poker/types";
 
-export type AgentBattleReplayStepType =
+/** Timeline step kinds — scheduled offsets prepare shared spectator replay later. */
+export type AgentBattleTimelineStepType =
   | "hand_start"
-  | "agent_thinking"
+  | "thinking"
   | "action"
   | "deal_flop"
   | "deal_turn"
@@ -23,25 +24,35 @@ export type AgentBattleReplayStepType =
   | "showdown"
   | "result";
 
-export type AgentBattleReplayStep = {
+export type AgentBattleReplayTimelineStep = {
   id: string;
-  type: AgentBattleReplayStepType;
+  atMs: number;
+  durationMs: number;
+  type: AgentBattleTimelineStepType;
   phase: GameStage | "intro" | "complete";
   actorId?: string;
   actorName?: string;
-  displayText: string;
-  delayMs: number;
-  cardsToReveal?: Card[];
+  text: string;
+  visibleBoardCards?: Card[];
+  activeAgentId?: string;
   actionLogIndex?: number;
   action?: GameAction;
   decisionIndex?: number;
   showResult?: boolean;
 };
 
+/** Timeline model prepares Agent Battle for future shared spectator mode. */
+export type AgentBattleReplayTimeline = {
+  handId: string;
+  totalDurationMs: number;
+  steps: AgentBattleReplayTimelineStep[];
+};
+
 export type AgentBattleReplaySession = {
-  id: string;
+  handId: string;
   finalResult: SimulationResult;
-  stepIndex: number;
+  /** Wall-clock start for local elapsed derivation (server hand start later). */
+  startedAt: number;
   status: "playing" | "complete" | "skipped";
 };
 
@@ -63,6 +74,8 @@ export type AgentBattleReplayDisplay = {
   winnerName?: string;
   winningHand?: string;
   resultType?: ReturnType<typeof getHandResultDisplayType>;
+  elapsedMs: number;
+  currentStepIndex: number;
 };
 
 const PLAYER_ACTIONS = new Set<GameAction["action"]>([
@@ -135,39 +148,53 @@ function isBoardDealMessage(message: string): "flop" | "turn" | "river" | null {
   return null;
 }
 
-function pushActionStep(
-  steps: AgentBattleReplayStep[],
+type TimelineCursor = { atMs: number };
+
+function appendTimelineStep(
+  steps: AgentBattleReplayTimelineStep[],
+  cursor: TimelineCursor,
+  step: Omit<AgentBattleReplayTimelineStep, "atMs">,
+): void {
+  steps.push({ ...step, atMs: cursor.atMs });
+  cursor.atMs += step.durationMs;
+}
+
+function pushActionTimelineStep(
+  steps: AgentBattleReplayTimelineStep[],
+  cursor: TimelineCursor,
   entry: GameAction,
   index: number,
-  options?: { delayMs?: number; decisionIndex?: number },
+  options?: { durationMs?: number; decisionIndex?: number },
 ): void {
-  steps.push({
+  appendTimelineStep(steps, cursor, {
     id: `action-${index}`,
+    durationMs: options?.durationMs ?? 650,
     type: "action",
     phase: entry.stage,
     actorId: entry.playerId !== "system" ? entry.playerId : undefined,
     actorName: entry.playerName !== "Arena" ? entry.playerName : undefined,
-    displayText: entry.message,
-    delayMs: options?.delayMs ?? 650,
+    text: entry.message,
+    activeAgentId: entry.playerId !== "system" ? entry.playerId : undefined,
     actionLogIndex: index + 1,
     action: entry,
     decisionIndex: options?.decisionIndex,
   });
 }
 
-/** Build replay timeline from a completed Agent Battle simulation. */
-export function buildAgentBattleReplaySteps(
+/** Build a scheduled replay timeline from a completed Agent Battle simulation. */
+export function buildAgentBattleReplayTimeline(
   result: SimulationResult,
-): AgentBattleReplayStep[] {
-  const steps: AgentBattleReplayStep[] = [];
+): AgentBattleReplayTimeline {
+  const steps: AgentBattleReplayTimelineStep[] = [];
+  const cursor: TimelineCursor = { atMs: 0 };
   let decisionIndex = 0;
 
-  steps.push({
+  appendTimelineStep(steps, cursor, {
     id: "hand-start",
+    durationMs: 500,
     type: "hand_start",
     phase: "intro",
-    displayText: `Hand #${result.handNumber} — Agent Battle live`,
-    delayMs: 500,
+    text: `Hand #${result.handNumber} — Agent Battle live`,
     actionLogIndex: 0,
   });
 
@@ -178,13 +205,13 @@ export function buildAgentBattleReplaySteps(
     const boardDeal = isBoardDealMessage(entry.message);
 
     if (boardDeal === "flop") {
-      steps.push({
+      appendTimelineStep(steps, cursor, {
         id: `deal-flop-${i}`,
+        durationMs: 950,
         type: "deal_flop",
         phase: "flop",
-        displayText: entry.message,
-        delayMs: 950,
-        cardsToReveal: result.communityCards.slice(0, 3),
+        text: entry.message,
+        visibleBoardCards: result.communityCards.slice(0, 3),
         actionLogIndex: i + 1,
         action: entry,
       });
@@ -192,13 +219,13 @@ export function buildAgentBattleReplaySteps(
     }
 
     if (boardDeal === "turn") {
-      steps.push({
+      appendTimelineStep(steps, cursor, {
         id: `deal-turn-${i}`,
+        durationMs: 900,
         type: "deal_turn",
         phase: "turn",
-        displayText: entry.message,
-        delayMs: 900,
-        cardsToReveal: result.communityCards.slice(0, 4),
+        text: entry.message,
+        visibleBoardCards: result.communityCards.slice(0, 4),
         actionLogIndex: i + 1,
         action: entry,
       });
@@ -206,13 +233,13 @@ export function buildAgentBattleReplaySteps(
     }
 
     if (boardDeal === "river") {
-      steps.push({
+      appendTimelineStep(steps, cursor, {
         id: `deal-river-${i}`,
+        durationMs: 900,
         type: "deal_river",
         phase: "river",
-        displayText: entry.message,
-        delayMs: 900,
-        cardsToReveal: result.communityCards.slice(0, 5),
+        text: entry.message,
+        visibleBoardCards: result.communityCards.slice(0, 5),
         actionLogIndex: i + 1,
         action: entry,
       });
@@ -220,12 +247,12 @@ export function buildAgentBattleReplaySteps(
     }
 
     if (entry.action === "showdown") {
-      steps.push({
+      appendTimelineStep(steps, cursor, {
         id: `showdown-${i}`,
+        durationMs: entry.message === "Showdown complete." ? 700 : 1100,
         type: "showdown",
         phase: "showdown",
-        displayText: entry.message,
-        delayMs: entry.message === "Showdown complete." ? 700 : 1100,
+        text: entry.message,
         actionLogIndex: i + 1,
         action: entry,
       });
@@ -233,23 +260,24 @@ export function buildAgentBattleReplaySteps(
     }
 
     if (entry.action === "blind") {
-      pushActionStep(steps, entry, i, { delayMs: 380 });
+      pushActionTimelineStep(steps, cursor, entry, i, { durationMs: 380 });
       continue;
     }
 
     if (PLAYER_ACTIONS.has(entry.action) && entry.playerId !== "system") {
-      steps.push({
+      appendTimelineStep(steps, cursor, {
         id: `think-${i}`,
-        type: "agent_thinking",
+        durationMs: thinkingDelayMs(`${result.gameId}-${i}-${entry.playerId}`),
+        type: "thinking",
         phase: entry.stage,
         actorId: entry.playerId,
         actorName: entry.playerName,
-        displayText: `${entry.playerName} thinking...`,
-        delayMs: thinkingDelayMs(`${result.gameId}-${i}-${entry.playerId}`),
+        text: `${entry.playerName} thinking...`,
+        activeAgentId: entry.playerId,
         actionLogIndex: i,
       });
-      pushActionStep(steps, entry, i, {
-        delayMs: 700,
+      pushActionTimelineStep(steps, cursor, entry, i, {
+        durationMs: 700,
         decisionIndex: decisionIndex,
       });
       decisionIndex += 1;
@@ -257,32 +285,55 @@ export function buildAgentBattleReplaySteps(
     }
 
     if (entry.action === "deal" || entry.playerId === "system") {
-      pushActionStep(steps, entry, i, { delayMs: 320 });
+      pushActionTimelineStep(steps, cursor, entry, i, { durationMs: 320 });
     }
   }
 
   const lastStep = steps[steps.length - 1];
   if (!lastStep || lastStep.type !== "result") {
-    steps.push({
+    appendTimelineStep(steps, cursor, {
       id: "result-final",
+      durationMs: 1200,
       type: "result",
       phase: "complete",
-      displayText: `${result.winner.name} wins`,
-      delayMs: 1200,
+      text: `${result.winner.name} wins`,
       actionLogIndex: result.actionLog.length,
-      cardsToReveal: result.communityCards.slice(0, 5),
+      visibleBoardCards: result.communityCards.slice(0, 5),
       showResult: true,
     });
   }
 
-  return steps;
+  return {
+    handId: result.gameId,
+    totalDurationMs: cursor.atMs,
+    steps,
+  };
 }
 
-export function deriveAgentBattleReplayDisplay(
+/** Index of the timeline step active at elapsedMs. */
+export function resolveTimelineStepIndex(
+  timeline: AgentBattleReplayTimeline,
+  elapsedMs: number,
+): number {
+  if (elapsedMs < 0 || timeline.steps.length === 0) return -1;
+
+  let index = -1;
+  for (let i = 0; i < timeline.steps.length; i += 1) {
+    if (elapsedMs >= timeline.steps[i].atMs) {
+      index = i;
+    } else {
+      break;
+    }
+  }
+  return index;
+}
+
+export function deriveAgentBattleReplayDisplayFromTimeline(
   finalResult: SimulationResult,
-  steps: AgentBattleReplayStep[],
-  stepIndex: number,
+  timeline: AgentBattleReplayTimeline,
+  elapsedMs: number,
 ): AgentBattleReplayDisplay {
+  const stepIndex = resolveTimelineStepIndex(timeline, elapsedMs);
   const display: AgentBattleReplayDisplay = {
     communityCards: [],
     visibleActionLog: [],
@@ -292,25 +343,26 @@ export function deriveAgentBattleReplayDisplay(
     useFinalStacks: false,
     stacks: {},
     pot: 0,
+    elapsedMs,
+    currentStepIndex: stepIndex,
   };
 
-  const through = Math.min(stepIndex, steps.length - 1);
-  if (stepIndex < 0 || steps.length === 0) {
+  if (stepIndex < 0) {
     return display;
   }
 
-  for (let i = 0; i <= through; i += 1) {
-    const step = steps[i];
+  for (let i = 0; i <= stepIndex; i += 1) {
+    const step = timeline.steps[i];
 
     if (step.type === "hand_start") {
-      display.bannerText = step.displayText;
+      display.bannerText = step.text;
       continue;
     }
 
-    if (step.type === "agent_thinking") {
+    if (step.type === "thinking") {
       display.thinkingAgentId = step.actorId;
       display.thinkingAgentName = step.actorName;
-      display.highlightAgentId = step.actorId;
+      display.highlightAgentId = step.activeAgentId ?? step.actorId;
       display.activeHighlight = "thinking";
       if (step.actionLogIndex != null) {
         display.visibleActionLog = finalResult.actionLog
@@ -342,15 +394,15 @@ export function deriveAgentBattleReplayDisplay(
       );
       display.latestDecision =
         finalResult.agentDecisions[step.decisionIndex] ?? display.latestDecision;
-      display.highlightAgentId = step.actorId;
+      display.highlightAgentId = step.activeAgentId ?? step.actorId;
     }
 
-    if (step.cardsToReveal) {
-      display.communityCards = step.cardsToReveal;
+    if (step.visibleBoardCards) {
+      display.communityCards = step.visibleBoardCards;
     }
 
     if (step.type === "showdown") {
-      display.bannerText = step.displayText;
+      display.bannerText = step.text;
     }
 
     if (step.type === "result" || step.showResult) {
@@ -459,4 +511,24 @@ export function buildAgentBattleReplaySeats(
       activeHighlight,
     };
   });
+}
+
+/** @deprecated Use buildAgentBattleReplayTimeline */
+export function buildAgentBattleReplaySteps(result: SimulationResult) {
+  return buildAgentBattleReplayTimeline(result).steps;
+}
+
+/** @deprecated Use deriveAgentBattleReplayDisplayFromTimeline */
+export function deriveAgentBattleReplayDisplay(
+  finalResult: SimulationResult,
+  timeline: AgentBattleReplayTimeline,
+  stepIndex: number,
+): AgentBattleReplayDisplay {
+  const elapsedMs =
+    stepIndex >= 0 && stepIndex < timeline.steps.length
+      ? timeline.steps[stepIndex].atMs
+      : stepIndex >= timeline.steps.length && timeline.steps.length > 0
+        ? timeline.totalDurationMs
+        : 0;
+  return deriveAgentBattleReplayDisplayFromTimeline(finalResult, timeline, elapsedMs);
 }

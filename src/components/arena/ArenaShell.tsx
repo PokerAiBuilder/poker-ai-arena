@@ -97,11 +97,11 @@ import { resolveHumanTurnTimeoutAction } from "@/lib/arena/humanTurnTimer";
 import { useHumanTurnTimer } from "@/hooks/useHumanTurnTimer";
 import {
   buildAgentBattleReplaySeats,
-  buildAgentBattleReplaySteps,
-  deriveAgentBattleReplayDisplay,
+  buildAgentBattleReplayTimeline,
+  deriveAgentBattleReplayDisplayFromTimeline,
   type AgentBattleReplaySession,
 } from "@/lib/arena/agentBattleReplay";
-import { useAgentBattleReplay } from "@/hooks/useAgentBattleReplay";
+import { useAgentBattleTimelineReplay } from "@/hooks/useAgentBattleTimelineReplay";
 import {
   getHandResultDisplayType,
   isWinByFoldResult,
@@ -200,7 +200,6 @@ export function ArenaShell() {
   const autoFlowPendingRef = useRef<StepDemoAutoFlowPending | null>(null);
   const clearHumanTurnTimerRef = useRef<(() => void) | null>(null);
   const agentBattleReplayRef = useRef<AgentBattleReplaySession | null>(null);
-  const clearAgentBattleReplayTimerRef = useRef<(() => void) | null>(null);
   const [agentBattleReplay, setAgentBattleReplay] =
     useState<AgentBattleReplaySession | null>(null);
   agentBattleReplayRef.current = agentBattleReplay;
@@ -374,7 +373,6 @@ export function ArenaShell() {
   }, []);
 
   const clearAgentBattleReplay = useCallback(() => {
-    clearAgentBattleReplayTimerRef.current?.();
     setAgentBattleReplay(null);
   }, []);
 
@@ -478,9 +476,9 @@ export function ArenaShell() {
           );
           lastSimHistoryKeyRef.current = null;
           setAgentBattleReplay({
-            id: data.gameId,
+            handId: data.gameId,
             finalResult: data,
-            stepIndex: 0,
+            startedAt: Date.now(),
             status: "playing",
           });
         } else {
@@ -588,30 +586,18 @@ export function ArenaShell() {
     ]);
   }, [clearPokerMasterThinking, resetAutoFlowSession, clearAgentBattleReplay]);
 
-  const agentBattleReplaySteps = useMemo(
+  const agentBattleReplayTimeline = useMemo(
     () =>
       agentBattleReplay?.finalResult
-        ? buildAgentBattleReplaySteps(agentBattleReplay.finalResult)
-        : [],
+        ? buildAgentBattleReplayTimeline(agentBattleReplay.finalResult)
+        : null,
     [agentBattleReplay?.finalResult],
   );
 
   const agentBattleReplayActive = agentBattleReplay?.status === "playing";
 
-  const agentBattleReplayDisplay = useMemo(() => {
-    if (!agentBattleReplay || agentBattleReplay.status !== "playing") {
-      return null;
-    }
-    return deriveAgentBattleReplayDisplay(
-      agentBattleReplay.finalResult,
-      agentBattleReplaySteps,
-      agentBattleReplay.stepIndex,
-    );
-  }, [agentBattleReplay, agentBattleReplaySteps]);
-
   const finishAgentBattleReplay = useCallback(
     (finalResult: SimulationResult) => {
-      clearAgentBattleReplayTimerRef.current?.();
       setAgentBattleReplay(null);
       setResult(finalResult);
       commitSimulationHistory(finalResult);
@@ -619,17 +605,19 @@ export function ArenaShell() {
     [commitSimulationHistory],
   );
 
-  const handleAgentBattleReplayAdvance = useCallback((nextIndex: number) => {
-    setAgentBattleReplay((prev) =>
-      prev && prev.status === "playing" ? { ...prev, stepIndex: nextIndex } : prev,
-    );
-  }, []);
-
   const handleAgentBattleReplayComplete = useCallback(() => {
     const session = agentBattleReplayRef.current;
     if (!session || session.status !== "playing") return;
     finishAgentBattleReplay(session.finalResult);
   }, [finishAgentBattleReplay]);
+
+  const timelineElapsedMs = useAgentBattleTimelineReplay({
+    handId: agentBattleReplay?.handId ?? null,
+    playing: agentBattleReplayActive,
+    startedAt: agentBattleReplayActive ? agentBattleReplay?.startedAt ?? null : null,
+    totalDurationMs: agentBattleReplayTimeline?.totalDurationMs ?? 0,
+    onComplete: handleAgentBattleReplayComplete,
+  });
 
   const handleSkipAgentBattleReplay = useCallback(() => {
     const session = agentBattleReplayRef.current;
@@ -637,20 +625,20 @@ export function ArenaShell() {
     finishAgentBattleReplay(session.finalResult);
   }, [finishAgentBattleReplay]);
 
-  const { clearReplayTimer: clearAgentBattleReplayTimer } = useAgentBattleReplay({
-    session: agentBattleReplayActive ? agentBattleReplay : null,
-    steps: agentBattleReplaySteps,
-    onAdvance: handleAgentBattleReplayAdvance,
-    onComplete: handleAgentBattleReplayComplete,
-  });
-
-  clearAgentBattleReplayTimerRef.current = clearAgentBattleReplayTimer;
-
-  useEffect(() => {
-    return () => {
-      clearAgentBattleReplayTimerRef.current?.();
-    };
-  }, []);
+  const agentBattleReplayDisplay = useMemo(() => {
+    if (
+      !agentBattleReplay ||
+      agentBattleReplay.status !== "playing" ||
+      !agentBattleReplayTimeline
+    ) {
+      return null;
+    }
+    return deriveAgentBattleReplayDisplayFromTimeline(
+      agentBattleReplay.finalResult,
+      agentBattleReplayTimeline,
+      timelineElapsedMs,
+    );
+  }, [agentBattleReplay, agentBattleReplayTimeline, timelineElapsedMs]);
 
   const commitStepDemo = useCallback(
     (updater: (prev: StepDemoState) => StepDemoState) => {

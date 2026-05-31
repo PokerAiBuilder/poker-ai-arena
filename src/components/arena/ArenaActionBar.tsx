@@ -320,23 +320,55 @@ export function ArenaActionBar({
                   Reset Agent Battle Stacks
                 </Button>
               ) : (
-                <Button
-                  onClick={onSimulateAgentBattle}
-                  disabled={agentBattleDisabled}
-                  size="lg"
-                  className={cn(
-                    "h-11 min-w-[220px] border-2 border-violet-400/50 bg-violet-700 font-semibold text-white",
-                    "shadow-glow hover:bg-violet-600",
-                  )}
-                  title="Spectator Mode — watch AI agents play a simulated hand"
-                >
-                  {loading && loadingMode === "agent-vs-agent" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Swords className="h-4 w-4" />
-                  )}
-                  Run Agent Battle Again
-                </Button>
+                <>
+                  <Button
+                    onClick={onSimulateAgentBattle}
+                    disabled={agentBattleDisabled}
+                    size="lg"
+                    className={cn(
+                      "h-11 min-w-[220px] border-2 border-violet-400/50 font-semibold text-white",
+                      agentBattleReplayActive
+                        ? "cursor-not-allowed border-violet-400/25 bg-violet-900/40 opacity-70"
+                        : "bg-violet-700 shadow-glow hover:bg-violet-600",
+                    )}
+                    title={
+                      agentBattleReplayActive
+                        ? "Replay in progress — use Skip animations or wait for the hand to finish."
+                        : "Spectator Mode — watch AI agents play a simulated hand"
+                    }
+                  >
+                    {loading && loadingMode === "agent-vs-agent" ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Running...
+                      </>
+                    ) : agentBattleReplayActive ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <Swords className="h-4 w-4" />
+                        Run Agent Battle Again
+                      </>
+                    )}
+                  </Button>
+                  {agentBattleReplayActive && onSkipAgentBattleReplay ? (
+                    <Button
+                      type="button"
+                      size="lg"
+                      className={cn(
+                        "h-11 min-w-[160px] border-2 border-violet-300/70 bg-violet-600 font-semibold text-white",
+                        "shadow-[0_0_16px_rgba(139,92,246,0.35)] hover:bg-violet-500",
+                      )}
+                      title="Skip local animations — shows final result on this device only"
+                      onClick={onSkipAgentBattleReplay}
+                    >
+                      Skip animations
+                    </Button>
+                  ) : null}
+                </>
               )}
               {headsUpStackDepleted && onResetDemoStacks ? (
                 <Button
@@ -572,15 +604,18 @@ export function ArenaActionBar({
                 </>
               )}
             </Button>
-            {agentBattleReplayActive && onSkipAgentBattleReplay ? (
+            {agentBattleReplayActive && onSkipAgentBattleReplay && !agentBattleSpectator ? (
               <Button
                 type="button"
                 size="lg"
-                variant="secondary"
-                className="h-11 min-w-[140px] border-violet-400/30 text-sm font-semibold text-violet-100"
+                className={cn(
+                  "h-11 min-w-[160px] border-2 border-violet-300/70 bg-violet-600 text-sm font-semibold text-white",
+                  "shadow-[0_0_16px_rgba(139,92,246,0.35)] hover:bg-violet-500",
+                )}
+                title="Skip local animations — shows final result on this device only"
                 onClick={onSkipAgentBattleReplay}
               >
-                Skip to Result
+                Skip animations
               </Button>
             ) : null}
             {onOpenMenu ? (
