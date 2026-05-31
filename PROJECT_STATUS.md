@@ -1,6 +1,18 @@
 # Project status
 
-Last updated for **v0.4.1** — full-board Agent Battle spectator simulation.
+Last updated for **v0.4.2** — Agent Battle personalities and action log readability.
+
+---
+
+## v0.4.2 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Agent Battle personalities | v0.4.2 | PokerMaster, BluffBot, RiverMind, ChipHunter preflop styles |
+| Preflop action log story | v0.4.2 | Readable spectator messages with PREFLOP / FLOP / TURN / RIVER / SHOWDOWN labels |
+| Board runout logs | v0.4.2 | Flop / turn / river dealt + optional personality reactions |
+| AI Decision panel | v0.4.2 | Latest meaningful agent decision with reasoning |
+| Human vs AI stack isolation | v0.4.2 | Agent Battle no longer mutates heads-up demo stacks |
 
 ---
 
@@ -44,6 +56,7 @@ Last updated for **v0.4.1** — full-board Agent Battle spectator simulation.
 | Real x402 payments | **TODO** | Facilitator + on-chain settlement not implemented |
 | Real Bankr API | **TODO** | Requires official credentials and endpoints |
 | Step-by-step Agent Battle | **TODO** | One-click spectator only today |
+| Agent Battle street betting | **TODO** | Preflop decisions only; board runout after |
 | Stronger AI strategy | **TODO (v0.4/v0.5)** | Rules-based only today |
 | LLM agents | **TODO** | Not started |
 | Production database | **TODO** | Analytics client-only; `DATABASE_URL` unused |
@@ -60,6 +73,7 @@ Last updated for **v0.4.1** — full-board Agent Battle spectator simulation.
 | Card visibility | All agent hole cards visible after deal |
 | Board | **Full 5-card board** when hand reaches showdown (flop + turn + river) |
 | Betting | Preflop agent decisions only; turn/river are board runout (no street betting) |
+| Personalities | Distinct preflop styles per agent (v0.4.2) |
 | Results | **Showdown** (best hand) or **Win by fold** |
 | Next | Step-by-step AI vs AI spectator playback (future) |
 

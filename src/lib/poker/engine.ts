@@ -24,6 +24,19 @@ import {
   postBlinds,
   runBettingRound,
 } from "@/lib/poker/betting";
+import { runAgentBattlePreflopRound } from "@/lib/poker/agentBattleBetting";
+import {
+  canRunAgentBattle as canRunAgentBattleStacks,
+  createInitialAgentBattleStacks,
+  sanitizeAgentBattleStacks,
+} from "@/lib/analytics/agentBattleStacks";
+import {
+  attachAgentBattleAccounting,
+  finalizeAgentBattleStacks,
+  initAgentBattleHandMeta,
+  recordAgentBattleBlindsFromLog,
+} from "@/lib/poker/agentBattleAccounting";
+import { getAgentBattleBoardReaction } from "@/lib/agents/agentBattleStrategy";
 
 let gameCounter = 0;
 
@@ -79,13 +92,17 @@ export function createNewGame(
 }
 
 export function createAgentBattleGame(
+  startingStacks?: Record<string, number>,
   overrides?: Partial<Pick<GameState, "smallBlind" | "bigBlind">>,
 ): GameState {
   const players: Player[] = AGENT_REGISTRY.map((agent) => ({
     id: agent.id,
     name: agent.name,
     role: "ai",
-    stack: DEFAULT_STARTING_STACK,
+    stack:
+      startingStacks && startingStacks[agent.id] != null
+        ? Math.max(0, Math.floor(startingStacks[agent.id]))
+        : DEFAULT_STARTING_STACK,
     holeCards: [],
     currentBet: 0,
     hasFolded: false,
@@ -189,34 +206,67 @@ function logArenaMessage(
   });
 }
 
-/** Agent Battle: deal turn + river with honest board-runout logs (no street betting). */
+/** Agent Battle: deal flop → turn → river with readable runout logs (no street betting). */
 function runAgentBattleBoardRunout(state: GameState): void {
   if (state.communityCards.length === 0) {
-    dealFlop(state);
+    const { dealt, remaining } = dealCards(state.deck, 3);
+    state.communityCards = dealt;
+    state.deck = remaining;
+    state.stage = "flop";
+    logArenaMessage(state, "flop", `Flop dealt: ${formatCards(dealt)}.`);
+    addAgentBattleBoardReaction(state, "flop");
   }
 
-  logArenaMessage(
-    state,
-    "flop",
-    "Board runs out to the river — no turn/river betting in this spectator sim.",
-  );
-
   if (state.communityCards.length === 3) {
-    dealTurn(state);
+    const { dealt, remaining } = dealCards(state.deck, 1);
+    state.communityCards.push(...dealt);
+    state.deck = remaining;
+    state.stage = "turn";
     logArenaMessage(
       state,
       "turn",
-      `Turn: ${formatCards(state.communityCards.slice(3, 4))}.`,
+      `Turn dealt: ${formatCards(state.communityCards.slice(3, 4))}.`,
     );
+    addAgentBattleBoardReaction(state, "turn");
   }
 
   if (state.communityCards.length === 4) {
-    dealRiver(state);
+    const { dealt, remaining } = dealCards(state.deck, 1);
+    state.communityCards.push(...dealt);
+    state.deck = remaining;
+    state.stage = "river";
     logArenaMessage(
       state,
       "river",
-      `River: ${formatCards(state.communityCards.slice(4, 5))}.`,
+      `River dealt: ${formatCards(state.communityCards.slice(4, 5))}.`,
     );
+    addAgentBattleBoardReaction(state, "river");
+  }
+}
+
+function addAgentBattleBoardReaction(
+  state: GameState,
+  stage: "flop" | "turn" | "river",
+): void {
+  const active = state.players
+    .filter((p) => !p.hasFolded)
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  for (const player of active) {
+    const reaction = getAgentBattleBoardReaction(player.id, stage);
+    if (reaction) {
+      logArenaMessage(state, stage, reaction);
+      return;
+    }
+  }
+}
+
+function sanitizePotAndStacks(state: GameState): void {
+  state.pot = Number.isFinite(state.pot) ? Math.max(0, Math.floor(state.pot)) : 0;
+  for (const player of state.players) {
+    player.stack = Number.isFinite(player.stack)
+      ? Math.max(0, Math.floor(player.stack))
+      : 0;
   }
 }
 
@@ -224,15 +274,19 @@ export function determineWinner(
   state: GameState,
   options?: { gameMode?: GameMode },
 ): HandResult {
+  sanitizePotAndStacks(state);
   state.stage = "showdown";
   const gameMode = options?.gameMode;
   const isAgentBattle = gameMode === "agent-vs-agent";
+  const potBeforePayout = state.pot;
 
   const active = state.players.filter((p) => !p.hasFolded);
 
   if (active.length === 1) {
     const winner = active[0];
-    winner.stack += state.pot;
+    if (!isAgentBattle) {
+      winner.stack += potBeforePayout;
+    }
 
     const result: HandResult = {
       winnerId: winner.id,
@@ -243,7 +297,7 @@ export function determineWinner(
         scores: [0],
         bestFive: winner.holeCards,
       },
-      pot: state.pot,
+      pot: potBeforePayout,
       isSplit: false,
       loserIds: state.players.filter((p) => p.id !== winner.id).map((p) => p.id),
     };
@@ -254,12 +308,20 @@ export function determineWinner(
       action: "showdown",
       stage: "showdown",
       message: isAgentBattle
-        ? `${winner.name} wins the Agent Battle — all opponents folded.`
-        : `${winner.name} wins ${state.pot} chips — opponent folded.`,
+        ? `${winner.name} wins — Win by fold (${potBeforePayout.toLocaleString()} chips).`
+        : `${winner.name} wins ${potBeforePayout} chips — opponent folded.`,
       timestamp: Date.now(),
     });
 
-    state.pot = 0;
+    if (isAgentBattle) {
+      attachAgentBattleAccounting(
+        state,
+        finalizeAgentBattleStacks(state, result),
+      );
+    } else {
+      state.pot = 0;
+    }
+    sanitizePotAndStacks(state);
     return result;
   }
 
@@ -274,13 +336,19 @@ export function determineWinner(
     (e) => e.hand.scores.join(",") === bestScore,
   );
 
-  const share = Math.floor(state.pot / winners.length);
-  for (const { player } of winners) {
-    player.stack += share;
+  const share = Math.floor(potBeforePayout / winners.length);
+  if (!isAgentBattle) {
+    for (const { player } of winners) {
+      player.stack += share;
+    }
   }
 
   const winner = winners[0].player;
   const isSplit = winners.length > 1;
+
+  if (winner.hasFolded) {
+    throw new Error("Showdown winner cannot be a folded player");
+  }
 
   if (isAgentBattle) {
     state.actionLog.push({
@@ -301,8 +369,8 @@ export function determineWinner(
     message: isSplit
       ? `Split pot — ${winners.map((w) => w.player.name).join(" & ")} tie with ${winners[0].hand.rankName}.`
       : isAgentBattle
-        ? `${winner.name} wins the Agent Battle — Showdown: ${describeHand(winners[0].hand)}.`
-        : `${winner.name} wins ${state.pot} chips with ${describeHand(winners[0].hand)}.`,
+        ? `${winner.name} wins — Showdown: ${describeHand(winners[0].hand)} (${potBeforePayout.toLocaleString()} chips).`
+        : `${winner.name} wins ${potBeforePayout} chips with ${describeHand(winners[0].hand)}.`,
     timestamp: Date.now(),
   });
 
@@ -310,14 +378,22 @@ export function determineWinner(
     winnerId: winner.id,
     winnerName: winner.name,
     winningHand: winners[0].hand,
-    pot: state.pot,
+    pot: potBeforePayout,
     isSplit,
     loserIds: state.players
       .filter((p) => !winners.some((w) => w.player.id === p.id))
       .map((p) => p.id),
   };
 
-  state.pot = 0;
+  if (isAgentBattle) {
+    attachAgentBattleAccounting(
+      state,
+      finalizeAgentBattleStacks(state, result),
+    );
+  } else {
+    state.pot = 0;
+  }
+  sanitizePotAndStacks(state);
   return result;
 }
 
@@ -371,6 +447,7 @@ function toSimulationResult(
     actionLog: state.actionLog,
     stage: state.stage,
     agentDecisions: state.agentDecisions,
+    agentBattleAccounting: state.agentBattleAccounting,
   };
 }
 
@@ -432,19 +509,25 @@ export function simulateSimpleHand(): SimulationResult {
 export function simulateAgentBattleHand(state: GameState): SimulationResult {
   const gameMode: GameMode = "agent-vs-agent";
 
+  state.agentBattleMeta = initAgentBattleHandMeta(state.players);
+  state.agentBattleAccounting = undefined;
+
   dealNewHand(
     state,
     `Agent Battle begins — ${state.players.length} AI agents at the table.`,
   );
+  recordAgentBattleBlindsFromLog(state);
 
   console.debug("[poker/engine] agent battle started", {
     gameId: state.id,
     players: state.players.map((p) => p.name),
   });
 
-  runBettingRound(state, "preflop");
+  runAgentBattlePreflopRound(state);
 
-  if (getActivePlayers(state).length <= 1) {
+  const contenders = state.players.filter((p) => !p.hasFolded);
+
+  if (contenders.length <= 1) {
     const result = determineWinner(state, { gameMode });
     return toSimulationResult(state, result, gameMode);
   }
@@ -465,9 +548,26 @@ export function simulateAgentBattleHand(state: GameState): SimulationResult {
   return simulation;
 }
 
-export function simulateAgentBattle(): SimulationResult {
+export function canRunAgentBattle(
+  startingStacks?: Record<string, number>,
+): boolean {
+  const stacks = sanitizeAgentBattleStacks({
+    ...createInitialAgentBattleStacks(),
+    ...startingStacks,
+  });
+  return canRunAgentBattleStacks(stacks);
+}
+
+export function simulateAgentBattle(
+  startingStacks?: Record<string, number>,
+): SimulationResult {
+  if (!canRunAgentBattle(startingStacks)) {
+    throw new Error(
+      "Agent Battle stacks depleted — reset spectator stacks to continue.",
+    );
+  }
   runEvaluatorSelfCheck();
-  const state = createAgentBattleGame();
+  const state = createAgentBattleGame(startingStacks);
   return simulateAgentBattleHand(state);
 }
 

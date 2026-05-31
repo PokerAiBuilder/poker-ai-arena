@@ -33,3 +33,17 @@ export {
   sanitizeSessionStacks,
   updateSessionStacksAfterGame,
 } from "@/lib/analytics/sessionStacks";
+export type { AgentBattleStacksState } from "@/lib/analytics/agentBattleStacks";
+export {
+  AGENT_BATTLE_STACKS_STORAGE_KEY,
+  canRunAgentBattle,
+  clearAgentBattleStacks,
+  countAgentBattlePlayersWithChips,
+  createInitialAgentBattleStacks,
+  isAgentBattleStackDepleted,
+  loadAgentBattleStacks,
+  resetAgentBattleStacks,
+  saveAgentBattleStacks,
+  sanitizeAgentBattleStacks,
+  updateAgentBattleStacksAfterHand,
+} from "@/lib/analytics/agentBattleStacks";

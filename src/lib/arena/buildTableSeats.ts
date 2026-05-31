@@ -29,7 +29,9 @@ const SEAT_LAYOUT: Record<
 function seatStatus(
   playerId: string,
   result: SimulationResult | null,
+  displayStack?: number,
 ): AgentStatus {
+  if (displayStack != null && displayStack <= 0) return "folded";
   if (!result) return "idle";
   if (result.winner.id === playerId) return "winner";
   const player = result.players.find((p) => p.id === playerId);
@@ -44,6 +46,11 @@ function resolveDisplayStack(
   sessionStacks: Record<string, number> | undefined,
   defaultStack: number,
 ): number {
+  const accountingStack = result?.agentBattleAccounting?.finalStacks?.[playerId];
+  if (accountingStack != null && Number.isFinite(accountingStack)) {
+    return Math.max(0, Math.floor(accountingStack));
+  }
+
   if (sessionStacks && playerId in sessionStacks) {
     return sessionStacks[playerId];
   }
@@ -68,20 +75,21 @@ function buildSeatFromPlayer(
   const layout = SEAT_LAYOUT[gameMode];
   const position = layout[config.id] ?? "left";
   const player = result?.players.find((p) => p.id === config.id);
+  const stack = resolveDisplayStack(
+    config.id,
+    result,
+    sessionStacks,
+    config.defaultStack,
+  );
 
   return {
     id: config.id,
     name: player?.name ?? config.name,
     avatar: config.avatar,
     strategy: config.strategy,
-    stack: resolveDisplayStack(
-      config.id,
-      result,
-      sessionStacks,
-      config.defaultStack,
-    ),
+    stack,
     holeCards: player?.holeCards ?? [],
-    status: config.forceIdle ? "idle" : seatStatus(config.id, result),
+    status: config.forceIdle ? "idle" : seatStatus(config.id, result, stack),
     position,
     revealCards: shouldRevealHoleCards(config.id, result, gameMode, {
       forceIdle: config.forceIdle,

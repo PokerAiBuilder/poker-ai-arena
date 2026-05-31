@@ -13,22 +13,35 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   clearArenaAnalytics,
+  clearAgentBattleStacks,
   clearSessionStacks,
+  createInitialAgentBattleStacks,
   createInitialArenaAnalytics,
   createInitialSessionStacks,
   canStartHeadsUpHand,
   isHeadsUpStackDepleted,
+  isAgentBattleStackDepleted,
+  loadAgentBattleStacks,
   loadArenaAnalytics,
   loadSessionStacks,
+  resetAgentBattleStacks,
   resetHeadsUpDemoStacks,
+  saveAgentBattleStacks,
   saveArenaAnalytics,
   saveSessionStacks,
+  canRunAgentBattle,
+  sanitizeAgentBattleStacks,
   sanitizeSessionStacks,
+  updateAgentBattleStacksAfterHand,
   updateLeaderboardAfterGame,
   updateSessionStacksAfterGame,
   updateSessionStatsAfterGame,
 } from "@/lib/analytics";
-import type { ArenaAnalyticsState, SessionStacksState } from "@/lib/analytics";
+import type {
+  AgentBattleStacksState,
+  ArenaAnalyticsState,
+  SessionStacksState,
+} from "@/lib/analytics";
 import { buildTableSeats } from "@/lib/arena/buildTableSeats";
 import {
   advanceStepDemoRevealFlop,
@@ -62,6 +75,7 @@ import {
 import {
   getHandResultDisplayType,
   isWinByFoldResult,
+  pickLatestAgentBattleDecision,
 } from "@/lib/arena/simulationDisplay";
 import type { X402PaymentResult } from "@/lib/bankr/x402Client";
 import type { GameAction, GameMode, SimulationResult } from "@/lib/poker/types";
@@ -126,6 +140,9 @@ export function ArenaShell() {
     createInitialSessionStacks,
   );
   const [stacksReady, setStacksReady] = useState(false);
+  const [agentBattleStacks, setAgentBattleStacks] =
+    useState<AgentBattleStacksState>(createInitialAgentBattleStacks);
+  const [agentBattleStacksReady, setAgentBattleStacksReady] = useState(false);
   const [preferredSeatLayout, setPreferredSeatLayout] =
     useState<GameMode>("human-vs-ai");
   const [paymentResult, setPaymentResult] = useState<X402PaymentResult | null>(
@@ -247,8 +264,13 @@ export function ArenaShell() {
     if (loadedStacks) {
       setSessionStacks(loadedStacks);
     }
+    const loadedAgentBattleStacks = loadAgentBattleStacks();
+    if (loadedAgentBattleStacks) {
+      setAgentBattleStacks(loadedAgentBattleStacks);
+    }
     setAnalyticsReady(true);
     setStacksReady(true);
+    setAgentBattleStacksReady(true);
   }, []);
 
   useEffect(() => {
@@ -260,6 +282,11 @@ export function ArenaShell() {
     if (!stacksReady) return;
     saveSessionStacks(sessionStacks);
   }, [sessionStacks, stacksReady]);
+
+  useEffect(() => {
+    if (!agentBattleStacksReady) return;
+    saveAgentBattleStacks(agentBattleStacks);
+  }, [agentBattleStacks, agentBattleStacksReady]);
 
   const payEntryFee = useCallback(async () => {
     setPaying(true);
@@ -307,8 +334,25 @@ export function ArenaShell() {
       setPreferredSeatLayout(mode);
       setStepDemo(createInitialStepDemoState());
 
+      if (mode === "agent-vs-agent") {
+        const readyAgentBattleStacks = sanitizeAgentBattleStacks(agentBattleStacks);
+        if (!canRunAgentBattle(readyAgentBattleStacks)) {
+          setError(
+            "Agent Battle stacks depleted — reset spectator stacks to continue.",
+          );
+          setLoading(false);
+          setLoadingMode(null);
+          return;
+        }
+      }
+
       try {
-        const response = await fetch(`/api/poker/simulate?mode=${mode}`);
+        const readyAgentBattleStacks = sanitizeAgentBattleStacks(agentBattleStacks);
+        const url =
+          mode === "agent-vs-agent"
+            ? `/api/poker/simulate?mode=agent-vs-agent&stacks=${encodeURIComponent(JSON.stringify(readyAgentBattleStacks))}`
+            : `/api/poker/simulate?mode=${mode}`;
+        const response = await fetch(url);
         if (!response.ok) {
           const body = (await response.json()) as { error?: string };
           throw new Error(body.error ?? "Simulation failed");
@@ -316,7 +360,15 @@ export function ArenaShell() {
         const data = (await response.json()) as SimulationResult;
         setResult(data);
         setAnalytics((prev) => applySimulationAnalytics(prev, data));
-        setSessionStacks((prev) => sanitizeSessionStacks(updateSessionStacksAfterGame(prev, data)));
+        if (mode === "agent-vs-agent") {
+          setAgentBattleStacks((prev) =>
+            sanitizeAgentBattleStacks(updateAgentBattleStacksAfterHand(prev, data)),
+          );
+        } else {
+          setSessionStacks((prev) =>
+            sanitizeSessionStacks(updateSessionStacksAfterGame(prev, data)),
+          );
+        }
 
         if (process.env.NODE_ENV === "development") {
           console.debug("[arena] simulation result", data);
@@ -336,17 +388,30 @@ export function ArenaShell() {
         setLoadingMode(null);
       }
     },
-    [isArenaUnlocked],
+    [isArenaUnlocked, agentBattleStacks],
   );
 
   const handleResetStats = useCallback(() => {
     clearArenaAnalytics();
     clearSessionStacks();
+    clearAgentBattleStacks();
     setAnalytics(createInitialArenaAnalytics());
     setSessionStacks(createInitialSessionStacks());
+    setAgentBattleStacks(createInitialAgentBattleStacks());
     setSessionLog((prev) => [
       ...prev,
       createSessionLogEntry("Arena stats and demo stacks reset."),
+    ]);
+  }, []);
+
+  const handleResetAgentBattleStacks = useCallback(() => {
+    setAgentBattleStacks(resetAgentBattleStacks());
+    setResult(null);
+    setError(null);
+    setPreferredSeatLayout("agent-vs-agent");
+    setSessionLog((prev) => [
+      ...prev,
+      createSessionLogEntry("Agent Battle stacks reset."),
     ]);
   }, []);
 
@@ -421,6 +486,11 @@ export function ArenaShell() {
   const headsUpStackDepleted = useMemo(
     () => isHeadsUpStackDepleted(sessionStacks),
     [sessionStacks],
+  );
+
+  const agentBattleStackDepleted = useMemo(
+    () => isAgentBattleStackDepleted(agentBattleStacks),
+    [agentBattleStacks],
   );
 
   const stepDemoUi = useMemo(
@@ -550,13 +620,25 @@ export function ArenaShell() {
     if (isHeadsUpGuided) {
       return buildStepDemoSeats(stepDemo, sessionStacks);
     }
-    return buildTableSeats(result, preferredSeatLayout, sessionStacks);
-  }, [stepDemo, result, preferredSeatLayout, sessionStacks, isHeadsUpGuided]);
+    return buildTableSeats(
+      result,
+      preferredSeatLayout,
+      isHeadsUpGuided || activeGameMode === "agent-vs-agent"
+        ? activeGameMode === "agent-vs-agent"
+          ? agentBattleStacks
+          : undefined
+        : sessionStacks,
+    );
+  }, [stepDemo, result, preferredSeatLayout, sessionStacks, agentBattleStacks, isHeadsUpGuided, activeGameMode]);
 
   const aiDecisions = result?.agentDecisions ?? [];
+  const isAgentBattleSpectatorEarly =
+    activeGameMode === "agent-vs-agent" && !isHeadsUpGuided;
   const latestAiDecision = stepDemo.isActive
     ? (stepDemo.aiDecision ?? undefined)
-    : aiDecisions[aiDecisions.length - 1];
+    : isAgentBattleSpectatorEarly && aiDecisions.length > 0
+      ? pickLatestAgentBattleDecision(aiDecisions)
+      : aiDecisions[aiDecisions.length - 1];
 
   const headsUpLayoutKey = isHeadsUpGuided
     ? `${stepDemo.step}-${stepDemo.isActive}-${stepDemo.communityCards.length}-${stepDemo.players.pokerMaster.holeCards.length}-${stepDemo.players.human.holeCards.length}`
@@ -583,8 +665,7 @@ export function ArenaShell() {
     ? getStepDemoPotDisplay(stepDemo)
     : (result?.pot ?? null);
 
-  const isAgentBattleSpectator =
-    activeGameMode === "agent-vs-agent" && !isHeadsUpGuided;
+  const isAgentBattleSpectator = isAgentBattleSpectatorEarly;
 
   const actionLogEntries = useMemo(
     () =>
@@ -758,6 +839,9 @@ export function ArenaShell() {
             : undefined
         }
         error={error}
+        headsUpStackDepleted={headsUpStackDepleted}
+        agentBattleStackDepleted={agentBattleStackDepleted}
+        onResetAgentBattleStacks={handleResetAgentBattleStacks}
         agentBattleSpectator={isAgentBattleSpectator && !stepDemo.isActive}
         agentBattleHasResult={isAgentBattleSpectator && !stepDemo.isActive && result != null}
       />
@@ -766,6 +850,7 @@ export function ArenaShell() {
         open={menuOpen}
         onOpenChange={setMenuOpen}
         actionLogEntries={actionLogEntries}
+        agentBattleMode={isAgentBattleSpectator && !stepDemo.isActive}
         leaderboardEntries={analytics.leaderboard}
         highlightId={stepDemo.winner?.id ?? result?.winner.id}
         sessionStats={analytics.sessionStats}

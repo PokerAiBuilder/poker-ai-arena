@@ -23,6 +23,7 @@ type ArenaMenuDrawerProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   actionLogEntries: GameAction[];
+  agentBattleMode?: boolean;
   leaderboardEntries: LeaderboardEntry[];
   highlightId?: string;
   sessionStats: SessionStats;
@@ -73,6 +74,7 @@ export function ArenaMenuDrawer({
   open,
   onOpenChange,
   actionLogEntries,
+  agentBattleMode = false,
   leaderboardEntries,
   highlightId,
   sessionStats,
@@ -174,6 +176,7 @@ export function ArenaMenuDrawer({
             <ArenaInsightsTabs
               panel={tab as InsightsTab}
               actionLogEntries={actionLogEntries}
+              agentBattleMode={agentBattleMode}
               leaderboardEntries={leaderboardEntries}
               highlightId={highlightId}
               sessionStats={sessionStats}

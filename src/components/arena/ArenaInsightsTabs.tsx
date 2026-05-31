@@ -15,6 +15,7 @@ export type InsightsTab = "log" | "leaderboard" | "stats";
 
 type ArenaInsightsTabsProps = {
   actionLogEntries: GameAction[];
+  agentBattleMode?: boolean;
   leaderboardEntries: LeaderboardEntry[];
   highlightId?: string;
   sessionStats: SessionStats;
@@ -35,6 +36,7 @@ const tabLabels: Record<InsightsTab, string> = {
 
 export function ArenaInsightsTabs({
   actionLogEntries,
+  agentBattleMode = false,
   leaderboardEntries,
   highlightId,
   sessionStats,
@@ -71,7 +73,7 @@ export function ArenaInsightsTabs({
       ) : null}
 
       {activeTab === "log" ? (
-        <ActionLog entries={actionLogEntries} />
+        <ActionLog entries={actionLogEntries} agentBattleMode={agentBattleMode} />
       ) : null}
 
       {activeTab === "leaderboard" ? (

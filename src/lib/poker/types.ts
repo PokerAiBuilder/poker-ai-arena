@@ -84,6 +84,20 @@ export type HandResult = {
   loserIds: string[];
 };
 
+export type AgentBattleHandMeta = {
+  startingStacks: Record<string, number>;
+  contributions: Record<string, number>;
+};
+
+export type AgentBattleAccountingSnapshot = {
+  startingStacks: Record<string, number>;
+  contributions: Record<string, number>;
+  finalStacks: Record<string, number>;
+  pot: number;
+  winnerId: string;
+  winnerIds: string[];
+};
+
 export type GameState = {
   id: string;
   players: Player[];
@@ -98,6 +112,10 @@ export type GameState = {
   smallBlind: number;
   bigBlind: number;
   handNumber: number;
+  /** Agent Battle only — per-hand contribution ledger. */
+  agentBattleMeta?: AgentBattleHandMeta;
+  /** Agent Battle only — settlement snapshot after finalize. */
+  agentBattleAccounting?: AgentBattleAccountingSnapshot;
 };
 
 export type SimulationPlayerResult = {
@@ -143,6 +161,8 @@ export type SimulationResult = {
   actionLog: GameAction[];
   stage: GameStage;
   agentDecisions: SimulationAgentDecision[];
+  /** Agent Battle only — authoritative stack ledger for this hand. */
+  agentBattleAccounting?: AgentBattleAccountingSnapshot;
 };
 
 export const RANK_VALUES: Record<Rank, number> = {

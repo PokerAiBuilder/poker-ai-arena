@@ -200,21 +200,20 @@ export function AiDecisionPanel({
             &ldquo;{latest.reasoning}&rdquo;
           </p>
         ) : (
-          <p className="text-[9px] leading-none text-white/35">
-            {spectatorMode
-              ? totalDecisions > 1
-                ? "Full agent sequence in Action Log."
-                : "Full reasoning in Action Log."
-              : guidedHand
-                ? "Full reasoning in Action Log."
-                : "Full reasoning in Action Log."}
+          <p className="text-[9px] leading-snug text-white/50">
+            &ldquo;{latest.reasoning}&rdquo;
           </p>
         )}
 
-        {totalDecisions > 1 && spectatorMode && compact ? (
-          <p className="text-[9px] leading-none text-violet-300/50">
-            +{totalDecisions - 1} earlier agent decision
-            {totalDecisions - 1 === 1 ? "" : "s"}
+        {spectatorMode && totalDecisions > 1 ? (
+          <p className="text-[9px] leading-snug text-violet-300/55">
+            Full agent sequence in Action Log.
+          </p>
+        ) : null}
+
+        {guidedHand && compact ? (
+          <p className="text-[9px] leading-none text-white/35">
+            Full reasoning in Action Log.
           </p>
         ) : null}
 

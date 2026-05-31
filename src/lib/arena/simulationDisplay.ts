@@ -1,4 +1,4 @@
-import type { GameMode, SimulationResult } from "@/lib/poker/types";
+import type { GameMode, SimulationAgentDecision, SimulationResult } from "@/lib/poker/types";
 
 export type HandResultDisplayType = "fold" | "showdown";
 
@@ -39,4 +39,18 @@ export function shouldRevealHoleCards(
   }
 
   return true;
+}
+
+/** Latest preflop-style agent decision for Agent Battle AI panel. */
+export function pickLatestAgentBattleDecision(
+  decisions: SimulationAgentDecision[],
+): SimulationAgentDecision | undefined {
+  if (decisions.length === 0) return undefined;
+
+  for (let i = decisions.length - 1; i >= 0; i -= 1) {
+    const d = decisions[i];
+    if (d.action !== "check") return d;
+  }
+
+  return decisions[decisions.length - 1];
 }

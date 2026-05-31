@@ -43,6 +43,8 @@ type ArenaActionBarProps = {
   /** AI Agent Battle spectator — override Human vs AI action hints */
   agentBattleSpectator?: boolean;
   agentBattleHasResult?: boolean;
+  agentBattleStackDepleted?: boolean;
+  onResetAgentBattleStacks?: () => void;
   className?: string;
 };
 
@@ -93,6 +95,8 @@ export function ArenaActionBar({
   error,
   agentBattleSpectator = false,
   agentBattleHasResult = false,
+  agentBattleStackDepleted = false,
+  onResetAgentBattleStacks,
   pokerMasterThinking = false,
   className,
 }: ArenaActionBarProps) {
@@ -113,10 +117,16 @@ export function ArenaActionBar({
     : disabled || loading || stepDemoActive || headsUpStackDepleted || pokerMasterThinking;
   const agentBattleDisabled = useHeadsUpUi
     ? !stepDemoUi.agentBattleEnabled || disabled || loading
-    : disabled || loading || pokerMasterThinking || (stepDemoActive && !stepDemoHandComplete);
+    : disabled ||
+      loading ||
+      pokerMasterThinking ||
+      agentBattleStackDepleted ||
+      (stepDemoActive && !stepDemoHandComplete);
   const showStackDepletedUi = useHeadsUpUi
     ? stepDemoUi.state === "stack_depleted"
     : headsUpStackDepleted && !agentBattleSpectator && !humanTurnActive;
+  const showAgentBattleDepletedUi =
+    agentBattleSpectator && agentBattleStackDepleted;
 
   const guidance: StepDemoGameplayGuidance | undefined = showStackDepletedUi
     ? {
@@ -133,6 +143,13 @@ export function ArenaActionBar({
         }
     : stepDemoActive
     ? stepDemoGuidance
+    : showAgentBattleDepletedUi
+      ? {
+          phase: "hand-complete" as const,
+          banner: "SPECTATOR STACKS DEPLETED",
+          actionHint:
+            "Agent Battle stacks depleted — reset spectator stacks to continue.",
+        }
     : agentBattleSpectator
       ? {
           phase: agentBattleHasResult ? "hand-complete" : "waiting",
@@ -258,23 +275,38 @@ export function ArenaActionBar({
                   Play vs PokerMaster
                 </Button>
               ) : null}
-              <Button
-                onClick={onSimulateAgentBattle}
-                disabled={disabled || loading || stepDemoActive}
-                size="lg"
-                className={cn(
-                  "h-11 min-w-[220px] border-2 border-violet-400/50 bg-violet-700 font-semibold text-white",
-                  "shadow-glow hover:bg-violet-600",
-                )}
-                title="Spectator Mode — watch AI agents play a simulated hand"
-              >
-                {loading && loadingMode === "agent-vs-agent" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Swords className="h-4 w-4" />
-                )}
-                Run Agent Battle Again
-              </Button>
+              {showAgentBattleDepletedUi && onResetAgentBattleStacks ? (
+                <Button
+                  type="button"
+                  size="lg"
+                  className={cn(
+                    "h-11 min-w-[240px] border-2 border-violet-400/50 bg-violet-700 font-semibold text-white",
+                    "shadow-glow hover:bg-violet-600",
+                  )}
+                  onClick={onResetAgentBattleStacks}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Reset Agent Battle Stacks
+                </Button>
+              ) : (
+                <Button
+                  onClick={onSimulateAgentBattle}
+                  disabled={agentBattleDisabled}
+                  size="lg"
+                  className={cn(
+                    "h-11 min-w-[220px] border-2 border-violet-400/50 bg-violet-700 font-semibold text-white",
+                    "shadow-glow hover:bg-violet-600",
+                  )}
+                  title="Spectator Mode — watch AI agents play a simulated hand"
+                >
+                  {loading && loadingMode === "agent-vs-agent" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Swords className="h-4 w-4" />
+                  )}
+                  Run Agent Battle Again
+                </Button>
+              )}
               {headsUpStackDepleted && onResetDemoStacks ? (
                 <Button
                   type="button"

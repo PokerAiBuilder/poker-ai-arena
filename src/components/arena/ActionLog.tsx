@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 
 type ActionLogProps = {
   entries: GameAction[];
+  /** Uppercase street labels + violet accents for Agent Battle spectator logs */
+  agentBattleMode?: boolean;
   className?: string;
 };
 
@@ -44,7 +46,7 @@ function isErrorMessage(message: string): boolean {
   return message.startsWith("Error:");
 }
 
-export function ActionLog({ entries, className }: ActionLogProps) {
+export function ActionLog({ entries, agentBattleMode = false, className }: ActionLogProps) {
   return (
     <div
       className={cn(
@@ -54,7 +56,9 @@ export function ActionLog({ entries, className }: ActionLogProps) {
     >
       <div className="border-b border-white/5 px-4 py-3">
         <h3 className="text-sm font-semibold text-casino-goldLight">Action Log</h3>
-        <p className="text-[10px] text-muted-foreground">Live hand feed</p>
+        <p className="text-[10px] text-muted-foreground">
+          {agentBattleMode ? "Agent Battle hand feed" : "Live hand feed"}
+        </p>
       </div>
 
       <div className="max-h-[280px] space-y-1 overflow-y-auto p-3">
@@ -73,6 +77,7 @@ export function ActionLog({ entries, className }: ActionLogProps) {
             const highlight =
               !isError &&
               (entry.stage === "showdown" || isWinMessage(entry.message));
+            const phaseLabel = entry.stage.toUpperCase();
 
             return (
               <div
@@ -110,7 +115,11 @@ export function ActionLog({ entries, className }: ActionLogProps) {
                     {entry.message}
                   </p>
                   <p className="text-[9px] uppercase tracking-wider text-white/30">
-                    {entry.stage}
+                    {agentBattleMode ? (
+                      <span className="text-violet-300/55">{phaseLabel}</span>
+                    ) : (
+                      phaseLabel
+                    )}
                   </p>
                 </div>
               </div>
