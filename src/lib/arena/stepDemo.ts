@@ -1,5 +1,6 @@
 import { PokerMaster } from "@/lib/agents/pokerMaster";
 import { getStepDemoPokerMasterDecision } from "@/lib/arena/stepDemoAiDecision";
+import { resolvePokerMasterRaiseIncrement } from "@/lib/arena/stepDemoAiRaiseSizing";
 import type { StepDemoAutoFlowStatus } from "@/lib/arena/stepDemoAutoFlow";
 import type { AgentDecision } from "@/lib/agents/agentTypes";
 import type { TableSeat } from "@/components/arena/PokerTable";
@@ -612,10 +613,6 @@ function targetRaiseBetFromIncrement(
   return state.currentBet === 0 ? increment : state.currentBet + increment;
 }
 
-function targetAiRaiseBet(state: StepDemoState): number {
-  return targetRaiseBetFromIncrement(state, STEP_DEMO_RAISE);
-}
-
 function buildRaiseOptions(state: StepDemoState): StepDemoRaiseOption[] {
   return STEP_DEMO_RAISE_SIZES.map((size) => {
     const requested = requestedHumanRaiseIncrement(state, size);
@@ -644,10 +641,6 @@ function buildRaiseOptions(state: StepDemoState): StepDemoRaiseOption[] {
       cappedToStack,
     };
   });
-}
-
-function targetRaiseBet(state: StepDemoState): number {
-  return targetAiRaiseBet(state);
 }
 
 function finishHandByFold(
@@ -944,7 +937,20 @@ function applyAiDecisionChips(
     }
     case "raise":
     case "all-in": {
-      const newBet = targetRaiseBet(state);
+      const requestedIncrement = resolvePokerMasterRaiseIncrement(
+        state,
+        decision.amount ?? STEP_DEMO_RAISE,
+      );
+      if (requestedIncrement <= 0) {
+        if (amountToCall > 0) {
+          const chips = deductStack(nextAi.stack, amountToCall);
+          nextAi.stack = chips.stack;
+          aiStreetBet += chips.paid;
+          pot += chips.paid;
+        }
+        break;
+      }
+      const newBet = targetRaiseBetFromIncrement(state, requestedIncrement);
       const owed = Math.max(0, newBet - aiStreetBet);
       const chips = deductStack(nextAi.stack, owed);
       nextAi.stack = chips.stack;

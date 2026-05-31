@@ -1,30 +1,39 @@
 import type { AgentDecision } from "@/lib/agents/agentTypes";
-import type { Card, HandRank, Rank } from "@/lib/poker/types";
-import { RANK_VALUES } from "@/lib/poker/types";
-import { evaluateBestHand } from "@/lib/poker/evaluator";
 import type { StepDemoState } from "@/lib/arena/stepDemo";
 import { STEP_DEMO_RAISE } from "@/lib/arena/stepDemoConstants";
+import {
+  formatRaiseReasoning,
+  pickPokerMasterRaiseIncrement,
+  resolvePokerMasterRaiseIncrement,
+  type RaiseIntent,
+} from "@/lib/arena/stepDemoAiRaiseSizing";
+import {
+  buildBetContext,
+  buildHandProfile,
+  type BetContext,
+  type BetPressure,
+  type HandProfile,
+  type HandTier,
+} from "@/lib/arena/stepDemoHandAnalysis";
 
-type RaisePressure = "small" | "medium" | "large" | "pot";
+/** Tunable aggression / fold thresholds for Human vs AI PokerMaster. */
+const FOLD_REDUCTION_SMALL_PRESSURE = 0.58;
+const FOLD_REDUCTION_MEDIUM_PRESSURE = 0.38;
+const STRONG_HAND_RAISE_BONUS = 0.24;
+const DRAW_SEMI_BLUFF_BONUS = 0.2;
 
-function humanRaisePressure(state: StepDemoState): RaisePressure {
-  const increment = state.lastHumanRaiseIncrement || STEP_DEMO_RAISE;
-  const potTarget = Math.max(STEP_DEMO_RAISE, state.pot);
-  if (increment >= potTarget * 0.85) return "pot";
-  if (increment >= 45) return "large";
-  if (increment >= 20) return "medium";
-  return "small";
-}
-
-type HandTier = "premium" | "strong" | "medium" | "weak" | "trash";
-
-type HandProfile = {
-  tier: HandTier;
-  strength: number;
-  label: string;
-  rank?: HandRank;
-  hasDraw?: boolean;
-};
+const PREMIUM_OPEN_RAISE_FREQ = 0.94;
+const STRONG_OPEN_RAISE_FREQ = 0.72;
+const PREMIUM_3BET_FREQ = 0.84;
+const STRONG_3BET_FREQ = 0.48;
+const STRONG_VALUE_RAISE_FREQ = 0.78;
+const PREMIUM_VALUE_RAISE_FREQ = 0.88;
+const TOP_PAIR_RAISE_FREQ = 0.32;
+const RIVER_VALUE_RAISE_FREQ = 0.62;
+const COMBO_DRAW_SEMI_BLUFF_FREQ = 0.42;
+const FLUSH_OESD_SEMI_BLUFF_FREQ = 0.3;
+const FLUSH_OVERCARD_SEMI_BLUFF_FREQ = 0.22;
+const GUTSHOT_SEMI_BLUFF_FREQ = 0.08;
 
 export type StepDemoAiDecisionOptions = {
   /** Human re-raised after our raise — call/fold only. */
@@ -34,10 +43,6 @@ export type StepDemoAiDecisionOptions = {
   /** Human went all-in — call/fold only with pot-odds logic. */
   humanWentAllIn?: boolean;
 };
-
-function cardValue(rank: Rank): number {
-  return RANK_VALUES[rank];
-}
 
 function aiToCall(state: StepDemoState): number {
   return Math.max(0, state.currentBet - state.aiStreetBet);
@@ -51,147 +56,6 @@ function humanAppliedPressure(state: StepDemoState): boolean {
   return state.humanStreetBet > state.aiStreetBet;
 }
 
-function preflopProfile(hole: Card[]): HandProfile {
-  const [a, b] = hole.map((c) => cardValue(c.rank));
-  const high = Math.max(a, b);
-  const low = Math.min(a, b);
-  const suited = hole[0].suit === hole[1].suit;
-  const pair = a === b;
-
-  if (pair && high >= 12) {
-    return {
-      tier: "premium",
-      strength: high * 5,
-      label: `pocket ${hole[0].rank}s`,
-    };
-  }
-  if ((high >= 14 && low >= 13) || (high >= 14 && low >= 12 && suited)) {
-    return {
-      tier: "premium",
-      strength: high + low + 4,
-      label: suited ? `${hole[0].rank}${hole[1].rank} suited` : `${hole[0].rank}${hole[1].rank}`,
-    };
-  }
-  if (pair && high >= 9) {
-    return {
-      tier: "strong",
-      strength: high * 3.5,
-      label: `pocket ${hole[0].rank}s`,
-    };
-  }
-  if (high >= 12 && low >= 10) {
-    return {
-      tier: "strong",
-      strength: high + low,
-      label: `${hole[0].rank}${hole[1].rank}${suited ? " suited" : ""}`,
-    };
-  }
-  if (high >= 11 || (suited && high >= 10)) {
-    return {
-      tier: "medium",
-      strength: high + low * 0.6,
-      label: `${hole[0].rank}${hole[1].rank}${suited ? " suited" : ""}`,
-    };
-  }
-  if (high >= 9) {
-    return {
-      tier: "weak",
-      strength: high + low * 0.35,
-      label: `${hole[0].rank}${hole[1].rank} offsuit`,
-    };
-  }
-  return {
-    tier: "trash",
-    strength: high + low * 0.2,
-    label: "weak starting hand",
-  };
-}
-
-function hasFlushDraw(hole: Card[], board: Card[]): boolean {
-  const suits = new Map<string, number>();
-  for (const c of [...hole, ...board]) {
-    suits.set(c.suit, (suits.get(c.suit) ?? 0) + 1);
-  }
-  return [...suits.values()].some((n) => n >= 4);
-}
-
-function hasStraightDraw(hole: Card[], board: Card[]): boolean {
-  const values = [...hole, ...board]
-    .map((c) => cardValue(c.rank))
-    .filter((v, i, arr) => arr.indexOf(v) === i)
-    .sort((a, b) => a - b);
-  const ranks = values.includes(14) ? [1, ...values] : values;
-  for (let i = 0; i <= ranks.length - 4; i += 1) {
-    const w = ranks.slice(i, i + 4);
-    if (w[3] - w[0] <= 4) return true;
-  }
-  return false;
-}
-
-function flopProfile(hole: Card[], board: Card[]): HandProfile {
-  const evaluated = evaluateBestHand([...hole, ...board]);
-  const rank = evaluated.rank;
-  const draw = hasFlushDraw(hole, board) || hasStraightDraw(hole, board);
-
-  const rankLabels: Record<HandRank, string> = {
-    high_card: "high card",
-    pair: "pair",
-    two_pair: "two pair",
-    three_of_a_kind: "trips",
-    straight: "straight",
-    flush: "flush",
-    full_house: "full house",
-    four_of_a_kind: "quads",
-    straight_flush: "straight flush",
-  };
-
-  const label = rankLabels[rank];
-
-  if (
-    rank === "straight_flush" ||
-    rank === "four_of_a_kind" ||
-    rank === "full_house" ||
-    rank === "flush" ||
-    rank === "straight"
-  ) {
-    return { tier: "premium", strength: 90, label, rank, hasDraw: draw };
-  }
-  if (rank === "three_of_a_kind" || rank === "two_pair") {
-    return { tier: "strong", strength: 75, label, rank, hasDraw: draw };
-  }
-  if (rank === "pair") {
-    return { tier: "medium", strength: 48, label: `top ${label} on flop`, rank, hasDraw: draw };
-  }
-  if (draw) {
-    return {
-      tier: "medium",
-      strength: 38,
-      label: "draw on flop",
-      rank,
-      hasDraw: true,
-    };
-  }
-  return {
-    tier: "weak",
-    strength: 15,
-    label: "missed flop",
-    rank,
-    hasDraw: false,
-  };
-}
-
-function profileForState(state: StepDemoState): HandProfile {
-  const hole = state.players.pokerMaster.holeCards;
-  if (state.street === "preflop" || state.communityCards.length < 3) {
-    return preflopProfile(hole);
-  }
-  return boardProfile(hole, state.communityCards);
-}
-
-function boardProfile(hole: Card[], board: Card[]): HandProfile {
-  return flopProfile(hole, board);
-}
-
 function decision(
   action: AgentDecision["action"],
   reasoning: string,
@@ -201,524 +65,781 @@ function decision(
   return { action, reasoning, confidence, amount };
 }
 
-function decideFacingReRaise(
-  state: StepDemoState,
-  profile: HandProfile,
-  toCall: number,
-): AgentDecision {
-  const pressure = humanRaisePressure(state);
+function tierFloor(tier: HandTier): number {
+  switch (tier) {
+    case "premium":
+      return 0.92;
+    case "strong":
+      return 0.78;
+    case "playable":
+      return 0.55;
+    case "speculative":
+      return 0.38;
+    default:
+      return 0.2;
+  }
+}
 
+function adjustFoldWeight(weight: number, pressure: BetPressure): number {
+  if (pressure === "small") {
+    return weight * (1 - FOLD_REDUCTION_SMALL_PRESSURE);
+  }
+  if (pressure === "medium") {
+    return weight * (1 - FOLD_REDUCTION_MEDIUM_PRESSURE);
+  }
+  return weight;
+}
+
+/** Returns true when the hand should fold (bounded — strong hands resist bad folds). */
+function shouldFold(
+  foldWeight: number,
+  profile: HandProfile,
+  pressure: BetPressure,
+): boolean {
+  let w = adjustFoldWeight(foldWeight, pressure);
+  w = Math.max(0, w - (profile.strength - 45) / 250);
+
+  if (profile.tier === "premium") return w > 0.92 && roll() < w * 0.08;
+  if (profile.tier === "strong") return w > 0.55 && roll() < w * 0.22;
+  if (profile.madeHand === "top_pair" && (profile.goodKicker || profile.isOverpair)) {
+    return w > 0.65 && roll() < w * 0.28;
+  }
+  return roll() < w;
+}
+
+function raiseBonus(profile: HandProfile): number {
+  let bonus = 0;
   if (profile.tier === "premium" || profile.tier === "strong") {
-    if (pressure === "pot" && profile.tier === "strong" && roll() < 0.1) {
-      return decision(
-        "fold",
-        `strong but not premium (${profile.label}) — folding to your pot-sized re-raise`,
-        0.55,
-      );
-    }
-    if (pressure === "large" && profile.tier === "strong" && roll() < 0.05) {
-      return decision(
-        "fold",
-        `strong hand (${profile.label}) — folding to large re-raise pressure`,
-        0.5,
-      );
-    }
-    return decision(
-      "call",
-      `strong ${state.street} hand (${profile.label}) — calling your ${pressure} re-raise`,
-      0.82,
-      toCall,
-    );
+    bonus += STRONG_HAND_RAISE_BONUS;
   }
-  if (profile.tier === "medium") {
-    if (pressure === "pot" || pressure === "large") {
-      if (roll() < 0.62) {
-        return decision(
-          "fold",
-          `medium ${profile.label} — folding to your ${pressure} re-raise`,
-          0.62,
-        );
-      }
-    } else if (pressure === "medium" && roll() < 0.28) {
-      return decision(
-        "fold",
-        `medium ${profile.label} — folding to medium re-raise`,
-        0.58,
-      );
-    }
-    return decision(
-      "call",
-      `medium hand but decent pot odds — calling`,
-      0.58,
-      toCall,
-    );
+  if (profile.madeHand === "top_pair" && (profile.goodKicker || profile.isOverpair)) {
+    bonus += 0.1;
   }
-  if (pressure === "small" && roll() < 0.22) {
-    return decision(
-      "call",
-      `weak hand (${profile.label}) — calling small re-raise`,
-      0.45,
-      toCall,
-    );
+  if (profile.isOverpair) bonus += 0.08;
+  return bonus;
+}
+
+function shouldRaise(baseFreq: number, profile: HandProfile, extraBonus = 0): boolean {
+  return roll() < Math.min(0.96, baseFreq + raiseBonus(profile) + extraBonus);
+}
+
+function semiBluffFreq(profile: HandProfile): number {
+  const { draws } = profile;
+  if (draws.flushDraw && draws.openEndedStraight) {
+    return COMBO_DRAW_SEMI_BLUFF_FREQ + DRAW_SEMI_BLUFF_BONUS;
   }
-  if (roll() < 0.55) {
-    return decision(
-      "fold",
-      `weak hand (${profile.label}) facing ${pressure} re-raise — folding`,
-      0.7,
-    );
+  if (draws.flushDraw && draws.overcards) {
+    return FLUSH_OVERCARD_SEMI_BLUFF_FREQ + DRAW_SEMI_BLUFF_BONUS;
   }
-  return decision(
-    "call",
-    `weak hand but pot odds look tempting — calling`,
-    0.45,
-    toCall,
+  if (draws.flushDraw || draws.openEndedStraight) {
+    return FLUSH_OESD_SEMI_BLUFF_FREQ + DRAW_SEMI_BLUFF_BONUS;
+  }
+  if (draws.gutshot) return GUTSHOT_SEMI_BLUFF_FREQ;
+  return 0;
+}
+
+function pressurePhrase(pressure: BetPressure): string {
+  switch (pressure) {
+    case "all-in":
+      return "all-in pressure";
+    case "pot":
+      return "pot-sized pressure";
+    case "large":
+      return "heavy pressure";
+    case "medium":
+      return "medium pressure";
+    default:
+      return "small pressure";
+  }
+}
+
+function drawReason(profile: HandProfile): string {
+  if (profile.draws.flushDraw && profile.draws.openEndedStraight) {
+    return "Combo draw";
+  }
+  if (profile.draws.flushDraw) return "Flush draw";
+  if (profile.draws.openEndedStraight) return "Open-ended straight draw";
+  if (profile.draws.gutshot) return "Gutshot";
+  if (profile.draws.overcards) return "Overcards";
+  return "Draw";
+}
+
+function boardPhrase(profile: HandProfile): string {
+  if (profile.board.summary === "preflop") return "";
+  if (profile.board.paired) return " on a paired board";
+  if (profile.board.summary === "dry board") return " on a dry board";
+  if (profile.board.flushHeavy || profile.board.connected) {
+    return ` on a ${profile.board.summary}`;
+  }
+  return "";
+}
+
+function topPairLabel(profile: HandProfile): string {
+  if (profile.isOverpair) return "Overpair";
+  if (profile.goodKicker) return "Top pair with good kicker";
+  return "Top pair";
+}
+
+function isMonster(profile: HandProfile): boolean {
+  return (
+    profile.madeHand === "straight" ||
+    profile.madeHand === "flush" ||
+    profile.madeHand === "full_house_plus"
   );
 }
 
-function decidePreflop(
+function foldWeakToPressure(
+  profile: HandProfile,
+  ctx: BetContext,
+  reason: string,
+): AgentDecision {
+  return decision("fold", reason, 0.72 + ctx.callPotRatio * 0.15);
+}
+
+function callWith(
+  profile: HandProfile,
+  ctx: BetContext,
+  reason: string,
+  confidence: number,
+): AgentDecision {
+  return decision("call", reason, confidence, ctx.toCall);
+}
+
+function raiseForValue(
   state: StepDemoState,
   profile: HandProfile,
-  toCall: number,
-  facingBet: boolean,
-  humanRaised: boolean,
-  canRaise: boolean,
+  ctx: BetContext | null,
+  intent: RaiseIntent,
+  baseReason: string,
+  confidence: number,
 ): AgentDecision {
-  const pot = state.pot;
-  const pressure = humanRaised ? humanRaisePressure(state) : "small";
+  const increment = resolvePokerMasterRaiseIncrement(
+    state,
+    pickPokerMasterRaiseIncrement(state, profile, ctx, intent),
+  );
+  if (increment <= 0) {
+    if (ctx && ctx.toCall > 0) {
+      return callWith(profile, ctx, `${profile.label} — calling (short stack)`, 0.55);
+    }
+    return decision("check", `${profile.label} — checking (short stack)`, 0.5);
+  }
+  const reasoning = formatRaiseReasoning(baseReason, increment, state);
+  return decision("raise", reasoning, confidence, increment);
+}
 
-  if (!facingBet) {
-    if (profile.tier === "premium" && canRaise && roll() < 0.72) {
+function decideFacingReRaise(
+  profile: HandProfile,
+  ctx: BetContext,
+): AgentDecision {
+  const p = ctx.pressure;
+
+  if (profile.tier === "premium" || profile.tier === "strong") {
+    if (
+      profile.tier === "strong" &&
+      (p === "pot" || p === "all-in") &&
+      shouldFold(0.08, profile, p)
+    ) {
       return decision(
-        "raise",
-        `strong preflop hand (${profile.label}) — raising for value`,
-        0.88,
-        STEP_DEMO_RAISE,
+        "fold",
+        `${profile.label}${boardPhrase(profile)} — folding to ${pressurePhrase(p)}`,
+        0.58,
       );
     }
-    if (profile.tier === "strong" && canRaise && roll() < 0.45) {
-      return decision(
-        "raise",
-        `solid preflop hand (${profile.label}) — raising to build the pot`,
-        0.75,
-        STEP_DEMO_RAISE,
-      );
-    }
-    return decision(
-      "check",
-      `medium preflop hand (${profile.label}) — checking in the big blind`,
-      0.6,
+    return callWith(
+      profile,
+      ctx,
+      `${profile.label} — calling your ${pressurePhrase(p)}`,
+      profile.tier === "premium" ? 0.9 : 0.84,
     );
   }
 
-  if (profile.tier === "premium") {
-    if (canRaise && !humanRaised && roll() < 0.55) {
-      return decision(
-        "raise",
-        `premium hand (${profile.label}) — re-raising for value`,
-        0.9,
-        STEP_DEMO_RAISE,
+  if (profile.tier === "playable" || profile.madeHand === "top_pair") {
+    if (p === "pot" || p === "all-in" || p === "large") {
+      if (shouldFold(0.48, profile, p)) {
+        return foldWeakToPressure(
+          profile,
+          ctx,
+          `${profile.label} — folding to ${pressurePhrase(p)}`,
+        );
+      }
+    } else if (p === "medium" && shouldFold(0.18, profile, p)) {
+      return foldWeakToPressure(profile, ctx, `${profile.label} — folding to medium re-raise`);
+    }
+    if (profile.draws.hasEquityDraw && profile.street !== "river") {
+      return callWith(
+        profile,
+        ctx,
+        `${drawReason(profile)} — calling with pot odds`,
+        0.66,
       );
     }
-    return decision(
-      "call",
-      `premium hand (${profile.label}) — calling to keep the pot growing`,
-      0.85,
-      toCall,
+    const label = profile.madeHand === "top_pair" ? topPairLabel(profile) : profile.label;
+    return callWith(
+      profile,
+      ctx,
+      `${label} — continuing against ${pressurePhrase(p)}`,
+      0.64,
+    );
+  }
+
+  if (p === "small" && shouldFold(0.06, profile, p)) {
+    return callWith(profile, ctx, `${profile.label} — peeling a small re-raise`, 0.44);
+  }
+  if (shouldFold(0.52, profile, p)) {
+    return foldWeakToPressure(
+      profile,
+      ctx,
+      `Weak hand (${profile.label}) — folding to ${pressurePhrase(p)}`,
+    );
+  }
+  return callWith(profile, ctx, `${profile.label} — calling with long pot odds`, 0.42);
+}
+
+function decidePreflopNoBet(
+  state: StepDemoState,
+  profile: HandProfile,
+  canRaise: boolean,
+): AgentDecision {
+  if (profile.tier === "premium" && canRaise && shouldRaise(PREMIUM_OPEN_RAISE_FREQ, profile)) {
+    return raiseForValue(
+      state,
+      profile,
+      null,
+      "preflop_open",
+      "Premium preflop hand — raising bigger for value",
+      0.92,
+    );
+  }
+  if (profile.tier === "strong" && canRaise && shouldRaise(STRONG_OPEN_RAISE_FREQ, profile)) {
+    return raiseForValue(
+      state,
+      profile,
+      null,
+      "preflop_open",
+      "Strong preflop hand — raising for value",
+      0.82,
+    );
+  }
+  if (profile.tier === "playable" && canRaise && shouldRaise(0.28, profile)) {
+    return raiseForValue(
+      state,
+      profile,
+      null,
+      "probe",
+      `Playable hand (${profile.label}) — opening the pot`,
+      0.64,
+    );
+  }
+  return decision(
+    "check",
+    `${profile.label} — checking in the big blind`,
+    0.58,
+  );
+}
+
+function decidePreflopFacingBet(
+  state: StepDemoState,
+  profile: HandProfile,
+  ctx: BetContext,
+  humanRaised: boolean,
+  canRaise: boolean,
+): AgentDecision {
+  const p = ctx.pressure;
+
+  if (profile.tier === "premium") {
+    if (canRaise && shouldRaise(PREMIUM_3BET_FREQ, profile)) {
+      return raiseForValue(
+        state,
+        profile,
+        ctx,
+        "preflop_3bet",
+        "Premium preflop hand — raising bigger for value",
+        0.92,
+      );
+    }
+    return callWith(
+      profile,
+      ctx,
+      `Premium preflop hand — continuing`,
+      0.88,
     );
   }
 
   if (profile.tier === "strong") {
-    if (
-      humanRaised &&
-      (pressure === "large" || pressure === "pot") &&
-      roll() < 0.28
-    ) {
-      return decision(
-        "fold",
-        `strong but not premium (${profile.label}) — folding to ${pressure} raise`,
-        0.55,
+    if (humanRaised && (p === "pot" || p === "all-in") && shouldFold(0.12, profile, p)) {
+      return foldWeakToPressure(
+        profile,
+        ctx,
+        `${profile.label} — folding to ${pressurePhrase(p)}`,
       );
     }
-    if (humanRaised && pressure === "medium" && roll() < 0.12) {
-      return decision(
-        "fold",
-        `strong but not premium (${profile.label}) — folding to medium raise`,
-        0.5,
+    if (canRaise && humanRaised && (p === "small" || p === "medium") && shouldRaise(STRONG_3BET_FREQ, profile)) {
+      return raiseForValue(
+        state,
+        profile,
+        ctx,
+        "preflop_3bet",
+        "Strong preflop hand — re-raising for value",
+        0.8,
       );
     }
-    if (
-      canRaise &&
-      humanRaised &&
-      (pressure === "small" || pressure === "medium") &&
-      roll() < 0.26
-    ) {
-      return decision(
-        "raise",
-        `strong preflop hand (${profile.label}) — re-raising your ${pressure} open`,
+    if (canRaise && !humanRaised && shouldRaise(STRONG_OPEN_RAISE_FREQ, profile)) {
+      return raiseForValue(
+        state,
+        profile,
+        ctx,
+        "preflop_open",
+        "Strong preflop hand — raising for value",
         0.78,
-        STEP_DEMO_RAISE,
       );
     }
-    if (canRaise && roll() < 0.32) {
-      return decision(
-        "raise",
-        `strong preflop hand (${profile.label}) — raising for value`,
-        0.78,
-        STEP_DEMO_RAISE,
-      );
-    }
-    return decision(
-      "call",
-      `playable preflop hand (${profile.label}) — calling`,
-      0.68,
-      toCall,
+    return callWith(
+      profile,
+      ctx,
+      `Strong preflop hand (${profile.label}) — calling`,
+      0.76,
     );
   }
 
-  if (profile.tier === "medium") {
-    if (humanRaised && canRaise && pressure === "small" && roll() < 0.14) {
-      return decision(
-        "raise",
-        `medium hand (${profile.label}) — fighting back with a small raise`,
-        0.58,
-        STEP_DEMO_RAISE,
+  if (profile.tier === "playable") {
+    if (humanRaised && (p === "pot" || p === "all-in") && shouldFold(0.55, profile, p)) {
+      return foldWeakToPressure(
+        profile,
+        ctx,
+        `${profile.label} — folding to ${pressurePhrase(p)}`,
       );
     }
-    if (
-      humanRaised &&
-      (pressure === "large" || pressure === "pot") &&
-      roll() < 0.55
-    ) {
-      return decision(
-        "fold",
-        `medium hand (${profile.label}) — folding to ${pressure} pressure`,
-        0.6,
-      );
+    if (humanRaised && p === "large" && shouldFold(0.35, profile, p)) {
+      return foldWeakToPressure(profile, ctx, `${profile.label} — folding to heavy raise`);
     }
-    if (humanRaised && pressure === "medium" && roll() < 0.32) {
-      return decision(
-        "fold",
-        `medium hand (${profile.label}) — folding to medium raise`,
-        0.58,
-      );
+    if (humanRaised && p === "medium" && shouldFold(0.14, profile, p)) {
+      return foldWeakToPressure(profile, ctx, `${profile.label} — folding to medium raise`);
     }
-    if (
-      (pressure === "small" || !humanRaised) &&
-      toCall <= STEP_DEMO_RAISE &&
-      roll() < 0.78
-    ) {
-      return decision(
-        "call",
-        `medium hand (${profile.label}) — calling with implied odds`,
-        0.55,
-        toCall,
-      );
-    }
-    if (roll() < 0.35) {
-      return decision("fold", `medium hand (${profile.label}) — folding preflop`, 0.52);
-    }
-    return decision("call", `marginal hand — calling a small bet`, 0.48, toCall);
-  }
-
-  if (humanRaised && toCall > 0) {
-    if (pressure === "pot" || pressure === "large") {
-      if (roll() < 0.72) {
-        return decision(
-          "fold",
-          `trash hand (${profile.label}) facing ${pressure} raise — folding`,
-          0.72,
-        );
-      }
-    } else if (pressure === "medium" && roll() < 0.52) {
-      return decision(
-        "fold",
-        `trash hand (${profile.label}) facing medium raise — folding`,
-        0.65,
-      );
-    } else if (roll() < 0.35) {
-      return decision(
-        "fold",
-        `trash hand (${profile.label}) facing raise — folding`,
-        0.6,
-      );
-    }
-  }
-  if (toCall <= STEP_DEMO_RAISE && pot > toCall * 2 && roll() < 0.42) {
-    return decision(
-      "call",
-      `weak hand but good pot odds — calling`,
-      0.4,
-      toCall,
+    return callWith(
+      profile,
+      ctx,
+      `${profile.label} — calling ${pressurePhrase(p)}`,
+      0.62,
     );
   }
-  if (roll() < 0.55) {
-    return decision("fold", `weak starting hand — folding preflop`, 0.65);
+
+  if (profile.tier === "speculative") {
+    if (p === "small" && ctx.toCall <= STEP_DEMO_RAISE) {
+      return callWith(
+        profile,
+        ctx,
+        `${profile.label} — calling to see a flop cheaply`,
+        0.54,
+      );
+    }
+    if ((p === "pot" || p === "all-in" || p === "large") && shouldFold(0.78, profile, p)) {
+      return foldWeakToPressure(
+        profile,
+        ctx,
+        `Speculative hand (${profile.label}) — folding to ${pressurePhrase(p)}`,
+      );
+    }
+    if (shouldFold(0.42, profile, p)) {
+      return foldWeakToPressure(profile, ctx, `Weak starting hand — folding preflop`);
+    }
+    return callWith(profile, ctx, `${profile.label} — peeling one bet`, 0.42);
   }
-  return decision("call", `marginal trash — peeling one bet`, 0.38, toCall);
+
+  if ((p === "pot" || p === "all-in" || p === "large") && shouldFold(0.9, profile, p)) {
+    return foldWeakToPressure(
+      profile,
+      ctx,
+      `Trash hand (${profile.label}) — folding to ${pressurePhrase(p)}`,
+    );
+  }
+  if (p === "medium" && shouldFold(0.62, profile, p)) {
+    return foldWeakToPressure(profile, ctx, `Weak hand (${profile.label}) — folding preflop`);
+  }
+  if (p === "small" && ctx.toCall <= STEP_DEMO_RAISE && roll() < 0.18) {
+    return callWith(profile, ctx, `Weak hand but good pot odds — calling`, 0.38);
+  }
+  return foldWeakToPressure(profile, ctx, `Weak starting hand — folding preflop`);
 }
 
-function decidePostflop(
+function decidePostflopNoBet(
   state: StepDemoState,
   profile: HandProfile,
-  toCall: number,
-  facingBet: boolean,
+  canRaise: boolean,
+): AgentDecision {
+  const street = profile.street;
+  const isRiver = street === "river";
+
+  if (profile.tier === "premium" && canRaise) {
+    const freq = isRiver ? RIVER_VALUE_RAISE_FREQ : PREMIUM_VALUE_RAISE_FREQ;
+    if (shouldRaise(freq, profile)) {
+      const reason =
+        profile.madeHand === "straight" || profile.madeHand === "flush"
+          ? `${profile.label} made — raising for value`
+          : "Strong made hand — raising for value";
+      return raiseForValue(state, profile, null, "value_bet", reason, 0.9);
+    }
+  }
+
+  if (profile.tier === "strong" && canRaise) {
+    const freq = isRiver ? RIVER_VALUE_RAISE_FREQ : STRONG_VALUE_RAISE_FREQ;
+    if (shouldRaise(freq, profile)) {
+      const reason =
+        profile.madeHand === "two_pair"
+          ? `Two pair${boardPhrase(profile)} — raising larger for value`
+          : `${profile.label}${boardPhrase(profile)} — raising for value`;
+      return raiseForValue(state, profile, null, "value_bet", reason, 0.86);
+    }
+  }
+
+  if (profile.madeHand === "top_pair" && canRaise && !isRiver && shouldRaise(TOP_PAIR_RAISE_FREQ, profile)) {
+    return raiseForValue(
+      state,
+      profile,
+      null,
+      "value_bet",
+      `${topPairLabel(profile)}${boardPhrase(profile)} — betting for value`,
+      0.74,
+    );
+  }
+
+  if (isRiver && profile.tier === "premium" && canRaise && shouldRaise(RIVER_VALUE_RAISE_FREQ, profile)) {
+    return raiseForValue(
+      state,
+      profile,
+      null,
+      "value_bet",
+      "Strong made hand — value betting the river",
+      0.88,
+    );
+  }
+
+  if (profile.draws.hasEquityDraw && !isRiver && canRaise) {
+    const freq = semiBluffFreq(profile);
+    if (freq > 0 && shouldRaise(freq, profile)) {
+      return raiseForValue(
+        state,
+        profile,
+        null,
+        "semi_bluff",
+        `${drawReason(profile)} — semi-bluffing with fold equity`,
+        0.58,
+      );
+    }
+  }
+
+  if (profile.tier === "weak" && canRaise && roll() < 0.05) {
+    return raiseForValue(
+      state,
+      profile,
+      null,
+      "probe",
+      `Bluff on the ${street}${boardPhrase(profile)}`,
+      0.4,
+    );
+  }
+
+  if (profile.tier === "weak" || profile.tier === "speculative") {
+    return decision(
+      "check",
+      `Weak hand on ${street} — checking back`,
+      0.58,
+    );
+  }
+  return decision(
+    "check",
+    `${profile.label}${boardPhrase(profile)} — checking to control the pot`,
+    0.62,
+  );
+}
+
+function decidePostflopFacingBet(
+  state: StepDemoState,
+  profile: HandProfile,
+  ctx: BetContext,
   humanRaised: boolean,
   canRaise: boolean,
 ): AgentDecision {
-  const streetLabel = state.street;
-  const pressure = humanRaised ? humanRaisePressure(state) : "small";
+  const street = profile.street;
+  const p = ctx.pressure;
+  const isRiver = street === "river";
 
-  if (!facingBet) {
-    if (
-      (profile.tier === "premium" || profile.tier === "strong") &&
-      canRaise &&
-      roll() < 0.42
-    ) {
-      return decision(
-        "raise",
-        `${profile.label} — betting for value on the ${streetLabel}`,
-        0.84,
-        STEP_DEMO_RAISE,
+  if (profile.tier === "premium" || profile.tier === "strong") {
+    const raiseFreq = isRiver ? RIVER_VALUE_RAISE_FREQ : PREMIUM_VALUE_RAISE_FREQ;
+    if (canRaise && (p === "small" || p === "medium" || !humanRaised) && shouldRaise(raiseFreq, profile)) {
+      const reason =
+        profile.madeHand === "straight"
+          ? "Straight made — raising for value"
+          : isMonster(profile)
+            ? `${profile.label} — raising for value`
+            : "Strong made hand — raising for value";
+      return raiseForValue(state, profile, ctx, "value_reraise", reason, 0.9);
+    }
+    return callWith(
+      profile,
+      ctx,
+      `${profile.label}${boardPhrase(profile)} — calling with showdown value`,
+      0.86,
+    );
+  }
+
+  if (profile.madeHand === "top_pair" || profile.isOverpair) {
+    const tpLabel = topPairLabel(profile);
+    if (p === "small" || p === "medium") {
+      if (canRaise && shouldRaise(TOP_PAIR_RAISE_FREQ, profile)) {
+        return raiseForValue(
+          state,
+          profile,
+          ctx,
+          "value_reraise",
+          `${tpLabel}${boardPhrase(profile)} — raising for value`,
+          0.76,
+        );
+      }
+      return callWith(
+        profile,
+        ctx,
+        `${tpLabel} — continuing against ${pressurePhrase(p)}`,
+        0.74,
       );
     }
-    if (profile.tier === "weak" && canRaise && roll() < 0.09) {
+    if ((p === "large" || p === "pot" || p === "all-in") && profile.board.paired && shouldFold(0.38, profile, p)) {
+      return foldWeakToPressure(
+        profile,
+        ctx,
+        `${tpLabel} on a paired board — folding to ${pressurePhrase(p)}`,
+      );
+    }
+    if (street === "turn" && (p === "large" || p === "pot") && shouldFold(0.22, profile, p)) {
+      return foldWeakToPressure(
+        profile,
+        ctx,
+        `${tpLabel} — folding to ${pressurePhrase(p)} on the turn`,
+      );
+    }
+    return callWith(
+      profile,
+      ctx,
+      `${tpLabel}${boardPhrase(profile)} — calling`,
+      0.68,
+    );
+  }
+
+  if (profile.draws.hasEquityDraw && !isRiver) {
+    const isCombo = profile.draws.flushDraw && profile.draws.openEndedStraight;
+    if (p === "small" || p === "medium" || ctx.callPotRatio < 0.32) {
+      if (canRaise && !profile.draws.gutshot && shouldRaise(semiBluffFreq(profile), profile)) {
+        return raiseForValue(
+          state,
+          profile,
+          ctx,
+          "semi_bluff",
+          `${drawReason(profile)} — semi-bluffing with fold equity`,
+          0.6,
+        );
+      }
+      return callWith(
+        profile,
+        ctx,
+        `${drawReason(profile)} with pot odds — continuing`,
+        0.68,
+      );
+    }
+    if ((p === "large" || p === "pot" || p === "all-in") && !isCombo && shouldFold(0.42, profile, p)) {
+      return foldWeakToPressure(
+        profile,
+        ctx,
+        `${drawReason(profile)} — folding to ${pressurePhrase(p)}`,
+      );
+    }
+    if ((p === "large" || p === "pot" || p === "all-in") && isCombo) {
+      return callWith(
+        profile,
+        ctx,
+        `${drawReason(profile)} — calling with strong draw equity`,
+        0.64,
+      );
+    }
+    return callWith(profile, ctx, `${drawReason(profile)} — calling once`, 0.56);
+  }
+
+  if (profile.tier === "playable") {
+    if (p === "small" || p === "medium") {
+      return callWith(
+        profile,
+        ctx,
+        `${profile.label}${boardPhrase(profile)} — calling ${pressurePhrase(p)}`,
+        0.62,
+      );
+    }
+    if ((p === "large" || p === "pot" || p === "all-in") && shouldFold(0.48, profile, p)) {
+      return foldWeakToPressure(
+        profile,
+        ctx,
+        `${profile.label} — folding to ${pressurePhrase(p)} on the ${street}`,
+      );
+    }
+    return callWith(profile, ctx, `${profile.label} — calling with showdown value`, 0.56);
+  }
+
+  if (isRiver) {
+    if (shouldFold(0.88, profile, p)) {
+      return foldWeakToPressure(
+        profile,
+        ctx,
+        `Missed draw on river facing ${pressurePhrase(p)} — folding`,
+      );
+    }
+    if (p === "small" && roll() < 0.12) {
+      return callWith(profile, ctx, `Weak high card — calling a small river bet`, 0.38);
+    }
+    return foldWeakToPressure(
+      profile,
+      ctx,
+      `Weak high-card hand facing ${pressurePhrase(p)} — folding`,
+    );
+  }
+
+  if (p === "pot" || p === "all-in" || p === "large") {
+    if (shouldFold(0.82, profile, p)) {
+      return foldWeakToPressure(
+        profile,
+        ctx,
+        `Weak high-card hand facing heavy pressure — folding`,
+      );
+    }
+  } else if (p === "medium" && shouldFold(0.38, profile, p)) {
+    return foldWeakToPressure(
+      profile,
+      ctx,
+      `Missed board on ${street} — folding to medium pressure`,
+    );
+  } else if (shouldFold(0.28, profile, p)) {
+    return foldWeakToPressure(
+      profile,
+      ctx,
+      `Weak hand on ${street} — folding`,
+    );
+  }
+
+  return callWith(profile, ctx, `Weak hand but pot odds — calling once`, 0.4);
+}
+
+function decideFacingHumanAllIn(
+  profile: HandProfile,
+  ctx: BetContext,
+  aiStack: number,
+): AgentDecision {
+  const callAmount = Math.min(ctx.toCall, aiStack);
+  const potOdds = ctx.toCall > 0 ? ctx.pot / ctx.toCall : 999;
+  const isRiver = profile.street === "river";
+
+  if (profile.tier === "premium") {
+    return decision(
+      "call",
+      `Strong made hand — calling your all-in`,
+      0.93,
+      callAmount,
+    );
+  }
+
+  if (profile.tier === "strong") {
+    if (potOdds >= 1.2 || !shouldFold(0.1, profile, "all-in")) {
       return decision(
-        "raise",
-        `small bluff attempt on the ${streetLabel}`,
-        0.42,
-        STEP_DEMO_RAISE,
+        "call",
+        `${profile.label} — calling all-in with good pot odds`,
+        0.84,
+        callAmount,
       );
     }
     return decision(
-      "check",
-      profile.tier === "weak" || profile.tier === "trash"
-        ? `weak hand on ${streetLabel} — checking back`
-        : `${profile.label} — checking to control the pot`,
+      "fold",
+      `${profile.label} — folding to all-in pressure`,
       0.58,
     );
   }
 
-  if (profile.tier === "premium" || profile.tier === "strong") {
-    if (
-      canRaise &&
-      humanRaised &&
-      (pressure === "small" || pressure === "medium") &&
-      roll() < 0.32
-    ) {
+  if (profile.madeHand === "top_pair" || profile.isOverpair) {
+    const tpLabel = topPairLabel(profile);
+    if (profile.goodKicker || profile.isOverpair || potOdds >= 1.8) {
       return decision(
-        "raise",
-        `${profile.label} — re-raising your ${pressure} bet on the ${streetLabel}`,
-        0.86,
-        STEP_DEMO_RAISE,
+        "call",
+        `${tpLabel} — calling your all-in`,
+        0.76,
+        callAmount,
       );
     }
-    if (canRaise && !humanRaised && roll() < 0.38) {
-      return decision(
-        "raise",
-        `${profile.label} — raising for value on the ${streetLabel}`,
-        0.86,
-        STEP_DEMO_RAISE,
-      );
+    if (shouldFold(0.22, profile, "all-in")) {
+      return decision("fold", `${tpLabel} — folding to all-in pressure`, 0.62);
     }
     return decision(
       "call",
-      `${profile.label} — calling with showdown value`,
-      0.8,
-      toCall,
+      `${tpLabel} — calling all-in in a good spot`,
+      0.68,
+      callAmount,
     );
   }
 
-  if (profile.tier === "medium") {
-    if (profile.hasDraw && roll() < 0.72) {
+  if (profile.draws.hasEquityDraw && !isRiver) {
+    const strongDraw =
+      profile.draws.flushDraw || profile.draws.openEndedStraight;
+    if (potOdds >= 2 && strongDraw) {
       return decision(
         "call",
-        `${profile.label} — calling to chase equity on the ${streetLabel}`,
-        0.62,
-        toCall,
+        `${drawReason(profile)} — calling all-in with draw equity`,
+        0.68,
+        callAmount,
       );
     }
-    if (humanRaised && canRaise && pressure === "small" && roll() < 0.12) {
-      return decision(
-        "raise",
-        `${profile.label} — raising back on the ${streetLabel}`,
-        0.6,
-        STEP_DEMO_RAISE,
-      );
-    }
-    if (
-      humanRaised &&
-      (pressure === "large" || pressure === "pot") &&
-      roll() < 0.48
-    ) {
+    if (shouldFold(0.58, profile, "all-in")) {
       return decision(
         "fold",
-        `${profile.label} — folding to ${pressure} pressure on the ${streetLabel}`,
-        0.58,
-      );
-    }
-    if (humanRaised && pressure === "medium" && roll() < 0.28) {
-      return decision(
-        "fold",
-        `${profile.label} — folding to medium ${streetLabel} raise`,
-        0.55,
-      );
-    }
-    if (roll() < 0.68) {
-      return decision(
-        "call",
-        `top pair on ${streetLabel} — calling with showdown value`,
-        0.64,
-        toCall,
-      );
-    }
-    return decision(
-      "fold",
-      `medium hand (${profile.label}) — folding on the ${streetLabel}`,
-      0.54,
-    );
-  }
-
-  if (humanRaised) {
-    if (pressure === "pot" || pressure === "large") {
-      if (roll() < 0.62) {
-        return decision(
-          "fold",
-          `missed board on ${streetLabel} — folding to ${pressure} pressure`,
-          0.72,
-        );
-      }
-    } else if (pressure === "medium" && roll() < 0.45) {
-      return decision(
-        "fold",
-        `missed board on ${streetLabel} — folding to medium raise`,
+        `${drawReason(profile)} — folding to all-in without enough odds`,
         0.66,
       );
-    } else if (roll() < 0.3) {
-      return decision(
-        "fold",
-        `missed board on ${streetLabel} and facing pressure — folding`,
-        0.62,
-      );
     }
-  }
-  if (profile.hasDraw && roll() < 0.55) {
     return decision(
       "call",
-      "draw or weak pair — calling once for pot odds",
-      0.48,
-      toCall,
+      `${drawReason(profile)} — calling all-in for pot odds`,
+      0.52,
+      callAmount,
     );
   }
-  if (roll() < 0.48) {
+
+  if (profile.tier === "playable" && potOdds >= 2.8 && !shouldFold(0.45, profile, "all-in")) {
+    return decision(
+      "call",
+      `${profile.label} — calling all-in with pot odds`,
+      0.52,
+      callAmount,
+    );
+  }
+
+  if (potOdds >= 6 && profile.tier === "speculative" && roll() < 0.12) {
+    return decision(
+      "call",
+      `${profile.label} — calling all-in with long pot odds`,
+      0.36,
+      callAmount,
+    );
+  }
+
+  if (shouldFold(0.82, profile, "all-in")) {
     return decision(
       "fold",
-      `weak hand on ${streetLabel} facing bet — folding`,
-      0.66,
-    );
-  }
-  return decision("call", "weak hand but pot odds — calling", 0.42, toCall);
-}
-
-function decideFacingHumanAllIn(
-  state: StepDemoState,
-  profile: HandProfile,
-  toCall: number,
-): AgentDecision {
-  const aiStack = state.players.pokerMaster.stack;
-  const callAmount = Math.min(toCall, aiStack);
-  const potOdds = toCall > 0 ? state.pot / toCall : 999;
-
-  if (profile.tier === "premium") {
-    return decision(
-      "call",
-      `premium hand (${profile.label}) — calling your all-in`,
-      0.88,
-      callAmount,
-    );
-  }
-
-  if (profile.tier === "strong") {
-    if (potOdds >= 1.5 || roll() < 0.72) {
-      return decision(
-        "call",
-        `strong hand (${profile.label}) — calling all-in with good pot odds`,
-        0.78,
-        callAmount,
-      );
-    }
-    if (roll() < 0.38) {
-      return decision(
-        "fold",
-        `strong but not premium (${profile.label}) — folding to all-in`,
-        0.55,
-      );
-    }
-    return decision(
-      "call",
-      `strong hand (${profile.label}) — calling all-in`,
-      0.72,
-      callAmount,
-    );
-  }
-
-  if (profile.tier === "medium") {
-    if (profile.hasDraw && potOdds >= 2 && roll() < 0.58) {
-      return decision(
-        "call",
-        `${profile.label} with draws — calling all-in for pot odds`,
-        0.6,
-        callAmount,
-      );
-    }
-    if (potOdds >= 3 && roll() < 0.42) {
-      return decision(
-        "call",
-        `medium hand (${profile.label}) — calling with pot odds`,
-        0.52,
-        callAmount,
-      );
-    }
-    if (roll() < 0.58) {
-      return decision(
-        "fold",
-        `medium hand (${profile.label}) — folding to all-in`,
-        0.65,
-      );
-    }
-    return decision(
-      "call",
-      `medium hand (${profile.label}) — calling all-in`,
-      0.48,
-      callAmount,
-    );
-  }
-
-  if (potOdds >= 4 && roll() < 0.28) {
-    return decision(
-      "call",
-      `weak hand but long pot odds — calling all-in`,
-      0.38,
-      callAmount,
-    );
-  }
-  if (roll() < 0.68) {
-    return decision(
-      "fold",
-      `weak hand (${profile.label}) — folding to all-in`,
-      0.72,
+      `Weak hand (${profile.label}) — folding to all-in pressure`,
+      0.8,
     );
   }
   return decision(
     "call",
-    `weak hand (${profile.label}) — hero call all-in`,
-    0.35,
+    `${profile.label} — calling all-in as a bluff-catcher`,
+    0.34,
     callAmount,
   );
 }
 
 /**
- * Step Demo only — tuned PokerMaster decisions (not used in full-hand sim).
+ * Step Demo only — tuned PokerMaster decisions (not used in Agent Battle).
  */
 export function getStepDemoPokerMasterDecision(
   state: StepDemoState,
@@ -728,15 +849,18 @@ export function getStepDemoPokerMasterDecision(
   const facingBet = toCall > 0;
   const humanRaised = humanAppliedPressure(state);
   const canRaise = !options.aiAlreadyRaised && !options.afterHumanReRaise;
-
-  const profile = profileForState(state);
+  const profile = buildHandProfile(state);
+  const ctx = buildBetContext(state, toCall, {
+    humanWentAllIn: options.humanWentAllIn,
+    humanRaised,
+  });
 
   let result: AgentDecision;
 
   if (options.humanWentAllIn) {
     result =
       toCall > 0
-        ? decideFacingHumanAllIn(state, profile, toCall)
+        ? decideFacingHumanAllIn(profile, ctx, state.players.pokerMaster.stack)
         : decision(
             "call",
             `${profile.label} — calling all-in (already matched)`,
@@ -744,32 +868,22 @@ export function getStepDemoPokerMasterDecision(
             0,
           );
   } else if (options.afterHumanReRaise && facingBet) {
-    result = decideFacingReRaise(state, profile, toCall);
+    result = decideFacingReRaise(profile, ctx);
   } else if (state.street === "preflop") {
-    result = decidePreflop(
-      state,
-      profile,
-      toCall,
-      facingBet,
-      humanRaised,
-      canRaise,
-    );
+    result = facingBet
+      ? decidePreflopFacingBet(state, profile, ctx, humanRaised, canRaise)
+      : decidePreflopNoBet(state, profile, canRaise);
   } else {
-    result = decidePostflop(
-      state,
-      profile,
-      toCall,
-      facingBet,
-      humanRaised,
-      canRaise,
-    );
+    result = facingBet
+      ? decidePostflopFacingBet(state, profile, ctx, humanRaised, canRaise)
+      : decidePostflopNoBet(state, profile, canRaise);
   }
 
   if (options.afterHumanReRaise && result.action === "raise") {
     result = decision(
       "call",
-      `${profile.label} — calling after your re-raise (demo cap)`,
-      result.confidence * 0.9,
+      `${profile.label} — calling after your re-raise`,
+      Math.max(tierFloor(profile.tier) * 0.85, result.confidence * 0.9),
       toCall,
     );
   }
@@ -806,8 +920,9 @@ export function getStepDemoPokerMasterDecision(
       street: state.street,
       action: result.action,
       tier: profile.tier,
+      madeHand: profile.madeHand,
+      pressure: ctx.pressure,
       toCall,
-      humanRaised,
     });
   }
 
