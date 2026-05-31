@@ -724,7 +724,7 @@ export function ArenaShell() {
   const actionLogEntries = useMemo(
     () =>
       stepDemo.isActive
-        ? [...sessionLog, ...stepDemo.actionLog]
+        ? stepDemo.actionLog
         : [...sessionLog, ...(result?.actionLog ?? [])],
     [sessionLog, result?.actionLog, stepDemo.isActive, stepDemo.actionLog],
   );

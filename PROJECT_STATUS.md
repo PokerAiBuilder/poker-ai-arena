@@ -1,6 +1,18 @@
 # Project status
 
-Last updated for **v0.4.3** — Arena hand history (session-only).
+Last updated for **v0.4.4** — Action Log replay polish.
+
+---
+
+## v0.4.4 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Action Log replay UI | v0.4.4 | Street filter chips, action-type badges, pot context |
+| Showdown / result blocks | v0.4.4 | Winner, hand, pot won — visually separated from street actions |
+| Log normalization | v0.4.4 | Pattern-based metadata from existing `GameAction` messages |
+
+**Future:** full interactive hand replay remains TODO.
 
 ---
 
@@ -73,7 +85,7 @@ Last updated for **v0.4.3** — Arena hand history (session-only).
 | Stronger AI strategy | **TODO (v0.4/v0.5)** | Rules-based only today |
 | LLM agents | **TODO** | Not started |
 | Production database | **TODO** | Analytics client-only; `DATABASE_URL` unused |
-| Mobile polish / full hand replay | **TODO** | Hand history list done (v0.4.3); replay not started |
+| Mobile polish / full hand replay | **TODO** | Hand history (v0.4.3) + Action Log polish (v0.4.4); interactive replay not started |
 
 ---
 
