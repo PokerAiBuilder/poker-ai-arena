@@ -4,21 +4,31 @@ import type { AgentDecision } from "@/lib/agents/agentTypes";
 import {
   type AgentBattleRaiseTier,
   computeAgentBattleRaiseTotal,
+  pickAgentBattleRaiseTier,
 } from "@/lib/poker/agentBattleSizing";
 import { amountToCall } from "@/lib/poker/betting";
-import { evaluateBestHand } from "@/lib/poker/evaluator";
-import type { Card, GameState, HandRank, Player } from "@/lib/poker/types";
-import { RANK_VALUES } from "@/lib/poker/types";
+import {
+  analyzePostflopHand,
+  isDryBoard,
+  isMonsterMadeHand,
+  isScaryBoard,
+  type DrawInfo,
+  type HandProfile,
+} from "@/lib/poker/handAnalysis";
+import type { GameState, HandRank, Player } from "@/lib/poker/types";
 
-export type PostflopHandProfile = {
+export type PostflopHandProfile = HandProfile & {
+  /** Legacy score 0–100 for compatibility. */
   score: number;
   rank: HandRank;
   hasDraw: boolean;
   hasPairOrBetter: boolean;
-  boardTexture: BoardTexture;
+  boardTexture: { isPaired: boolean; isFlushy: boolean; isConnected: boolean };
   isStrong: boolean;
   isMedium: boolean;
   isWeak: boolean;
+  isDryBoard: boolean;
+  isScaryBoard: boolean;
 };
 
 export type BoardTexture = {
@@ -27,103 +37,102 @@ export type BoardTexture = {
   isConnected: boolean;
 };
 
-const RANK_SCORE: Record<HandRank, number> = {
-  high_card: 14,
-  pair: 42,
-  two_pair: 58,
-  three_of_a_kind: 68,
-  straight: 78,
-  flush: 80,
-  full_house: 88,
-  four_of_a_kind: 94,
-  straight_flush: 98,
+type BetPressure = "small" | "medium" | "large" | "pot";
+
+type BetContext = {
+  toCall: number;
+  pot: number;
+  callPotRatio: number;
+  pressure: BetPressure;
 };
 
-function rankValue(rank: Card["rank"]): number {
-  return RANK_VALUES[rank];
+type AgentStyle = {
+  aggressive: boolean;
+  tight: boolean;
+  bluffHeavy: boolean;
+};
+
+function streetFromStage(stage: GameState["stage"]): "flop" | "turn" | "river" {
+  if (stage === "turn") return "turn";
+  if (stage === "river") return "river";
+  return "flop";
 }
 
-function hasFlushDraw(hole: Card[], board: Card[]): boolean {
-  const suits = [...hole, ...board].reduce<Record<string, number>>((acc, c) => {
-    acc[c.suit] = (acc[c.suit] ?? 0) + 1;
-    return acc;
-  }, {});
-  return Object.values(suits).some((n) => n === 4);
-}
+function betContext(state: GameState, toCall: number): BetContext {
+  const pot = state.pot;
+  const potAfter = pot + toCall;
+  const callPotRatio = toCall > 0 ? toCall / Math.max(1, potAfter) : 0;
+  const bb = state.bigBlind;
 
-function hasStraightDraw(hole: Card[], board: Card[]): boolean {
-  const ranks = [...new Set([...hole, ...board].map((c) => rankValue(c.rank)))].sort(
-    (a, b) => a - b,
-  );
-  for (let i = 0; i <= ranks.length - 4; i += 1) {
-    const window = ranks.slice(i, i + 4);
-    if (window.length >= 4 && window[window.length - 1] - window[0] <= 4) {
-      return true;
-    }
-  }
-  return false;
-}
+  let pressure: BetPressure = "small";
+  if (callPotRatio >= 0.5 || toCall >= pot * 0.85) pressure = "pot";
+  else if (callPotRatio >= 0.35 || toCall >= bb * 15) pressure = "large";
+  else if (callPotRatio >= 0.2 || toCall >= bb * 6) pressure = "medium";
 
-function evaluateBoardTexture(board: Card[]): BoardTexture {
-  if (board.length < 3) {
-    return { isPaired: false, isFlushy: false, isConnected: false };
-  }
-
-  const ranks = board.map((c) => rankValue(c.rank)).sort((a, b) => a - b);
-  const isPaired = new Set(ranks).size < ranks.length;
-
-  const suitCounts = board.reduce<Record<string, number>>((acc, card) => {
-    acc[card.suit] = (acc[card.suit] ?? 0) + 1;
-    return acc;
-  }, {});
-  const isFlushy = Object.values(suitCounts).some((count) => count >= 3);
-
-  const span = ranks[ranks.length - 1] - ranks[0];
-  const isConnected = span <= 4 && ranks.length >= 3;
-
-  return { isPaired, isFlushy, isConnected };
+  return { toCall, pot, callPotRatio, pressure };
 }
 
 export function evaluateAgentBattlePostflop(
   player: Player,
   state: GameState,
 ): PostflopHandProfile {
+  const street = streetFromStage(state.stage);
   const board = state.communityCards;
-  const boardTexture = evaluateBoardTexture(board);
-  const all = [...player.holeCards, ...board];
-  const evaluated =
-    all.length >= 5 ? evaluateBestHand(all) : evaluateBestHand(player.holeCards);
-  const rankScore = RANK_SCORE[evaluated.rank] ?? 14;
-  const topKicker = evaluated.scores[0] ?? 0;
-  const draw =
-    board.length >= 3 &&
-    (hasFlushDraw(player.holeCards, board) || hasStraightDraw(player.holeCards, board));
-  const drawBoost = draw ? 12 : 0;
-  const scaryBoardBoost =
-    boardTexture.isFlushy || boardTexture.isConnected ? 4 : 0;
-  const score = Math.min(
-    100,
-    rankScore + drawBoost + scaryBoardBoost + topKicker * 0.02,
-  );
-  const hasPairOrBetter = evaluated.rank !== "high_card";
+  const profile = analyzePostflopHand(player.holeCards, board, street);
 
   return {
-    score,
-    rank: evaluated.rank,
-    hasDraw: draw,
-    hasPairOrBetter,
-    boardTexture,
-    isStrong: score >= 62,
-    isMedium: score >= 38 && score < 62,
-    isWeak: score < 38,
+    ...profile,
+    rank: profile.rank ?? "high_card",
+    score: profile.strength,
+    hasDraw: profile.draws.hasEquityDraw,
+    hasPairOrBetter: profile.madeHand !== "high_card" && profile.madeHand !== undefined,
+    boardTexture: {
+      isPaired: profile.board.paired,
+      isFlushy: profile.board.flushHeavy,
+      isConnected: profile.board.connected,
+    },
+    isStrong: profile.tier === "premium" || profile.tier === "strong",
+    isMedium: profile.tier === "playable" || profile.tier === "speculative",
+    isWeak: profile.tier === "weak",
+    isDryBoard: isDryBoard(profile.board),
+    isScaryBoard: isScaryBoard(profile.board),
   };
 }
 
-function bluffSeed(player: Player, state: GameState): boolean {
-  const seed =
-    player.holeCards.reduce((s, c) => s + rankValue(c.rank), 0) +
-    state.communityCards.length;
-  return seed % 3 === 0;
+function agentStyle(agentId: string): AgentStyle {
+  switch (agentId) {
+    case BluffBot.id:
+      return { aggressive: true, tight: false, bluffHeavy: true };
+    case RiverMind.id:
+      return { aggressive: false, tight: true, bluffHeavy: false };
+    case ChipHunter.id:
+      return { aggressive: true, tight: false, bluffHeavy: false };
+    default:
+      return { aggressive: false, tight: false, bluffHeavy: false };
+  }
+}
+
+function bluffSeed(player: Player, state: GameState): number {
+  return (
+    player.holeCards.reduce((s, c) => s + c.rank.charCodeAt(0), 0) +
+    state.communityCards.length * 7
+  );
+}
+
+function boardPhrase(profile: PostflopHandProfile): string {
+  if (profile.isDryBoard) return " on a dry board";
+  if (profile.board.summary === "paired board") return " on a paired board";
+  if (profile.isScaryBoard) return ` on a ${profile.board.summary}`;
+  return "";
+}
+
+function drawLabel(draws: DrawInfo): string {
+  if (draws.flushDraw && draws.openEndedStraight) return "Combo draw";
+  if (draws.flushDraw && draws.overcards) return "Flush draw with overcards";
+  if (draws.flushDraw) return "Flush draw";
+  if (draws.openEndedStraight) return "Open-ended straight draw";
+  if (draws.gutshot) return "Gutshot";
+  return "Draw";
 }
 
 function raiseTier(
@@ -141,6 +150,32 @@ function raiseTier(
   };
 }
 
+function sizedRaise(
+  player: Player,
+  state: GameState,
+  profile: PostflopHandProfile,
+  style: AgentStyle,
+  intent: "value" | "semi_bluff" | "bluff" | "thin",
+  reasoning: string,
+  confidence: number,
+): AgentDecision {
+  const tier = pickAgentBattleRaiseTier(intent, {
+    isMonster: isMonsterMadeHand(profile.madeHand),
+    isStrongMade:
+      profile.madeHand === "two_pair" ||
+      profile.madeHand === "trips" ||
+      profile.tier === "strong",
+    isTopPair: profile.madeHand === "top_pair" || profile.isOverpair,
+    isComboDraw: profile.draws.flushDraw && profile.draws.openEndedStraight,
+    dryBoard: profile.isDryBoard,
+    scaryBoard: profile.isScaryBoard,
+    aggressive: style.aggressive,
+    tight: style.tight,
+    river: profile.street === "river",
+  });
+  return raiseTier(player, state, tier, reasoning, confidence);
+}
+
 function check(reasoning: string, confidence = 0.62): AgentDecision {
   return { action: "check", confidence, reasoning };
 }
@@ -153,49 +188,153 @@ function fold(reasoning: string, confidence = 0.8): AgentDecision {
   return { action: "fold", confidence, reasoning };
 }
 
+function shouldFoldWeak(
+  profile: PostflopHandProfile,
+  ctx: BetContext,
+  style: AgentStyle,
+): boolean {
+  const { pressure } = ctx;
+  if (profile.tier === "premium" || profile.tier === "strong") return false;
+  if (profile.madeHand === "top_pair" && (profile.goodKicker || profile.isOverpair)) {
+    return pressure === "pot" && style.tight && profile.isScaryBoard;
+  }
+  if (pressure === "small") return style.tight && profile.tier === "weak";
+  if (pressure === "medium") {
+    return profile.tier === "weak" || (style.tight && profile.tier === "speculative");
+  }
+  if (pressure === "large" || pressure === "pot") {
+    return profile.tier !== "playable" || (profile.tier === "playable" && !profile.hasDraw);
+  }
+  return profile.tier === "weak";
+}
+
+function facingBetDecision(
+  player: Player,
+  state: GameState,
+  profile: PostflopHandProfile,
+  style: AgentStyle,
+  ctx: BetContext,
+  opts: {
+    callReason: string;
+    foldReason: string;
+    raiseReason?: string;
+    allowRaise?: boolean;
+  },
+): AgentDecision {
+  const { toCall, pressure } = ctx;
+
+  if (
+    opts.allowRaise &&
+    opts.raiseReason &&
+    (profile.isStrong || profile.tier === "premium") &&
+    (pressure === "small" || pressure === "medium")
+  ) {
+    return sizedRaise(
+      player,
+      state,
+      profile,
+      style,
+      "value",
+      opts.raiseReason,
+      0.84,
+    );
+  }
+
+  if (shouldFoldWeak(profile, ctx, style)) {
+    return fold(opts.foldReason);
+  }
+
+  if (profile.draws.hasEquityDraw && profile.street !== "river") {
+    if (pressure === "large" || pressure === "pot") {
+      if (profile.draws.flushDraw && profile.draws.openEndedStraight) {
+        return call(toCall, `${drawLabel(profile.draws)} — calling with strong draw equity`, 0.66);
+      }
+      if (style.tight && profile.tier === "speculative") {
+        return fold(`${drawLabel(profile.draws)} — folding to ${pressure} pressure`);
+      }
+    }
+    return call(toCall, `${drawLabel(profile.draws)} with pot odds — continuing`, 0.68);
+  }
+
+  if (toCall <= ctx.pot * 0.35 || pressure === "small") {
+    return call(toCall, opts.callReason, 0.72);
+  }
+
+  if (profile.isStrong || profile.madeHand === "top_pair") {
+    return call(toCall, opts.callReason, 0.74);
+  }
+
+  return fold(opts.foldReason);
+}
+
 function pokerMasterPostflop(
   player: Player,
   state: GameState,
   profile: PostflopHandProfile,
   canCheck: boolean,
-  toCall: number,
+  ctx: BetContext,
 ): AgentDecision {
-  if (profile.isStrong) {
+  const style = agentStyle(player.id);
+  const street = profile.street;
+
+  if (profile.tier === "premium" || profile.isStrong) {
     if (canCheck) {
-      return raiseTier(
+      const reason = isMonsterMadeHand(profile.madeHand)
+        ? `Rivered ${profile.label} — value betting big`
+        : `Strong made hand — raising for value${boardPhrase(profile)}`;
+      return sizedRaise(player, state, profile, style, "value", reason, 0.88);
+    }
+    return facingBetDecision(player, state, profile, style, ctx, {
+      callReason: `${profile.label}${boardPhrase(profile)} — calling with showdown value`,
+      foldReason: "Weak high-card hand facing pressure — folding",
+      raiseReason: `Strong made hand — raising for value`,
+      allowRaise: true,
+    });
+  }
+
+  if (profile.madeHand === "top_pair") {
+    if (canCheck) {
+      return sizedRaise(
         player,
         state,
-        profile.score >= 75 ? "big" : "standard",
-        "balanced value bet with a strong made hand",
-        0.84,
+        profile,
+        style,
+        profile.goodKicker ? "value" : "thin",
+        `Top pair${boardPhrase(profile)} — betting for value`,
+        0.76,
       );
     }
-    if (toCall <= 180) {
-      return raiseTier(player, state, "standard", "balanced re-raise for value", 0.8);
-    }
-    if (toCall <= 260) return call(toCall, "balanced call with a strong holding", 0.78);
-    return fold("balanced pass under heavy postflop pressure");
+    return facingBetDecision(player, state, profile, style, ctx, {
+      callReason: `Top pair with good kicker — continuing against ${ctx.pressure} pressure`,
+      foldReason: `Top pair${boardPhrase(profile)} — folding to heavy pressure`,
+      allowRaise: profile.goodKicker && ctx.pressure === "small",
+      raiseReason: `Top pair${boardPhrase(profile)} — value-raising small`,
+    });
   }
 
-  if (profile.isMedium) {
+  if (profile.draws.hasEquityDraw && street !== "river") {
     if (canCheck) {
-      return profile.score >= 48
-        ? raiseTier(player, state, "small", "balanced thin value bet", 0.68)
-        : check("balanced pot control on a medium hand");
+      return sizedRaise(
+        player,
+        state,
+        profile,
+        style,
+        "semi_bluff",
+        `${drawLabel(profile.draws)} — semi-bluffing`,
+        0.62,
+      );
     }
-    if (toCall <= 120) return call(toCall, "balanced continue with medium strength", 0.72);
-    if (toCall <= 200 && profile.score >= 44) {
-      return call(toCall, "balanced defends a reasonable price", 0.66);
-    }
-    return fold("balanced fold vs oversized postflop bet");
+    return facingBetDecision(player, state, profile, style, ctx, {
+      callReason: `${drawLabel(profile.draws)} with pot odds — continuing`,
+      foldReason: `${drawLabel(profile.draws)} — folding to pressure`,
+    });
   }
 
-  if (canCheck) return check("balanced check with a weak holding");
-  if (toCall <= 75 && profile.hasDraw) {
-    return call(toCall, "balanced peel with a live draw", 0.58);
+  if (canCheck) return check(`Medium hand — balanced pot control on the ${street}`);
+  if (ctx.pressure === "small" && profile.tier === "playable") {
+    return call(ctx.toCall, "Balanced range continues versus small pressure", 0.62);
   }
-  if (toCall <= 50) return call(toCall, "cheap continue", 0.55);
-  return fold("balanced release a weak hand to pressure");
+  return fold("Weak high-card hand facing pressure — folding");
 }
 
 function bluffBotPostflop(
@@ -203,53 +342,74 @@ function bluffBotPostflop(
   state: GameState,
   profile: PostflopHandProfile,
   canCheck: boolean,
-  toCall: number,
+  ctx: BetContext,
 ): AgentDecision {
-  const bluff =
-    bluffSeed(player, state) ||
-    profile.isWeak ||
-    (profile.boardTexture.isFlushy && bluffSeed(player, state));
+  const style = agentStyle(player.id);
+  const street = profile.street;
+  const seed = bluffSeed(player, state);
+  const bluffSpot = seed % 3 !== 0;
 
-  if (bluff && canCheck) {
-    return raiseTier(
-      player,
-      state,
-      profile.isStrong ? "big" : "standard",
-      "BluffBot fires a pressure bet",
-      0.58,
-    );
-  }
-
-  if (profile.isStrong || profile.isMedium) {
+  if (profile.isStrong || profile.tier === "premium") {
     if (canCheck) {
-      return raiseTier(
+      return sizedRaise(
         player,
         state,
-        profile.isStrong ? "pot" : "standard",
-        "BluffBot bets to keep heat on",
-        0.74,
+        profile,
+        style,
+        "value",
+        `${profile.label}${boardPhrase(profile)} — BluffBot bets for value`,
+        0.78,
       );
     }
-    if (toCall <= 220) {
-      return profile.score >= 50 && toCall <= 160
-        ? raiseTier(player, state, "big", "BluffBot re-raises to keep pressure", 0.66)
-        : call(toCall, "BluffBot calls wide postflop", 0.72);
+    return facingBetDecision(player, state, profile, style, ctx, {
+      callReason: "BluffBot calls — keeping the pot contested",
+      foldReason: "BluffBot gives up a dead spot",
+      raiseReason: "BluffBot re-raises with a strong hand",
+      allowRaise: true,
+    });
+  }
+
+  if (profile.draws.hasEquityDraw && street !== "river") {
+    if (canCheck && bluffSpot) {
+      return sizedRaise(
+        player,
+        state,
+        profile,
+        style,
+        "semi_bluff",
+        `${drawLabel(profile.draws)} — semi-bluffing with fold equity`,
+        0.58,
+      );
+    }
+    if (!canCheck) {
+      return facingBetDecision(player, state, profile, style, ctx, {
+        callReason: "BluffBot floats with equity",
+        foldReason: "BluffBot gives up a dead spot",
+        allowRaise: bluffSpot && ctx.pressure === "small",
+        raiseReason: `${drawLabel(profile.draws)} — semi-bluff raise`,
+      });
     }
   }
 
   if (canCheck) {
-    return raiseTier(
-      player,
-      state,
-      bluffSeed(player, state) ? "big" : "standard",
-      "BluffBot steals the street",
-      0.6,
-    );
+    if (bluffSpot || profile.isWeak) {
+      return sizedRaise(
+        player,
+        state,
+        profile,
+        style,
+        "bluff",
+        street === "river" && profile.isWeak
+          ? "Missed draw on river — bluffing with blocker pressure"
+          : `BluffBot fires a pressure bet on the ${street}`,
+        0.52,
+      );
+    }
+    return check("BluffBot checks — setting up a later bluff");
   }
 
-  if (toCall <= 180) return call(toCall, "BluffBot calls — action over fold", 0.68);
-  if (toCall <= 240 && (profile.hasDraw || profile.isMedium)) {
-    return call(toCall, "BluffBot floats with equity", 0.56);
+  if (ctx.toCall <= ctx.pot * 0.45 || bluffSpot) {
+    return call(ctx.toCall, "BluffBot calls wide — action over fold", 0.66);
   }
   return fold("BluffBot gives up a dead spot");
 }
@@ -259,36 +419,59 @@ function riverMindPostflop(
   state: GameState,
   profile: PostflopHandProfile,
   canCheck: boolean,
-  toCall: number,
+  ctx: BetContext,
 ): AgentDecision {
-  if (profile.isStrong) {
+  const style = agentStyle(player.id);
+  const street = profile.street;
+
+  if (profile.isStrong || profile.tier === "premium") {
     if (canCheck) {
-      return raiseTier(
+      return sizedRaise(
         player,
         state,
-        profile.score >= 78 ? "big" : "pressure",
-        "tight value bet with real strength",
-        0.88,
+        profile,
+        style,
+        "value",
+        `Tight value bet — ${profile.label}${boardPhrase(profile)}`,
+        0.9,
       );
     }
-    if (toCall <= 160) return call(toCall, "tight call with a strong hand", 0.82);
-    if (toCall <= 240 && profile.score >= 70) {
-      return call(toCall, "tight but committed with strength", 0.76);
+    if (ctx.pressure === "pot" && profile.tier !== "premium") {
+      return fold("Tight profile folds marginal strength to pot pressure");
     }
-    return fold("RiverMind folds — tight profile avoids heavy pressure");
+    return call(ctx.toCall, "Tight call with a strong hand", 0.84);
   }
 
-  if (profile.isMedium) {
-    if (canCheck) return check("tight check with marginal strength");
-    if (toCall <= 100) return call(toCall, "tight continue with a playable hand", 0.68);
-    return fold("RiverMind folds — tight profile avoids pressure");
+  if (profile.madeHand === "top_pair" && profile.goodKicker) {
+    if (canCheck) {
+      return sizedRaise(
+        player,
+        state,
+        profile,
+        style,
+        "thin",
+        `Top pair on a dry ${street} — betting for value`,
+        0.74,
+      );
+    }
+    if (ctx.pressure === "large" || ctx.pressure === "pot") {
+      return fold("Tight profile folds marginal pair to large bet");
+    }
+    return call(ctx.toCall, "Top pair — tight continue versus medium pressure", 0.7);
   }
 
-  if (canCheck) return check("tight check with a weak hand");
-  if (toCall <= 60 && profile.hasDraw) {
-    return call(toCall, "tight draw peel", 0.55);
+  if (profile.draws.hasEquityDraw && street !== "river" && ctx.pressure !== "pot") {
+    if (canCheck) return check("Tight check — draw with pot control");
+    if (ctx.toCall <= ctx.pot * 0.28) {
+      return call(ctx.toCall, "Tight draw peel with good price", 0.58);
+    }
   }
-  return fold("RiverMind folds — tight profile avoids weak spots");
+
+  if (canCheck) return check(`Tight check with a weak hand on the ${street}`);
+  if (ctx.pressure === "small" && profile.tier === "playable") {
+    return call(ctx.toCall, "Tight continue with a playable hand", 0.62);
+  }
+  return fold("Tight profile folds weak hand to pressure");
 }
 
 function chipHunterPostflop(
@@ -296,45 +479,84 @@ function chipHunterPostflop(
   state: GameState,
   profile: PostflopHandProfile,
   canCheck: boolean,
-  toCall: number,
+  ctx: BetContext,
 ): AgentDecision {
-  if (profile.isStrong || (profile.hasDraw && profile.score >= 40)) {
+  const style = agentStyle(player.id);
+  const street = profile.street;
+
+  if (profile.isStrong || profile.tier === "premium") {
     if (canCheck) {
-      return raiseTier(
+      return sizedRaise(
         player,
         state,
-        profile.isStrong ? "pot" : "big",
-        "ChipHunter attacks with strength or a semi-bluff draw",
+        profile,
+        style,
+        "value",
+        profile.isScaryBoard
+          ? `ChipHunter attacks a scary board with ${profile.label}`
+          : `Two pair${boardPhrase(profile)} — raising larger for value`,
         0.86,
       );
     }
-    if (toCall <= 220) {
-      return raiseTier(player, state, "big", "ChipHunter re-raises to build the pot", 0.82);
-    }
-    return call(toCall, "ChipHunter calls to keep initiative", 0.78);
+    return facingBetDecision(player, state, profile, style, ctx, {
+      callReason: "ChipHunter calls — keeping initiative",
+      foldReason: "ChipHunter releases a hopeless hand",
+      raiseReason: "ChipHunter re-raises to build the pot",
+      allowRaise: true,
+    });
   }
 
-  if (profile.isMedium) {
+  if (profile.draws.hasEquityDraw && street !== "river") {
     if (canCheck) {
-      return raiseTier(player, state, "standard", "ChipHunter bets medium strength", 0.72);
+      return sizedRaise(
+        player,
+        state,
+        profile,
+        style,
+        "semi_bluff",
+        `${drawLabel(profile.draws)} — semi-bluffing with fold equity`,
+        0.72,
+      );
     }
-    if (toCall <= 180) return call(toCall, "ChipHunter calls — aggressive wide defense", 0.7);
-    return fold("ChipHunter releases a medium hand to big pressure");
+    return facingBetDecision(player, state, profile, style, ctx, {
+      callReason: "Draw equity — ChipHunter stays in",
+      foldReason: "ChipHunter releases a medium draw to big pressure",
+      allowRaise: ctx.pressure === "small",
+      raiseReason: "ChipHunter semi-bluffs a strong draw",
+    });
+  }
+
+  if (profile.madeHand === "top_pair" || profile.tier === "playable") {
+    if (canCheck) {
+      return sizedRaise(
+        player,
+        state,
+        profile,
+        style,
+        street === "turn" ? "value" : "thin",
+        `ChipHunter bets medium strength on the ${street}`,
+        0.7,
+      );
+    }
+    if (ctx.pressure !== "pot") {
+      return call(ctx.toCall, "ChipHunter calls — aggressive wide defense", 0.68);
+    }
   }
 
   if (canCheck) {
-    return raiseTier(
+    return sizedRaise(
       player,
       state,
-      profile.hasDraw ? "standard" : "pressure",
+      profile,
+      style,
+      profile.isScaryBoard ? "bluff" : "semi_bluff",
       "ChipHunter opens with aggressive pressure",
-      0.64,
+      0.62,
     );
   }
 
-  if (toCall <= 200) return call(toCall, "ChipHunter defends wide postflop", 0.66);
-  if (toCall <= 260 && profile.hasDraw) {
-    return call(toCall, "draw equity — ChipHunter stays in", 0.6);
+  if (ctx.toCall <= ctx.pot * 0.4) {
+    return call(ctx.toCall, "ChipHunter defends wide postflop", 0.64);
   }
   return fold("ChipHunter releases a hopeless hand");
 }
@@ -346,16 +568,17 @@ export function getAgentBattlePostflopDecision(
   const toCall = amountToCall(player, state.currentBet);
   const canCheck = toCall === 0;
   const profile = evaluateAgentBattlePostflop(player, state);
+  const ctx = betContext(state, toCall);
 
   switch (player.id) {
     case PokerMaster.id:
-      return pokerMasterPostflop(player, state, profile, canCheck, toCall);
+      return pokerMasterPostflop(player, state, profile, canCheck, ctx);
     case BluffBot.id:
-      return bluffBotPostflop(player, state, profile, canCheck, toCall);
+      return bluffBotPostflop(player, state, profile, canCheck, ctx);
     case RiverMind.id:
-      return riverMindPostflop(player, state, profile, canCheck, toCall);
+      return riverMindPostflop(player, state, profile, canCheck, ctx);
     case ChipHunter.id:
-      return chipHunterPostflop(player, state, profile, canCheck, toCall);
+      return chipHunterPostflop(player, state, profile, canCheck, ctx);
     default:
       return canCheck
         ? check("default postflop check")

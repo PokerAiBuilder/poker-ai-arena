@@ -549,6 +549,31 @@ export function formatAgentBattleLogMessage(
 ): string {
   const { action } = decision;
   const isPostflop = stage !== "preflop" && stage !== "showdown";
+  const reasoning = decision.reasoning?.trim();
+
+  if (reasoning && isPostflop) {
+    if (action === "raise") {
+      const inc = displayAmount ?? 0;
+      if (toCall === 0) {
+        return `${agentName} bets ${inc} — ${reasoning}`;
+      }
+      return `${agentName} raises +${inc} — ${reasoning}`;
+    }
+    if (action === "call") {
+      const amt = displayAmount ?? decision.amount ?? toCall;
+      return `${agentName} calls ${amt} — ${reasoning}`;
+    }
+    if (action === "check") {
+      return `${agentName} checks — ${reasoning}`;
+    }
+    if (action === "fold") {
+      return `${agentName} folds — ${reasoning}`;
+    }
+    if (action === "all-in") {
+      return `${agentName} goes all-in — ${reasoning}`;
+    }
+  }
+
   const street =
     stage === "flop" ? "flop" : stage === "turn" ? "turn" : stage === "river" ? "river" : "street";
 

@@ -93,3 +93,64 @@ export function agentBattleRaiseIncrement(
 export function formatRaiseIncrementLabel(increment: number): string {
   return `+${increment}`;
 }
+
+export type AgentBattleSizingIntent = "value" | "semi_bluff" | "bluff" | "thin";
+
+/** Pick raise tier from hand strength, board, and agent style. */
+export function pickAgentBattleRaiseTier(
+  intent: AgentBattleSizingIntent,
+  opts: {
+    isMonster?: boolean;
+    isStrongMade?: boolean;
+    isTopPair?: boolean;
+    isComboDraw?: boolean;
+    dryBoard?: boolean;
+    scaryBoard?: boolean;
+    aggressive?: boolean;
+    tight?: boolean;
+    river?: boolean;
+  },
+): AgentBattleRaiseTier {
+  const {
+    isMonster,
+    isStrongMade,
+    isTopPair,
+    isComboDraw,
+    dryBoard,
+    scaryBoard,
+    aggressive,
+    tight,
+    river,
+  } = opts;
+
+  if (intent === "bluff") {
+    if (aggressive) return isComboDraw ? "standard" : "small";
+    return "small";
+  }
+
+  if (intent === "semi_bluff") {
+    if (isComboDraw) return aggressive ? "big" : "standard";
+    if (aggressive) return "standard";
+    return "small";
+  }
+
+  if (isMonster) {
+    if (dryBoard && !tight) return aggressive ? "premium" : "pot";
+    if (scaryBoard) return aggressive ? "pot" : "big";
+    return river ? "pot" : "premium";
+  }
+
+  if (isStrongMade) {
+    if (dryBoard) return tight ? "big" : aggressive ? "pot" : "big";
+    if (scaryBoard) return tight ? "standard" : "big";
+    return "big";
+  }
+
+  if (isTopPair) {
+    if (dryBoard) return tight ? "standard" : "standard";
+    return intent === "thin" ? "small" : "standard";
+  }
+
+  if (intent === "thin") return "small";
+  return "standard";
+}
