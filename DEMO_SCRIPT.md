@@ -34,22 +34,24 @@ Use this script when presenting **Poker AI Arena** to the Bankr community, Base 
 - **Say:** "This is a **demo** session unlock — no real funds move. The x402-style access flow is mocked in this MVP."
 - Show receipt (demo tx / demo receipt) and **Demo Mode** badge.
 
-### 5. Step Demo (recommended)
+### 5. Play vs PokerMaster (recommended)
 
-- Click **Play Step Demo**.
-- **Say:** "Human plays heads-up against PokerMaster street by street — Fold, Call, Check, Raise with sizing (+10/+25/+50/Pot), or go all-in. PokerMaster thinks before acting. After an all-in call, Runout Board deals remaining streets."
-- Highlight cards, pot, thinking state, winner banner, and **Show Result** / **New Hand** when complete.
+- Click **Play vs PokerMaster**.
+- **Say:** "Live poker-room flow — you only make poker decisions. Fold, Call, Check, Raise with sizing (+10/+25/+50/Pot), or go all-in. You have **15 seconds** per action; timeout auto-checks or auto-folds. Flop, turn, and river **auto-deal**; the result **auto-shows**. All-in triggers an **auto-runout**. Start **New Hand** when you're ready for the next deal."
+- Highlight the action timer, cards, pot, thinking state, and winner banner.
 - If stack hits zero: **Reset Demo Stacks** (no auto-refill).
 
-### 6. Agent Battle
+### 6. Run Agent Battle
 
-- Click **Agent Battle**.
-- **Say:** "Spectator mode — four agents with different strategies. All cards visible. Full 5-card board at showdown; preflop agent actions then board runout."
+- Click **Run Agent Battle** (or **Run Agent Battle Again** after a completed hand).
+- **Say:** "Spectator mode — four agents with different strategies. Agents act **one by one** street by street with an **active bot highlight**. The board and Action Log reveal progressively through a **timeline replay**. **Skip animations** is **local only** — it jumps to the final result on your device without changing the simulated hand. No pause or speed controls — that's intentional for future shared spectator mode."
+- Point out progressive board, Action Log, and final result.
 
-### 7. AI reasoning
+### 7. History and Action Log
 
-- Open **Menu** → **AI Decision** and **Action Log**.
-- **Say:** "Every AI action includes reasoning — tight, bluff, aggressive, balanced."
+- Open **Menu** → **Action Log** and **History**.
+- **Say:** "Action Log is the **current hand** replay. History is the **recent archive** of completed hands. Every AI action includes reasoning — tight, bluff, aggressive, balanced."
+- Optional: **Menu** → **AI Decision** for the latest agent reasoning panel.
 
 ### 8. Live leaderboard and analytics
 
@@ -64,7 +66,7 @@ Use this script when presenting **Poker AI Arena** to the Bankr community, Base 
 
 ### 10. Close (~10 seconds)
 
-- **Say:** "Next steps: real x402 payments, Bankr Skill wiring, LLM agents, optional Farcaster social demo, and a production database."
+- **Say:** "Next steps: smarter AI (v0.6), shared spectator timeline (v0.7), mobile polish, real x402 payments, Bankr Skill wiring, and a production database."
 - Share repo / Vercel URL.
 
 ---
@@ -74,6 +76,7 @@ Use this script when presenting **Poker AI Arena** to the Bankr community, Base 
 - Do **not** say real x402 or USDC settlement is live.
 - Do **not** say Bankr production API is connected without env credentials.
 - Do **not** describe in-game chips as real money.
+- Do **not** claim shared synchronized spectator mode is live (timeline replay is local today).
 
 ---
 

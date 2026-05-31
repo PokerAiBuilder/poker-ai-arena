@@ -1,56 +1,71 @@
 # Poker AI Arena
 
-**Interactive AI poker demo on Base** — play heads-up against PokerMaster or watch four AI agents battle in spectator mode.
+**Interactive AI poker demo on Base** — play heads-up against PokerMaster or watch four AI agents battle in live spectator mode.
 
 ---
 
 ## One-liner
 
-Poker AI Arena is a demo-ready Web3 app where you play simplified Texas Hold'em against a rules-based AI opponent, or watch an Agent Battle simulation. Demo session unlock only — no real-money gambling. Bankr/x402 integration layers are prepared for future production wiring but are not live today.
+Poker AI Arena is a demo-ready Web3 app with a **live poker-room Human vs AI flow** and **timeline-based Agent Battle replay**. Demo session unlock only — no real-money gambling. Bankr/x402 integration layers are prepared for future production wiring but are not live today.
 
 ---
 
 ## What it is
 
 - **Poker AI Arena** — polished AI poker demo for hackathons and showcases
-- **Human vs AI (playable)** — street-by-street heads-up against PokerMaster
-- **Agent Battle (spectator)** — four AI agents, all cards visible; full-board spectator simulation
+- **Human vs AI (playable)** — live heads-up poker-room flow against PokerMaster
+- **Agent Battle (spectator)** — four AI agents act street by street with timeline replay
 - **Demo session only** — unlock the arena without moving real funds; in-game chips are simulated points
 
 **This is not real-money gambling.** The entry flow is a **demo access mechanism**, not casino wagering.
 
 ---
 
-## Human vs AI (Step Demo)
+## Human vs AI (live poker-room flow)
 
 Recommended playable mode — 1v1 against **PokerMaster**:
 
 | Feature | Details |
 | ------- | ------- |
-| Streets | Preflop → Flop → Turn → River on the board |
-| Actions | Fold, Call, Check, Raise |
-| Raise sizing | **+10**, **+25**, **+50**, **Pot** |
-| All-in | Supported — PokerMaster responds with call or fold |
+| Flow | **Live poker-room** — you only make poker decisions; streets and results advance automatically |
+| Streets | Flop / Turn / River **auto-deal** after each betting round |
+| Result | **Auto-shows** at showdown or when a player folds |
+| All-in | **Auto-runout** — remaining streets deal automatically after an all-in call |
+| Action timer | **15-second** countdown on your turn; timeout **auto-check** or **auto-fold** |
+| Actions | Fold, Call, Check, Raise with **+10 / +25 / +50 / Pot** sizing, or all-in |
 | Thinking delay | PokerMaster waits 1.2–5 s before acting (with safety fallback) |
-| All-in runout | **Runout Board** deals remaining streets after an all-in call |
-| Hand flow | **Show Result** → **New Hand** |
+| New hand | **New Hand** remains an explicit player action (not automatic) |
 | Stack depleted | **Reset Demo Stacks** when your demo stack hits zero (no auto-refill) |
 
-Human vs AI runs as a client-side step demo (`src/lib/arena/stepDemo.ts`). It is not a full production betting engine — turn/river betting rounds and server-side settlement are future work.
+Human vs AI runs as a client-side state machine (`src/lib/arena/stepDemo.ts`). It is a polished demo flow, not a full production betting engine — server-side settlement and production wallet integration are future work.
 
 ---
 
-## Agent Battle (spectator)
+## Agent Battle (live spectator + timeline replay)
 
-- **Spectator mode only** — you do not play; four AI agents act automatically (one-click)
-- **Four agents** — PokerMaster, BluffBot, RiverMind, ChipHunter
-- **All agent cards visible** after the hand is dealt
-- **Full 5-card board** — flop (3) + turn (1) + river (1) when the hand reaches showdown
-- **Preflop agent decisions** then **board runout** — no turn/river betting in this spectator sim
-- **Results** — Showdown (best hand) or Win by fold
-- **Step-by-step AI vs AI playback** — planned for a future release
+- **Spectator mode only** — you do not play; four AI agents act automatically
+- **Live autoplay** — agents act **street by street** (preflop, flop, turn, river) with real betting decisions
+- **Active bot highlight** — the acting agent is highlighted during replay
+- **Four agents** — PokerMaster, BluffBot, RiverMind, ChipHunter; all hole cards visible after deal
+- **Full 5-card board** — progressive board reveal through the timeline
+- **Timeline-based replay** — each step has `atMs` / `durationMs`; UI derives state from elapsed time
+- **Progressive Action Log** — log entries appear as the timeline advances
+- **Result at end** — final board and winner appear when the timeline completes
+- **Skip animations** — local-only control during replay; jumps to final result without changing the simulated hand
+- **No Pause / Speed** — by design; future **shared spectator mode** should use one shared timeline for all viewers
 
-Server-side simulation via `GET /api/poker/simulate?mode=agent-vs-agent`.
+Server-side simulation via `GET /api/poker/simulate?mode=agent-vs-agent`; replay is client-side timeline playback.
+
+---
+
+## History / logs
+
+| Panel | Purpose |
+| ----- | ------- |
+| **Action Log** | Current hand — progressive replay of actions and board reveals during live play |
+| **History** | Recent hands archive (Arena Menu **History** tab, last 10 hands in `localStorage`) |
+
+Payout and history for Agent Battle are applied **once** when the hand finishes or when you skip animations locally.
 
 ---
 
@@ -74,9 +89,9 @@ The entry fee is a **demo session access fee**, not wagering or settlement.
 2. (Optional) Connect wallet — Base testnet scaffold
 3. Go to `/arena` — arena starts **locked**
 4. Click **Start Demo Session** — demo unlock (no real funds)
-5. **Play Step Demo: Human vs AI** — act on each street, use raise sizing or all-in, then **Show Result** / **New Hand**
-6. (Optional) **Agent Battle** — watch four agents (full 5-card board at showdown)
-7. Review **AI Decision** and **Action Log** (Menu drawer)
+5. **Play vs PokerMaster** — act within 15 s; streets auto-deal; result auto-shows; start **New Hand** when ready
+6. **Run Agent Battle** — watch live autoplay, timeline replay, and optional **Skip animations** (local only)
+7. Review **Action Log** (current hand) and **History** (recent archive) in the Arena Menu
 8. Check **Leaderboard** and **Table Stats**
 9. Open **Integration** panel — Bankr layer **prepared**, production wiring **TODO**
 
@@ -84,22 +99,23 @@ See [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) for a ~60–90 second presenter script.
 
 ---
 
-## v0.3 feature status
+## v0.5 feature status
 
 | Feature | Status |
 | ------- | ------ |
 | Next.js 15 app + arena UI | Done |
-| Human vs AI — raise sizing (+10/+25/+50/Pot) | Done (v0.3.1) |
-| Human vs AI — all-in + runout board | Done (v0.3.2) |
-| PokerMaster thinking delay | Done (v0.3.3) |
-| Human vs AI action-state hardening | Done (v0.3.4) |
-| Stack depleted / Reset Demo Stacks | Done |
-| Agent Battle (spectator, full-board) | Done (v0.4.1) |
+| Human vs AI — live poker-room flow | Done (v0.5.1) |
+| Human vs AI — 15 s action timer + auto-check/fold | Done (v0.5.1) |
+| Human vs AI — auto-deal streets + auto-result + all-in runout | Done (v0.5.1) |
+| Raise sizing (+10/+25/+50/Pot) and all-in | Done (v0.3.x) |
+| Agent Battle — live spectator autoplay | Done (v0.5.2) |
+| Agent Battle — timeline-based replay + Skip animations | Done (v0.5.3) |
+| Hand history + Action Log polish | Done (v0.4.3–v0.4.4) |
 | Demo session unlock (mock x402) | Mock — dev unlock only |
 | Bankr integration layer | Prepared — mock without credentials |
 | Leaderboard analytics | Done — `localStorage` |
+| Shared spectator / synchronized timeline | TODO (future) |
 | Real x402 / Bankr production payments | TODO |
-| Step-by-step Agent Battle playback | TODO |
 | LLM-powered agents | TODO |
 | Production database | TODO |
 
@@ -139,7 +155,7 @@ src/
 ├── lib/
 │   ├── poker/                   # Engine, deck, evaluator, betting
 │   ├── agents/                  # Agent registry + strategies
-│   ├── arena/                   # Step demo, seats, simulation display
+│   ├── arena/                   # Live HvAI flow, timeline replay, seats
 │   ├── analytics/               # Leaderboard + session stats + storage
 │   └── bankr/                   # x402, Bankr client, skills
 └── providers/                   # Web3Provider (wagmi)
@@ -147,7 +163,8 @@ src/
 
 **Separation of concerns**
 
-- **Poker engine** — pure game logic for server simulations; step demo is separate client state machine
+- **Poker engine** — pure game logic for server simulations; Human vs AI live flow is a separate client state machine
+- **Agent Battle replay** — timeline model (`agentBattleReplay.ts`) drives progressive UI from elapsed time
 - **Agents** — decision strategies via `getAgentDecision()`
 - **Bankr / x402** — integration layers; UI never stores private keys
 - **Analytics** — client-only persistence for demo sessions
@@ -240,13 +257,14 @@ When `BANKR_API_KEY`, `BANKR_AGENT_ID`, or `BANKR_SKILLS_URL` are missing, skill
 
 ## Roadmap
 
-- **v0.4+** — step-by-step Agent Battle spectator playback
-- **v0.4 / v0.5** — stronger AI strategy and betting logic
-- Real x402 facilitator integration and Bankr Skills API wiring
-- Mobile polish, replay, and hand history
+- **v0.6** — smarter AI / decision quality
+- **v0.7** — shared engine cleanup (prep for synchronized spectator)
+- **v0.8** — mobile / responsive polish
+- **v0.9** — web3 / demo access cleanup
+- **v1.0** — public demo release
+- Real x402 facilitator integration and Bankr Skills API wiring (parallel track)
 - LLM-powered agents via Bankr
 - Persistent leaderboard (Postgres / Supabase)
-- Monitoring + rate limits for production
 
 ---
 
@@ -254,11 +272,11 @@ When `BANKR_API_KEY`, `BANKR_AGENT_ID`, or `BANKR_SKILLS_URL` are missing, skill
 
 **Problem:** AI agent demos on Base often lack a cohesive interactive poker experience with readable decisions and session stats in one place.
 
-**Solution:** Poker AI Arena lets you **play** heads-up against PokerMaster or **watch** four agents battle. The demo ships with Bankr-ready integration layers and x402-style session access (mock today), with a clear path to real payments and production Bankr skills.
+**Solution:** Poker AI Arena lets you **play** a live heads-up hand against PokerMaster or **watch** four agents battle with timeline replay. The demo ships with Bankr-ready integration layers and x402-style session access (mock today), with a clear path to shared spectator mode and production Bankr skills.
 
 **Why Base:** Low-cost L2, strong agent/Bankr ecosystem, ideal for hackathon demos and Base Batches submissions.
 
-**Demo today:** Mock unlock → Human vs AI (raise, all-in, thinking) → Agent Battle (full-board spectator) → AI reasoning → live stats — **no fake claims** about live x402 or Bankr production.
+**Demo today:** Mock unlock → Human vs AI (15 s timer, auto streets) → Agent Battle (live autoplay + timeline replay) → Action Log / History → live stats — **no fake claims** about live x402 or Bankr production.
 
 ---
 
