@@ -1,6 +1,35 @@
 # Project status
 
-Last updated for **v0.5.4** — docs/status for live poker-room flow and timeline Agent Battle replay.
+Last updated for **v0.6.3** — agent personality profiles UI in Arena Menu.
+
+---
+
+## v0.6.3 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Agent Profiles tab | v0.6.3 | Arena Menu **Agents** tab — four profile cards with trait bars |
+| Profile content | v0.6.3 | Title, style, aggression / bluff / range, signature, watch-for |
+| Table style badges | v0.6.3 | Agent Battle seats show Balanced / Bluffy / Tight / Aggressive on hover |
+| AI Decision style tag | v0.6.3 | Spectator panel shows e.g. `BluffBot · Pressure Bluffer` |
+
+**Unchanged:** Human vs AI logic, Agent Battle decision logic, payment/demo sessions, table layout.
+
+---
+
+## v0.6.2 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Agent Battle postflop quality | v0.6.2 | Street-aware betting, sizing tiers, honest reasoning in logs |
+
+---
+
+## v0.6.1 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| PokerMaster HvAI quality | v0.6.1 | Stronger guided-hand decisions and raise sizing |
 
 ---
 

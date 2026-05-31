@@ -4,6 +4,7 @@ import {
   ChipHunter,
   RiverMind,
 } from "@/lib/agents/agentRegistry";
+import { getAgentStyleBadge } from "@/lib/agents/agentProfiles";
 import { PokerMaster } from "@/lib/agents/pokerMaster";
 import type { TableSeat } from "@/components/arena/PokerTable";
 import type { AgentStatus } from "@/components/arena/AgentAvatar";
@@ -106,8 +107,8 @@ export function buildTableSeats(
   const defaultStack = 1000;
 
   if (gameMode === "agent-vs-agent") {
-    return AGENT_REGISTRY.map((agent) =>
-      buildSeatFromPlayer(
+    return AGENT_REGISTRY.map((agent) => {
+      const seat = buildSeatFromPlayer(
         result,
         gameMode,
         {
@@ -118,8 +119,12 @@ export function buildTableSeats(
           defaultStack,
         },
         sessionStacks,
-      ),
-    );
+      );
+      return {
+        ...seat,
+        personalityBadge: getAgentStyleBadge(agent.id),
+      };
+    });
   }
 
   return [

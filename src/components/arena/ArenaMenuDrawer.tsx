@@ -6,6 +6,7 @@ import type { InsightsTab } from "@/components/arena/ArenaInsightsTabs";
 import { ArenaInsightsTabs } from "@/components/arena/ArenaInsightsTabs";
 import { BankrStatusPanel } from "@/components/arena/BankrStatusPanel";
 import { DemoDisclaimers } from "@/components/arena/DemoDisclaimers";
+import { AgentProfilesPanel } from "@/components/arena/AgentProfilesPanel";
 import { DemoHelpPanel } from "@/components/arena/DemoHelpPanel";
 import { HandHistoryPanel } from "@/components/arena/HandHistoryPanel";
 import type { HandHistoryRecord } from "@/lib/arena/handHistory";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 
 type DrawerTab =
   | "guide"
+  | "agents"
   | InsightsTab
   | "history"
   | "integration"
@@ -40,6 +42,7 @@ type ArenaMenuDrawerProps = {
 
 const drawerTabs: { id: DrawerTab; label: string }[] = [
   { id: "guide", label: "Demo Guide" },
+  { id: "agents", label: "Agents" },
   { id: "log", label: "Log" },
   { id: "leaderboard", label: "Board" },
   { id: "stats", label: "Stats" },
@@ -138,7 +141,7 @@ export function ArenaMenuDrawer({
               Arena Menu
             </p>
             <p className="text-xs text-muted-foreground">
-              Demo guide, logs, stats & integration
+              Demo guide, agent profiles, logs & stats
             </p>
           </div>
           <Button
@@ -179,6 +182,8 @@ export function ArenaMenuDrawer({
               <DemoHelpPanel className="border-white/10 shadow-none" />
             </div>
           ) : null}
+
+          {tab === "agents" ? <AgentProfilesPanel /> : null}
 
           {insightsPanels.has(tab) ? (
             <ArenaInsightsTabs

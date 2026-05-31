@@ -1,5 +1,6 @@
 import { Brain, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { formatAgentProfileLabel } from "@/lib/agents/agentProfiles";
 import type { SimulationAgentDecision } from "@/lib/poker/types";
 import { cn } from "@/lib/utils";
 
@@ -110,6 +111,10 @@ export function AiDecisionPanel({
   }
 
   const confidencePct = Math.round(latest.confidence * 100);
+  const agentProfileLabel =
+    spectatorMode && !guidedHand
+      ? formatAgentProfileLabel(latest.agentId)
+      : null;
   const actionLabel = (() => {
     if (latest.reasoning.startsWith("CALL all-in")) return "CALL all-in";
     if (latest.reasoning.startsWith("FOLD to all-in")) return "FOLD to all-in";
@@ -161,9 +166,17 @@ export function AiDecisionPanel({
 
       <div className={cn(compact ? "space-y-1.5 p-2" : "space-y-3 p-4")}>
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-[11px] font-medium text-white">
-            {latest.agentName}
-          </span>
+          <div className="min-w-0">
+            {agentProfileLabel ? (
+              <p className="truncate text-[10px] font-medium text-violet-200/90">
+                {agentProfileLabel}
+              </p>
+            ) : (
+              <span className="truncate text-[11px] font-medium text-white">
+                {latest.agentName}
+              </span>
+            )}
+          </div>
           {!compact ? (
             <span className="shrink-0 text-[9px] uppercase tracking-wider text-muted-foreground">
               {latest.stage}

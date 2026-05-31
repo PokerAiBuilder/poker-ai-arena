@@ -15,6 +15,8 @@ export type AgentAvatarProps = {
   stackTextOnly?: boolean;
   /** Softer folded styling for spectator tables */
   readableFold?: boolean;
+  /** Agent Battle personality badge (Balanced, Bluffy, …) */
+  styleBadge?: string;
   className?: string;
 };
 
@@ -34,8 +36,17 @@ export function AgentAvatar({
   compact = false,
   stackTextOnly = false,
   readableFold = false,
+  styleBadge,
   className,
 }: AgentAvatarProps) {
+  const strategyLine =
+    styleBadge ??
+    (strategy ? (strategyLabels[strategy] ?? strategy) : undefined);
+  const hoverTitle = styleBadge
+    ? `${name} — ${styleBadge} style`
+    : strategy
+      ? `${name} — ${strategyLabels[strategy] ?? strategy}`
+      : name;
   const isWinner = status === "winner";
   const isActive = status === "active";
   const isFolded = status === "folded";
@@ -43,6 +54,7 @@ export function AgentAvatar({
 
   return (
     <div
+      title={hoverTitle}
       className={cn(
         "relative z-[2] flex flex-col items-center gap-1 rounded-xl border border-white/10 bg-black/50 px-2 py-1.5 backdrop-blur-md transition-all",
         isActive && "border-cyan-400/50 shadow-[0_0_20px_rgba(34,211,238,0.2)]",
@@ -81,9 +93,9 @@ export function AgentAvatar({
         >
           {name}
         </p>
-        {strategy && !isFolded ? (
+        {strategyLine && !isFolded ? (
           <p className="text-[8px] uppercase tracking-wider text-casino-gold/70">
-            {strategyLabels[strategy] ?? strategy}
+            {strategyLine}
           </p>
         ) : null}
       </div>

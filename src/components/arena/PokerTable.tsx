@@ -21,6 +21,8 @@ export type TableSeat = {
   revealCards?: boolean;
   /** Agent Battle replay — highlight acting bot */
   activeHighlight?: "thinking" | "acting";
+  /** Agent Battle personality badge on seat hover */
+  personalityBadge?: string;
 };
 
 type PokerTableProps = {
@@ -569,6 +571,7 @@ function AgentBattleSeatRow({
             name={seat.name}
             avatar={seat.avatar}
             strategy={seat.strategy}
+            styleBadge={seat.personalityBadge}
             stack={seat.stack}
             status={seat.status}
             compact
@@ -610,6 +613,7 @@ function AgentBattleSideSeat({ seat }: { seat: TableSeat }) {
           name={seat.name}
           avatar={seat.avatar}
           strategy={seat.strategy}
+          styleBadge={seat.personalityBadge}
           stack={seat.stack}
           status={seat.status}
           compact
