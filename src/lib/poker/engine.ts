@@ -24,7 +24,7 @@ import {
   postBlinds,
   runBettingRound,
 } from "@/lib/poker/betting";
-import { runAgentBattlePreflopRound } from "@/lib/poker/agentBattleBetting";
+import { runAgentBattlePostflopStreets, runAgentBattlePreflopRound } from "@/lib/poker/agentBattleBetting";
 import {
   canRunAgentBattle as canRunAgentBattleStacks,
   createInitialAgentBattleStacks,
@@ -36,7 +36,6 @@ import {
   initAgentBattleHandMeta,
   recordAgentBattleBlindsFromLog,
 } from "@/lib/poker/agentBattleAccounting";
-import { getAgentBattleBoardReaction } from "@/lib/agents/agentBattleStrategy";
 
 let gameCounter = 0;
 
@@ -189,76 +188,6 @@ export function dealRiver(state: GameState): void {
   state.communityCards.push(...dealt);
   state.deck = remaining;
   state.stage = "river";
-}
-
-function logArenaMessage(
-  state: GameState,
-  stage: GameState["stage"],
-  message: string,
-): void {
-  state.actionLog.push({
-    playerId: "system",
-    playerName: "Arena",
-    action: "deal",
-    stage,
-    message,
-    timestamp: Date.now(),
-  });
-}
-
-/** Agent Battle: deal flop → turn → river with readable runout logs (no street betting). */
-function runAgentBattleBoardRunout(state: GameState): void {
-  if (state.communityCards.length === 0) {
-    const { dealt, remaining } = dealCards(state.deck, 3);
-    state.communityCards = dealt;
-    state.deck = remaining;
-    state.stage = "flop";
-    logArenaMessage(state, "flop", `Flop dealt: ${formatCards(dealt)}.`);
-    addAgentBattleBoardReaction(state, "flop");
-  }
-
-  if (state.communityCards.length === 3) {
-    const { dealt, remaining } = dealCards(state.deck, 1);
-    state.communityCards.push(...dealt);
-    state.deck = remaining;
-    state.stage = "turn";
-    logArenaMessage(
-      state,
-      "turn",
-      `Turn dealt: ${formatCards(state.communityCards.slice(3, 4))}.`,
-    );
-    addAgentBattleBoardReaction(state, "turn");
-  }
-
-  if (state.communityCards.length === 4) {
-    const { dealt, remaining } = dealCards(state.deck, 1);
-    state.communityCards.push(...dealt);
-    state.deck = remaining;
-    state.stage = "river";
-    logArenaMessage(
-      state,
-      "river",
-      `River dealt: ${formatCards(state.communityCards.slice(4, 5))}.`,
-    );
-    addAgentBattleBoardReaction(state, "river");
-  }
-}
-
-function addAgentBattleBoardReaction(
-  state: GameState,
-  stage: "flop" | "turn" | "river",
-): void {
-  const active = state.players
-    .filter((p) => !p.hasFolded)
-    .sort((a, b) => a.id.localeCompare(b.id));
-
-  for (const player of active) {
-    const reaction = getAgentBattleBoardReaction(player.id, stage);
-    if (reaction) {
-      logArenaMessage(state, stage, reaction);
-      return;
-    }
-  }
 }
 
 function sanitizePotAndStacks(state: GameState): void {
@@ -503,8 +432,8 @@ export function simulateSimpleHand(): SimulationResult {
 }
 
 /**
- * Agent Battle spectator sim: preflop agent decisions, then full board runout
- * (no turn/river betting). Human vs AI legacy sim stays on {@link simulateHand}.
+ * Agent Battle spectator sim: preflop + postflop street betting, then showdown.
+ * Human vs AI legacy sim stays on {@link simulateHand}.
  */
 export function simulateAgentBattleHand(state: GameState): SimulationResult {
   const gameMode: GameMode = "agent-vs-agent";
@@ -532,7 +461,7 @@ export function simulateAgentBattleHand(state: GameState): SimulationResult {
     return toSimulationResult(state, result, gameMode);
   }
 
-  runAgentBattleBoardRunout(state);
+  runAgentBattlePostflopStreets(state);
 
   const result = determineWinner(state, { gameMode });
   const simulation = toSimulationResult(state, result, gameMode);

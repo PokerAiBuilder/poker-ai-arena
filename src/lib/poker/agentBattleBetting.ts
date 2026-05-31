@@ -1,11 +1,14 @@
 import {
   formatAgentBattleLogMessage,
+  getAgentBattlePostflopDecision,
   getAgentBattlePreflopDecision,
 } from "@/lib/agents/agentBattleStrategy";
 import { getAgentById } from "@/lib/agents/agentRegistry";
 import type { AgentDecision } from "@/lib/agents/agentTypes";
 import { recordAgentBattleContribution } from "@/lib/poker/agentBattleAccounting";
-import type { GameAction, GameState, Player } from "@/lib/poker/types";
+import { dealCards } from "@/lib/poker/deck";
+import type { GameAction, GameStage, GameState, Player } from "@/lib/poker/types";
+import { formatCards } from "@/lib/poker/types";
 import {
   amountToCall,
   applyAction,
@@ -115,6 +118,7 @@ function applyAgentBattleAction(
       normalized,
       toCallBefore,
       displayAmount,
+      state.stage,
     ),
   };
 
@@ -183,4 +187,148 @@ export function runAgentBattlePreflopRound(state: GameState): void {
   }
 
   sanitizeGameStacks(state);
+}
+
+function logStreetDeal(state: GameState, stage: GameStage, message: string): void {
+  state.actionLog.push({
+    playerId: "system",
+    playerName: "Arena",
+    action: "deal",
+    stage,
+    message,
+    timestamp: Date.now(),
+  });
+}
+
+function dealAgentBattleFlop(state: GameState): void {
+  if (state.communityCards.length > 0) return;
+  const { dealt, remaining } = dealCards(state.deck, 3);
+  state.communityCards = dealt;
+  state.deck = remaining;
+  state.stage = "flop";
+  logStreetDeal(state, "flop", `Flop dealt: ${formatCards(dealt)}.`);
+}
+
+function dealAgentBattleTurn(state: GameState): void {
+  if (state.communityCards.length !== 3) return;
+  const { dealt, remaining } = dealCards(state.deck, 1);
+  state.communityCards.push(...dealt);
+  state.deck = remaining;
+  state.stage = "turn";
+  logStreetDeal(
+    state,
+    "turn",
+    `Turn dealt: ${formatCards(state.communityCards.slice(3, 4))}.`,
+  );
+}
+
+function dealAgentBattleRiver(state: GameState): void {
+  if (state.communityCards.length !== 4) return;
+  const { dealt, remaining } = dealCards(state.deck, 1);
+  state.communityCards.push(...dealt);
+  state.deck = remaining;
+  state.stage = "river";
+  logStreetDeal(
+    state,
+    "river",
+    `River dealt: ${formatCards(state.communityCards.slice(4, 5))}.`,
+  );
+}
+
+/** One lightweight betting pass per postflop street (Agent Battle only). */
+export function runAgentBattleStreetRound(state: GameState): void {
+  resetRoundBets(state.players);
+  state.currentBet = 0;
+
+  let streetRaises = 0;
+  let safety = 0;
+  const playersToAct = new Set(getActivePlayers(state).map((player) => player.id));
+
+  while (playersToAct.size > 0 && safety < 24) {
+    safety += 1;
+
+    if (getActivePlayers(state).length <= 1) {
+      playersToAct.clear();
+      break;
+    }
+
+    let progress = false;
+
+    for (const player of getActivePlayers(state)) {
+      if (!playersToAct.has(player.id)) continue;
+      if (player.hasFolded || player.isAllIn) {
+        playersToAct.delete(player.id);
+        continue;
+      }
+
+      let decision = getAgentBattlePostflopDecision(player, state);
+
+      if (streetRaises >= 1 && decision.action === "raise") {
+        const toCall = amountToCall(player, state.currentBet);
+        decision =
+          toCall > 0 && toCall <= player.stack
+            ? {
+                action: "call",
+                amount: toCall,
+                confidence: decision.confidence * 0.9,
+                reasoning: "street cap — calling after a bet",
+              }
+            : toCall === 0
+              ? {
+                  action: "check",
+                  confidence: decision.confidence * 0.85,
+                  reasoning: "street cap — checking it down",
+                }
+              : {
+                  action: "fold",
+                  confidence: decision.confidence * 0.85,
+                  reasoning: "street cap — folding to pressure",
+                };
+      }
+
+      const action = applyAgentBattleAction(state, player, decision);
+      playersToAct.delete(player.id);
+      progress = true;
+
+      if (action.action === "raise") {
+        streetRaises += 1;
+        for (const responder of getActivePlayers(state)) {
+          if (responder.id === player.id) continue;
+          const toCall = amountToCall(responder, state.currentBet);
+          if (toCall > 0 || responder.currentBet !== state.currentBet) {
+            playersToAct.add(responder.id);
+          }
+        }
+      }
+
+      if (getActivePlayers(state).length <= 1) {
+        playersToAct.clear();
+        break;
+      }
+    }
+
+    if (!progress) break;
+  }
+
+  sanitizeGameStacks(state);
+}
+
+function runAgentBattleStreetSequence(
+  state: GameState,
+  deal: () => void,
+): void {
+  if (state.players.filter((p) => !p.hasFolded).length <= 1) return;
+  deal();
+  runAgentBattleStreetRound(state);
+}
+
+/** Flop → turn → river with one betting round per street. */
+export function runAgentBattlePostflopStreets(state: GameState): void {
+  runAgentBattleStreetSequence(state, () => dealAgentBattleFlop(state));
+  if (state.players.filter((p) => !p.hasFolded).length <= 1) return;
+
+  runAgentBattleStreetSequence(state, () => dealAgentBattleTurn(state));
+  if (state.players.filter((p) => !p.hasFolded).length <= 1) return;
+
+  runAgentBattleStreetSequence(state, () => dealAgentBattleRiver(state));
 }

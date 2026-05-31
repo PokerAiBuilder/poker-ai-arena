@@ -96,6 +96,13 @@ import {
 import { resolveHumanTurnTimeoutAction } from "@/lib/arena/humanTurnTimer";
 import { useHumanTurnTimer } from "@/hooks/useHumanTurnTimer";
 import {
+  buildAgentBattleReplaySeats,
+  buildAgentBattleReplaySteps,
+  deriveAgentBattleReplayDisplay,
+  type AgentBattleReplaySession,
+} from "@/lib/arena/agentBattleReplay";
+import { useAgentBattleReplay } from "@/hooks/useAgentBattleReplay";
+import {
   getHandResultDisplayType,
   isWinByFoldResult,
   pickLatestAgentBattleDecision,
@@ -192,6 +199,11 @@ export function ArenaShell() {
   const autoFlowScheduledKeyRef = useRef<string | null>(null);
   const autoFlowPendingRef = useRef<StepDemoAutoFlowPending | null>(null);
   const clearHumanTurnTimerRef = useRef<(() => void) | null>(null);
+  const agentBattleReplayRef = useRef<AgentBattleReplaySession | null>(null);
+  const clearAgentBattleReplayTimerRef = useRef<(() => void) | null>(null);
+  const [agentBattleReplay, setAgentBattleReplay] =
+    useState<AgentBattleReplaySession | null>(null);
+  agentBattleReplayRef.current = agentBattleReplay;
   const lastAutoFlowDebugKeyRef = useRef<string>("");
   const [autoFlowPending, setAutoFlowPending] =
     useState<StepDemoAutoFlowPending | null>(null);
@@ -351,15 +363,26 @@ export function ArenaShell() {
     saveHandHistory(handHistory);
   }, [handHistory, handHistoryReady]);
 
-  useEffect(() => {
-    if (!result || result.gameMode !== "agent-vs-agent") return;
-    const key = simulationHistoryFingerprint(result);
+  const commitSimulationHistory = useCallback((simulation: SimulationResult) => {
+    if (simulation.gameMode !== "agent-vs-agent") return;
+    const key = simulationHistoryFingerprint(simulation);
     if (lastSimHistoryKeyRef.current === key) return;
     lastSimHistoryKeyRef.current = key;
     setHandHistory((prev) =>
-      prependHandHistory(prev, createHandHistoryFromSimulation(result)),
+      prependHandHistory(prev, createHandHistoryFromSimulation(simulation)),
     );
-  }, [result]);
+  }, []);
+
+  const clearAgentBattleReplay = useCallback(() => {
+    clearAgentBattleReplayTimerRef.current?.();
+    setAgentBattleReplay(null);
+  }, []);
+
+  useEffect(() => {
+    if (!result || result.gameMode !== "agent-vs-agent") return;
+    if (agentBattleReplay?.status === "playing") return;
+    commitSimulationHistory(result);
+  }, [result, agentBattleReplay?.status, commitSimulationHistory]);
 
   useEffect(() => {
     const key = stepDemoHistoryFingerprint(stepDemo);
@@ -423,6 +446,8 @@ export function ArenaShell() {
       setStepDemo(createInitialStepDemoState());
 
       if (mode === "agent-vs-agent") {
+        clearAgentBattleReplay();
+        setResult(null);
         const readyAgentBattleStacks = sanitizeAgentBattleStacks(agentBattleStacks);
         if (!canRunAgentBattle(readyAgentBattleStacks)) {
           setError(
@@ -446,13 +471,20 @@ export function ArenaShell() {
           throw new Error(body.error ?? "Simulation failed");
         }
         const data = (await response.json()) as SimulationResult;
-        setResult(data);
         setAnalytics((prev) => applySimulationAnalytics(prev, data));
         if (mode === "agent-vs-agent") {
           setAgentBattleStacks((prev) =>
             sanitizeAgentBattleStacks(updateAgentBattleStacksAfterHand(prev, data)),
           );
+          lastSimHistoryKeyRef.current = null;
+          setAgentBattleReplay({
+            id: data.gameId,
+            finalResult: data,
+            stepIndex: 0,
+            status: "playing",
+          });
         } else {
+          setResult(data);
           setSessionStacks((prev) =>
             sanitizeSessionStacks(updateSessionStacksAfterGame(prev, data)),
           );
@@ -476,7 +508,7 @@ export function ArenaShell() {
         setLoadingMode(null);
       }
     },
-    [isArenaUnlocked, agentBattleStacks],
+    [isArenaUnlocked, agentBattleStacks, clearAgentBattleReplay],
   );
 
   const handleResetStats = useCallback(() => {
@@ -500,6 +532,7 @@ export function ArenaShell() {
   }, []);
 
   const handleResetAgentBattleStacks = useCallback(() => {
+    clearAgentBattleReplay();
     setAgentBattleStacks(resetAgentBattleStacks());
     setResult(null);
     setError(null);
@@ -508,7 +541,7 @@ export function ArenaShell() {
       ...prev,
       createSessionLogEntry("Agent Battle stacks reset."),
     ]);
-  }, []);
+  }, [clearAgentBattleReplay]);
 
   const handleSimulateAgentBattle = useCallback(
     () => runSimulation("agent-vs-agent"),
@@ -528,6 +561,7 @@ export function ArenaShell() {
     }
     clearPokerMasterThinking();
     resetAutoFlowSession();
+    clearAgentBattleReplay();
     setError(null);
     setResult(null);
     setPreferredSeatLayout("human-vs-ai");
@@ -537,11 +571,12 @@ export function ArenaShell() {
       ...prev,
       createSessionLogEntry("Human vs AI — new hand started."),
     ]);
-  }, [isArenaUnlocked, sessionStacks, clearPokerMasterThinking, resetAutoFlowSession]);
+  }, [isArenaUnlocked, sessionStacks, clearPokerMasterThinking, resetAutoFlowSession, clearAgentBattleReplay]);
 
   const handleResetDemoStacks = useCallback(() => {
     clearPokerMasterThinking();
     resetAutoFlowSession();
+    clearAgentBattleReplay();
     setSessionStacks((prev) => resetHeadsUpDemoStacks(prev));
     setStepDemo(createInitialStepDemoState());
     setResult(null);
@@ -551,7 +586,71 @@ export function ArenaShell() {
       ...prev,
       createSessionLogEntry("Demo stacks reset."),
     ]);
-  }, [clearPokerMasterThinking, resetAutoFlowSession]);
+  }, [clearPokerMasterThinking, resetAutoFlowSession, clearAgentBattleReplay]);
+
+  const agentBattleReplaySteps = useMemo(
+    () =>
+      agentBattleReplay?.finalResult
+        ? buildAgentBattleReplaySteps(agentBattleReplay.finalResult)
+        : [],
+    [agentBattleReplay?.finalResult],
+  );
+
+  const agentBattleReplayActive = agentBattleReplay?.status === "playing";
+
+  const agentBattleReplayDisplay = useMemo(() => {
+    if (!agentBattleReplay || agentBattleReplay.status !== "playing") {
+      return null;
+    }
+    return deriveAgentBattleReplayDisplay(
+      agentBattleReplay.finalResult,
+      agentBattleReplaySteps,
+      agentBattleReplay.stepIndex,
+    );
+  }, [agentBattleReplay, agentBattleReplaySteps]);
+
+  const finishAgentBattleReplay = useCallback(
+    (finalResult: SimulationResult) => {
+      clearAgentBattleReplayTimerRef.current?.();
+      setAgentBattleReplay(null);
+      setResult(finalResult);
+      commitSimulationHistory(finalResult);
+    },
+    [commitSimulationHistory],
+  );
+
+  const handleAgentBattleReplayAdvance = useCallback((nextIndex: number) => {
+    setAgentBattleReplay((prev) =>
+      prev && prev.status === "playing" ? { ...prev, stepIndex: nextIndex } : prev,
+    );
+  }, []);
+
+  const handleAgentBattleReplayComplete = useCallback(() => {
+    const session = agentBattleReplayRef.current;
+    if (!session || session.status !== "playing") return;
+    finishAgentBattleReplay(session.finalResult);
+  }, [finishAgentBattleReplay]);
+
+  const handleSkipAgentBattleReplay = useCallback(() => {
+    const session = agentBattleReplayRef.current;
+    if (!session || session.status !== "playing") return;
+    finishAgentBattleReplay(session.finalResult);
+  }, [finishAgentBattleReplay]);
+
+  const { clearReplayTimer: clearAgentBattleReplayTimer } = useAgentBattleReplay({
+    session: agentBattleReplayActive ? agentBattleReplay : null,
+    steps: agentBattleReplaySteps,
+    onAdvance: handleAgentBattleReplayAdvance,
+    onComplete: handleAgentBattleReplayComplete,
+  });
+
+  clearAgentBattleReplayTimerRef.current = clearAgentBattleReplayTimer;
+
+  useEffect(() => {
+    return () => {
+      clearAgentBattleReplayTimerRef.current?.();
+    };
+  }, []);
 
   const commitStepDemo = useCallback(
     (updater: (prev: StepDemoState) => StepDemoState) => {
@@ -919,12 +1018,21 @@ export function ArenaShell() {
 
   const activeGameMode = stepDemo.isActive
     ? "human-vs-ai"
-    : (result?.gameMode ?? preferredSeatLayout);
+    : (result?.gameMode ??
+      agentBattleReplay?.finalResult.gameMode ??
+      preferredSeatLayout);
   const isHeadsUpGuided = activeGameMode === "human-vs-ai";
 
   const seats = useMemo(() => {
     if (isHeadsUpGuided) {
       return buildStepDemoSeats(stepDemo, sessionStacks);
+    }
+    if (agentBattleReplayDisplay && agentBattleReplay?.finalResult) {
+      return buildAgentBattleReplaySeats(
+        agentBattleReplay.finalResult,
+        agentBattleReplayDisplay,
+        agentBattleStacks,
+      );
     }
     return buildTableSeats(
       result,
@@ -935,16 +1043,34 @@ export function ArenaShell() {
           : undefined
         : sessionStacks,
     );
-  }, [stepDemo, result, preferredSeatLayout, sessionStacks, agentBattleStacks, isHeadsUpGuided, activeGameMode]);
+  }, [
+    stepDemo,
+    result,
+    preferredSeatLayout,
+    sessionStacks,
+    agentBattleStacks,
+    isHeadsUpGuided,
+    activeGameMode,
+    agentBattleReplayDisplay,
+    agentBattleReplay?.finalResult,
+  ]);
 
   const aiDecisions = result?.agentDecisions ?? [];
   const isAgentBattleSpectatorEarly =
     activeGameMode === "agent-vs-agent" && !isHeadsUpGuided;
   const latestAiDecision = stepDemo.isActive
     ? (stepDemo.aiDecision ?? undefined)
-    : isAgentBattleSpectatorEarly && aiDecisions.length > 0
-      ? pickLatestAgentBattleDecision(aiDecisions)
-      : aiDecisions[aiDecisions.length - 1];
+    : agentBattleReplayDisplay?.latestDecision
+      ? agentBattleReplayDisplay.latestDecision
+      : isAgentBattleSpectatorEarly && aiDecisions.length > 0
+        ? pickLatestAgentBattleDecision(aiDecisions)
+        : aiDecisions[aiDecisions.length - 1];
+  const agentBattleThinking =
+    agentBattleReplayDisplay?.thinkingAgentId != null &&
+    agentBattleReplayDisplay.thinkingAgentName != null;
+  const agentBattleThinkingLabel = agentBattleThinking
+    ? `${agentBattleReplayDisplay!.thinkingAgentName} thinking...`
+    : undefined;
 
   const headsUpLayoutKey = isHeadsUpGuided
     ? `${stepDemo.step}-${stepDemo.isActive}-${stepDemo.communityCards.length}-${stepDemo.players.pokerMaster.holeCards.length}-${stepDemo.players.human.holeCards.length}`
@@ -956,20 +1082,26 @@ export function ArenaShell() {
         ? "fold"
         : "showdown"
       : undefined
-    : result
-      ? getHandResultDisplayType(result)
-      : undefined;
+    : agentBattleReplayDisplay?.showResult
+      ? agentBattleReplayDisplay.resultType
+      : result
+        ? getHandResultDisplayType(result)
+        : undefined;
   const showdownHandName = stepDemo.isActive
     ? stepDemo.winningHandName === "Win by fold"
       ? undefined
       : (stepDemo.winningHandName ?? undefined)
-    : result && !isWinByFoldResult(result)
-      ? result.winningHand.rankName
-      : undefined;
+    : agentBattleReplayDisplay?.showResult
+      ? agentBattleReplayDisplay.winningHand
+      : result && !isWinByFoldResult(result)
+        ? result.winningHand.rankName
+        : undefined;
 
   const tablePot = isHeadsUpGuided
     ? getStepDemoPotDisplay(stepDemo)
-    : (result?.pot ?? null);
+    : agentBattleReplayDisplay
+      ? agentBattleReplayDisplay.pot
+      : (result?.pot ?? null);
 
   const isAgentBattleSpectator = isAgentBattleSpectatorEarly;
 
@@ -977,8 +1109,16 @@ export function ArenaShell() {
     () =>
       stepDemo.isActive
         ? stepDemo.actionLog
-        : [...sessionLog, ...(result?.actionLog ?? [])],
-    [sessionLog, result?.actionLog, stepDemo.isActive, stepDemo.actionLog],
+        : agentBattleReplayDisplay
+          ? [...sessionLog, ...agentBattleReplayDisplay.visibleActionLog]
+          : [...sessionLog, ...(result?.actionLog ?? [])],
+    [
+      sessionLog,
+      result?.actionLog,
+      stepDemo.isActive,
+      stepDemo.actionLog,
+      agentBattleReplayDisplay,
+    ],
   );
 
   return (
@@ -1010,8 +1150,12 @@ export function ArenaShell() {
             <Sparkles className="h-3 w-3" />
             {isArenaUnlocked ? "Demo session active" : "Start demo to play"}
           </Badge>
-          {result && !stepDemo.isActive ? (
+          {result && !stepDemo.isActive && !agentBattleReplayActive ? (
             <Badge variant="secondary">Hand #{result.handNumber}</Badge>
+          ) : agentBattleReplay?.finalResult ? (
+            <Badge variant="secondary">
+              Hand #{agentBattleReplay.finalResult.handNumber}
+            </Badge>
           ) : null}
           <Badge
             variant="outline"
@@ -1052,15 +1196,19 @@ export function ArenaShell() {
                 communityCards={
                   isHeadsUpGuided
                     ? stepDemo.communityCards
-                    : (result?.communityCards ?? [])
+                    : agentBattleReplayDisplay
+                      ? agentBattleReplayDisplay.communityCards
+                      : (result?.communityCards ?? [])
                 }
                 seats={seats}
                 winnerName={
                   stepDemo.isActive
                     ? stepDemo.winner?.name
-                    : isAgentBattleSpectator && result
-                      ? result.winner.name
-                      : undefined
+                    : agentBattleReplayDisplay?.showResult
+                      ? agentBattleReplayDisplay.winnerName
+                      : isAgentBattleSpectator && result
+                        ? result.winner.name
+                        : undefined
                 }
                 winningHand={showdownHandName}
                 resultType={handResultType}
@@ -1095,7 +1243,8 @@ export function ArenaShell() {
                   compact
                   latest={latestAiDecision}
                   guidedHand={stepDemo.isActive}
-                  thinking={pokerMasterThinking}
+                  thinking={pokerMasterThinking || agentBattleThinking}
+                  thinkingLabel={agentBattleThinkingLabel}
                   spectatorMode={isAgentBattleSpectator}
                   humanCallAmount={
                     stepDemo.isActive ? stepDemoHumanCallAmount : undefined
@@ -1105,7 +1254,9 @@ export function ArenaShell() {
                       ? stepDemo.aiDecision
                         ? 1
                         : 0
-                      : aiDecisions.length
+                      : agentBattleReplayDisplay
+                        ? agentBattleReplayDisplay.visibleDecisionCount
+                        : aiDecisions.length
                   }
                 />
               ) : null}
@@ -1152,7 +1303,15 @@ export function ArenaShell() {
         agentBattleStackDepleted={agentBattleStackDepleted}
         onResetAgentBattleStacks={handleResetAgentBattleStacks}
         agentBattleSpectator={isAgentBattleSpectator && !stepDemo.isActive}
-        agentBattleHasResult={isAgentBattleSpectator && !stepDemo.isActive && result != null}
+        agentBattleHasResult={
+          isAgentBattleSpectator &&
+          !stepDemo.isActive &&
+          !agentBattleReplayActive &&
+          result != null
+        }
+        agentBattleReplayActive={agentBattleReplayActive}
+        onSkipAgentBattleReplay={handleSkipAgentBattleReplay}
+        agentBattleActionHint={agentBattleThinkingLabel}
         humanTurnSecondsLeft={
           isHeadsUpGuided && stepDemo.isActive ? humanTurnSecondsLeft : null
         }

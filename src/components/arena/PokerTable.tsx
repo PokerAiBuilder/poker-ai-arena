@@ -19,6 +19,8 @@ export type TableSeat = {
   status: AgentStatus;
   position: "top" | "bottom" | "left" | "right";
   revealCards?: boolean;
+  /** Agent Battle replay — highlight acting bot */
+  activeHighlight?: "thinking" | "acting";
 };
 
 type PokerTableProps = {
@@ -506,6 +508,44 @@ function HeadsUpHumanCards({ seat }: { seat: TableSeat }) {
   );
 }
 
+function AgentBattleActiveHighlight({
+  seat,
+  children,
+}: {
+  seat: TableSeat;
+  children: React.ReactNode;
+}) {
+  if (!seat.activeHighlight) return <>{children}</>;
+
+  const label = seat.activeHighlight === "thinking" ? "Thinking" : "Acting";
+
+  return (
+    <div className="relative">
+      <div
+        className={cn(
+          "pointer-events-none absolute -inset-1.5 rounded-2xl border-2",
+          seat.activeHighlight === "thinking" &&
+            "animate-pulse border-cyan-400/90 shadow-[0_0_22px_rgba(34,211,238,0.45)]",
+          seat.activeHighlight === "acting" &&
+            "border-amber-400/90 shadow-[0_0_20px_rgba(251,191,36,0.4)]",
+        )}
+        aria-hidden
+      />
+      <span
+        className={cn(
+          "absolute -top-2.5 left-1/2 z-[4] -translate-x-1/2 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-[0.14em]",
+          seat.activeHighlight === "thinking"
+            ? "border-cyan-400/50 bg-cyan-950/95 text-cyan-200"
+            : "border-amber-400/50 bg-amber-950/95 text-amber-100",
+        )}
+      >
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
 function AgentBattleSeatRow({
   seat,
   edgeInset = false,
@@ -524,17 +564,26 @@ function AgentBattleSeatRow({
       )}
     >
       <div className="flex w-[3.25rem] shrink-0 items-center justify-center">
-        <AgentAvatar
-          name={seat.name}
-          avatar={seat.avatar}
-          strategy={seat.strategy}
-          stack={seat.stack}
-          status={seat.status}
-          compact
-          stackTextOnly
-          readableFold
-          className={cn("scale-90", isSpectator && "opacity-90")}
-        />
+        <AgentBattleActiveHighlight seat={seat}>
+          <AgentAvatar
+            name={seat.name}
+            avatar={seat.avatar}
+            strategy={seat.strategy}
+            stack={seat.stack}
+            status={seat.status}
+            compact
+            stackTextOnly
+            readableFold
+            className={cn(
+              "scale-90",
+              isSpectator && "opacity-90",
+              seat.activeHighlight === "thinking" &&
+                "border-cyan-400/70 shadow-[0_0_18px_rgba(34,211,238,0.35)]",
+              seat.activeHighlight === "acting" &&
+                "border-amber-400/70 shadow-[0_0_16px_rgba(251,191,36,0.35)]",
+            )}
+          />
+        </AgentBattleActiveHighlight>
       </div>
       <div
         className={cn(
@@ -556,17 +605,25 @@ function AgentBattleSideSeat({ seat }: { seat: TableSeat }) {
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <AgentAvatar
-        name={seat.name}
-        avatar={seat.avatar}
-        strategy={seat.strategy}
-        stack={seat.stack}
-        status={seat.status}
-        compact
-        stackTextOnly
-        readableFold
-        className="scale-[0.88]"
-      />
+      <AgentBattleActiveHighlight seat={seat}>
+        <AgentAvatar
+          name={seat.name}
+          avatar={seat.avatar}
+          strategy={seat.strategy}
+          stack={seat.stack}
+          status={seat.status}
+          compact
+          stackTextOnly
+          readableFold
+          className={cn(
+            "scale-[0.88]",
+            seat.activeHighlight === "thinking" &&
+              "border-cyan-400/70 shadow-[0_0_18px_rgba(34,211,238,0.35)]",
+            seat.activeHighlight === "acting" &&
+              "border-amber-400/70 shadow-[0_0_16px_rgba(251,191,36,0.35)]",
+          )}
+        />
+      </AgentBattleActiveHighlight>
       <div className="flex scale-90 gap-0.5">
         <SeatHoleCards seat={seat} cardSize={cardSize} softFold />
       </div>

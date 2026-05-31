@@ -12,6 +12,8 @@ type AiDecisionPanelProps = {
   guidedHand?: boolean;
   /** PokerMaster is deciding — show thinking state */
   thinking?: boolean;
+  /** Override thinking copy (Agent Battle replay) */
+  thinkingLabel?: string;
   /** AI Agent Battle spectator simulation */
   spectatorMode?: boolean;
   /** Tighter sidebar layout — hides long reasoning */
@@ -25,11 +27,12 @@ export function AiDecisionPanel({
   humanCallAmount,
   guidedHand = false,
   thinking = false,
+  thinkingLabel,
   spectatorMode = false,
   compact = false,
   className,
 }: AiDecisionPanelProps) {
-  if (thinking && guidedHand) {
+  if (thinking && (guidedHand || spectatorMode)) {
     return (
       <div
         className={cn(
@@ -50,12 +53,17 @@ export function AiDecisionPanel({
               compact ? "text-[10px]" : "text-xs",
             )}
           >
-            PokerMaster is thinking...
+            {thinkingLabel ??
+              (spectatorMode
+                ? "Agent thinking..."
+                : "PokerMaster is thinking...")}
           </p>
         </div>
         {!compact ? (
           <p className="mt-2 text-[10px] text-white/40">
-            Decision will appear here once PokerMaster acts.
+            {spectatorMode
+              ? "Decision will appear here once the agent acts."
+              : "Decision will appear here once PokerMaster acts."}
           </p>
         ) : null}
       </div>

@@ -545,10 +545,26 @@ export function formatAgentBattleLogMessage(
   decision: AgentDecision,
   toCall: number,
   displayAmount?: number,
+  stage: GameState["stage"] = "preflop",
 ): string {
   const { action } = decision;
+  const isPostflop = stage !== "preflop" && stage !== "showdown";
+  const street =
+    stage === "flop" ? "flop" : stage === "turn" ? "turn" : stage === "river" ? "river" : "street";
 
   if (action === "fold") {
+    if (isPostflop) {
+      if (agentId === RiverMind.id) {
+        return `${agentName} folds — tight profile avoids pressure.`;
+      }
+      if (agentId === BluffBot.id) {
+        return `${agentName} folds — rare give-up from BluffBot.`;
+      }
+      if (agentId === ChipHunter.id) {
+        return `${agentName} folds — no equity left to press.`;
+      }
+      return `${agentName} folds — balanced pass on a bad spot.`;
+    }
     if (agentId === RiverMind.id) {
       return `${agentName} folds — tight profile avoids heavy pressure.`;
     }
@@ -562,6 +578,15 @@ export function formatAgentBattleLogMessage(
   }
 
   if (action === "check") {
+    if (isPostflop) {
+      if (agentId === RiverMind.id) {
+        return `${agentName} checks — tight wait-and-see.`;
+      }
+      if (agentId === PokerMaster.id) {
+        return `${agentName} checks — balanced pot control.`;
+      }
+      return `${agentName} checks.`;
+    }
     if (agentId === PokerMaster.id) {
       return `${agentName} checks — balanced pot control.`;
     }
@@ -573,6 +598,21 @@ export function formatAgentBattleLogMessage(
 
   if (action === "call") {
     const amt = displayAmount ?? decision.amount ?? toCall;
+    if (isPostflop) {
+      if (agentId === PokerMaster.id) {
+        return `${agentName} calls ${amt} — balanced range continues.`;
+      }
+      if (agentId === BluffBot.id) {
+        return `${agentName} calls ${amt} — BluffBot keeps the pot contested.`;
+      }
+      if (agentId === RiverMind.id) {
+        return `${agentName} calls ${amt} — tight but playable holding.`;
+      }
+      if (agentId === ChipHunter.id) {
+        return `${agentName} calls ${amt} — ChipHunter stays in to build pressure.`;
+      }
+      return `${agentName} calls ${amt}.`;
+    }
     if (agentId === PokerMaster.id) {
       return `${agentName} calls ${amt} — balanced range continues.`;
     }
@@ -590,6 +630,30 @@ export function formatAgentBattleLogMessage(
 
   if (action === "raise") {
     const inc = displayAmount ?? 0;
+    if (isPostflop) {
+      if (toCall === 0) {
+        if (agentId === ChipHunter.id) {
+          return `${agentName} bets ${inc} — aggressive profile attacks the ${street}.`;
+        }
+        if (agentId === BluffBot.id) {
+          return `${agentName} bets ${inc} — pressure bluff on the ${street}.`;
+        }
+        if (agentId === RiverMind.id) {
+          return `${agentName} bets ${inc} — tight value on the ${street}.`;
+        }
+        return `${agentName} bets ${inc} — balanced line on the ${street}.`;
+      }
+      if (agentId === BluffBot.id) {
+        return `${agentName} raises +${inc} — pressure from BluffBot.`;
+      }
+      if (agentId === ChipHunter.id) {
+        return `${agentName} raises +${inc} — aggressive profile attacks the pot.`;
+      }
+      if (agentId === RiverMind.id) {
+        return `${agentName} raises +${inc} — tight value line.`;
+      }
+      return `${agentName} raises +${inc}.`;
+    }
     if (agentId === BluffBot.id) {
       return `${agentName} raises +${inc} — pressure bluff from a wide range.`;
     }
@@ -609,6 +673,9 @@ export function formatAgentBattleLogMessage(
   return `${agentName} acts preflop.`;
 }
 
+export { getAgentBattlePostflopDecision } from "@/lib/poker/agentBattlePostflop";
+
+/** @deprecated Fake commentary — no longer logged as actions. */
 export function getAgentBattleBoardReaction(
   agentId: string,
   stage: "flop" | "turn" | "river",

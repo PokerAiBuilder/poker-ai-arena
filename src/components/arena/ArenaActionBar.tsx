@@ -45,6 +45,11 @@ type ArenaActionBarProps = {
   agentBattleHasResult?: boolean;
   agentBattleStackDepleted?: boolean;
   onResetAgentBattleStacks?: () => void;
+  /** Agent Battle live replay in progress */
+  agentBattleReplayActive?: boolean;
+  onSkipAgentBattleReplay?: () => void;
+  /** Live replay — current bot thinking copy for action bar */
+  agentBattleActionHint?: string;
   /** Human vs AI — seconds left on player turn timer */
   humanTurnSecondsLeft?: number | null;
   className?: string;
@@ -99,6 +104,9 @@ export function ArenaActionBar({
   agentBattleHasResult = false,
   agentBattleStackDepleted = false,
   onResetAgentBattleStacks,
+  agentBattleReplayActive = false,
+  onSkipAgentBattleReplay,
+  agentBattleActionHint,
   pokerMasterThinking = false,
   humanTurnSecondsLeft = null,
   className,
@@ -116,12 +124,18 @@ export function ArenaActionBar({
         humanActions.canRaise ||
         humanActions.canAllIn);
   const playStepDemoDisabled = useHeadsUpUi
-    ? !stepDemoUi.playEnabled || disabled || loading
-    : disabled || loading || stepDemoActive || headsUpStackDepleted || pokerMasterThinking;
-  const agentBattleDisabled = useHeadsUpUi
-    ? !stepDemoUi.agentBattleEnabled || disabled || loading
+    ? !stepDemoUi.playEnabled || disabled || loading || agentBattleReplayActive
     : disabled ||
       loading ||
+      agentBattleReplayActive ||
+      stepDemoActive ||
+      headsUpStackDepleted ||
+      pokerMasterThinking;
+  const agentBattleDisabled = useHeadsUpUi
+    ? !stepDemoUi.agentBattleEnabled || disabled || loading || agentBattleReplayActive
+    : disabled ||
+      loading ||
+      agentBattleReplayActive ||
       pokerMasterThinking ||
       agentBattleStackDepleted ||
       (stepDemoActive && !stepDemoHandComplete);
@@ -155,11 +169,22 @@ export function ArenaActionBar({
         }
     : agentBattleSpectator
       ? {
-          phase: agentBattleHasResult ? "hand-complete" : "waiting",
-          banner: agentBattleHasResult ? "SPECTATOR RESULT" : "AI AGENT BATTLE",
-          actionHint: agentBattleHasResult
-            ? "Spectator result — run Agent Battle again or play vs PokerMaster."
-            : "Spectator Mode — player actions are disabled while watching.",
+          phase: agentBattleReplayActive
+            ? ("waiting" as const)
+            : agentBattleHasResult
+              ? ("hand-complete" as const)
+              : ("waiting" as const),
+          banner: agentBattleReplayActive
+            ? "LIVE REPLAY"
+            : agentBattleHasResult
+              ? "SPECTATOR RESULT"
+              : "AI AGENT BATTLE",
+          actionHint: agentBattleReplayActive
+            ? agentBattleActionHint ??
+              "Spectator replay — agents acting in sequence."
+            : agentBattleHasResult
+              ? "Spectator result — run Agent Battle again or play vs PokerMaster."
+              : "Spectator Mode — player actions are disabled while watching.",
         }
       : stepDemoGuidance ?? {
           phase: "start-hand",
@@ -200,7 +225,7 @@ export function ArenaActionBar({
     ? stepDemoUi.resetStacksEnabled
     : showStackDepletedUi;
 
-  const controlsDisabled = disabled || loading || stepDemoActive;
+  const controlsDisabled = disabled || loading || stepDemoActive || agentBattleReplayActive;
 
   function handleNextStep() {
     if ((useHeadsUpUi ? !stepDemoUi.nextStepEnabled : pokerMasterThinking) || !nextStep) {
@@ -523,18 +548,41 @@ export function ArenaActionBar({
               variant="outline"
               className="h-11 min-w-[160px] border-violet-400/35 text-sm font-semibold text-violet-100 hover:bg-violet-950/40"
               title={
-                controlsDisabled
-                  ? actionHint ?? "Start a hand first or wait for your turn."
-                  : "Spectator Mode — watch AI agents play a simulated hand"
+                agentBattleReplayActive
+                  ? "Replay in progress — wait for the hand to finish."
+                  : controlsDisabled
+                    ? actionHint ?? "Start a hand first or wait for your turn."
+                    : "Spectator Mode — watch AI agents play a simulated hand"
               }
             >
               {loading && loadingMode === "agent-vs-agent" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Running...
+                </>
+              ) : agentBattleReplayActive ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Running...
+                </>
               ) : (
-                <Swords className="h-3.5 w-3.5" />
+                <>
+                  <Swords className="h-3.5 w-3.5" />
+                  Agent Battle
+                </>
               )}
-              Agent Battle
             </Button>
+            {agentBattleReplayActive && onSkipAgentBattleReplay ? (
+              <Button
+                type="button"
+                size="lg"
+                variant="secondary"
+                className="h-11 min-w-[140px] border-violet-400/30 text-sm font-semibold text-violet-100"
+                onClick={onSkipAgentBattleReplay}
+              >
+                Skip to Result
+              </Button>
+            ) : null}
             {onOpenMenu ? (
               <Button
                 type="button"
