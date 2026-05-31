@@ -1,5 +1,9 @@
 import { PokerMaster } from "@/lib/agents/pokerMaster";
 import { getStepDemoPokerMasterDecision } from "@/lib/arena/stepDemoAiDecision";
+import {
+  buildBetContext,
+} from "@/lib/arena/stepDemoHandAnalysis";
+import { buildDecisionDisplayMeta } from "@/lib/arena/decisionDisplayMetadata";
 import { resolvePokerMasterRaiseIncrement } from "@/lib/arena/stepDemoAiRaiseSizing";
 import type { StepDemoAutoFlowStatus } from "@/lib/arena/stepDemoAutoFlow";
 import type { AgentDecision } from "@/lib/agents/agentTypes";
@@ -476,10 +480,14 @@ export function resolveStepDemoPendingAi(
 function toSimulationAgentDecision(
   decision: AgentDecision,
   stage: GameStage,
-  stateAfterAction?: StepDemoState,
+  stateAtDecision: StepDemoState,
+  options?: {
+    stateAfterAction?: StepDemoState;
+    humanWentAllIn?: boolean;
+  },
 ): SimulationAgentDecision {
-  const humanCall =
-    stateAfterAction != null ? humanAmountToCall(stateAfterAction) : 0;
+  const after = options?.stateAfterAction ?? stateAtDecision;
+  const humanCall = humanAmountToCall(after);
 
   let amount = decision.amount;
   if (decision.action === "raise" || decision.action === "all-in") {
@@ -489,11 +497,24 @@ function toSimulationAgentDecision(
   }
 
   const reasoning =
-    stateAfterAction != null &&
     (decision.action === "raise" || decision.action === "all-in") &&
     humanCall > 0
       ? `${decision.reasoning} You need to call ${humanCall} to continue.`
       : decision.reasoning;
+
+  const toCall = aiAmountToCall(stateAtDecision);
+  const betCtx = buildBetContext(stateAtDecision, toCall, {
+    humanWentAllIn: options?.humanWentAllIn ?? false,
+    humanRaised: stateAtDecision.lastHumanRaiseIncrement > 0,
+  });
+  const display = buildDecisionDisplayMeta({
+    agentId: PokerMaster.id,
+    holeCards: stateAtDecision.players.pokerMaster.holeCards,
+    communityCards: stateAtDecision.communityCards,
+    stage,
+    toCall: betCtx.toCall,
+    pressure: betCtx.pressure,
+  });
 
   return {
     agentId: PokerMaster.id,
@@ -504,6 +525,7 @@ function toSimulationAgentDecision(
     amount,
     confidence: decision.confidence,
     reasoning,
+    ...display,
   };
 }
 
@@ -799,7 +821,9 @@ function runAiResponseToHumanAllIn(
       {
         ...state,
         players: { human, pokerMaster: ai },
-        aiDecision: toSimulationAgentDecision(foldDecision, stage, state),
+        aiDecision: toSimulationAgentDecision(foldDecision, stage, state, {
+          humanWentAllIn: true,
+        }),
       },
       "human",
       logs,
@@ -838,10 +862,13 @@ function runAiResponseToHumanAllIn(
     humanAllIn: true,
     allInShowdown: true,
     revealAiCards: true,
-    aiDecision: toSimulationAgentDecision(callDecision, stage, {
-      ...state,
-      currentBet,
-      aiStreetBet,
+    aiDecision: toSimulationAgentDecision(callDecision, stage, state, {
+      humanWentAllIn: true,
+      stateAfterAction: {
+        ...state,
+        currentBet,
+        aiStreetBet,
+      },
     }),
     actionLog: [...state.actionLog, ...logs],
   });
@@ -981,7 +1008,9 @@ function promptHumanVsAiRaise(
     ...base,
     step: humanVsRaiseStep(state.street),
     turn: "human",
-    aiDecision: toSimulationAgentDecision(decision, stage, base),
+    aiDecision: toSimulationAgentDecision(decision, stage, state, {
+      stateAfterAction: base,
+    }),
     actionLog: [
       ...base.actionLog,
       systemLog("PokerMaster raised — choose Call, Raise, or Fold.", stage),
@@ -1040,7 +1069,9 @@ function runAiAfterHumanReRaise(
 
   return completeStreet({
     ...afterChips,
-    aiDecision: toSimulationAgentDecision(decision, stage, afterChips),
+    aiDecision: toSimulationAgentDecision(decision, stage, state, {
+      stateAfterAction: afterChips,
+    }),
   });
 }
 
@@ -1102,7 +1133,9 @@ function runAiStreetResponse(
 
   return completeStreet({
     ...base,
-    aiDecision: toSimulationAgentDecision(decision, stage, base),
+    aiDecision: toSimulationAgentDecision(decision, stage, state, {
+      stateAfterAction: base,
+    }),
   });
 }
 

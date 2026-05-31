@@ -54,6 +54,7 @@ import {
   stepDemoHistoryFingerprint,
   type HandHistoryRecord,
 } from "@/lib/arena/handHistory";
+import { shouldRevealPokerMasterHandContext } from "@/lib/arena/humanVsAiDecisionPrivacy";
 import {
   advanceStepDemoRevealFlop,
   advanceStepDemoRevealRiver,
@@ -1060,6 +1061,11 @@ export function ArenaShell() {
     ? `${agentBattleReplayDisplay!.thinkingAgentName} thinking...`
     : undefined;
 
+  const hidePrivatePokerMasterInfo =
+    stepDemo.isActive &&
+    isHeadsUpGuided &&
+    !shouldRevealPokerMasterHandContext(stepDemo);
+
   const headsUpLayoutKey = isHeadsUpGuided
     ? `${stepDemo.step}-${stepDemo.isActive}-${stepDemo.communityCards.length}-${stepDemo.players.pokerMaster.holeCards.length}-${stepDemo.players.human.holeCards.length}`
     : undefined;
@@ -1231,6 +1237,7 @@ export function ArenaShell() {
                   compact
                   latest={latestAiDecision}
                   guidedHand={stepDemo.isActive}
+                  hidePrivateHandInfo={hidePrivatePokerMasterInfo}
                   thinking={pokerMasterThinking || agentBattleThinking}
                   thinkingLabel={agentBattleThinkingLabel}
                   spectatorMode={isAgentBattleSpectator}

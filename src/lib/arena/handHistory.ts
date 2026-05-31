@@ -1,4 +1,5 @@
 import type { StepDemoState } from "@/lib/arena/stepDemo";
+import { sanitizeHumanVsAiLogMessage } from "@/lib/arena/humanVsAiDecisionPrivacy";
 import type { Card, GameAction, GameMode, SimulationResult } from "@/lib/poker/types";
 
 export const HAND_HISTORY_STORAGE_KEY = "poker-ai-arena-hand-history-v1";
@@ -57,7 +58,9 @@ function buildActionPreview(actions: GameAction[], maxItems = 2): string {
   const tail = interesting.slice(-maxItems);
   if (tail.length === 0) return "";
   return tail
-    .map((entry) => truncatePreviewText(entry.message, 64))
+    .map((entry) =>
+      truncatePreviewText(sanitizeHumanVsAiLogMessage(entry.message), 64),
+    )
     .join(" · ");
 }
 

@@ -5,6 +5,10 @@ import {
 } from "@/lib/agents/agentBattleStrategy";
 import { getAgentById } from "@/lib/agents/agentRegistry";
 import type { AgentDecision } from "@/lib/agents/agentTypes";
+import {
+  agentBattlePressure,
+  buildDecisionDisplayMeta,
+} from "@/lib/arena/decisionDisplayMetadata";
 import { recordAgentBattleContribution } from "@/lib/poker/agentBattleAccounting";
 import { dealCards } from "@/lib/poker/deck";
 import type { GameAction, GameStage, GameState, Player } from "@/lib/poker/types";
@@ -79,6 +83,16 @@ function recordAgentDecision(
   displayAmount?: number,
 ): void {
   const agent = getAgentById(player.id);
+  const toCall = amountToCall(player, state.currentBet);
+  const display = buildDecisionDisplayMeta({
+    agentId: player.id,
+    holeCards: player.holeCards,
+    communityCards: state.communityCards,
+    stage: state.stage,
+    toCall,
+    pressure: agentBattlePressure(state, toCall),
+  });
+
   state.agentDecisions.push({
     agentId: player.id,
     agentName: player.name,
@@ -88,6 +102,7 @@ function recordAgentDecision(
     amount: displayAmount ?? decision.amount,
     confidence: decision.confidence,
     reasoning: decision.reasoning,
+    ...display,
   });
 }
 

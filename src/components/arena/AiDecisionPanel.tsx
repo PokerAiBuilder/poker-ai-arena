@@ -1,6 +1,7 @@
 import { Brain, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { formatAgentProfileLabel } from "@/lib/agents/agentProfiles";
+import { getAgentProfile } from "@/lib/agents/agentProfiles";
+import { sanitizeHumanVsAiDecisionDisplay } from "@/lib/arena/humanVsAiDecisionPrivacy";
 import type { SimulationAgentDecision } from "@/lib/poker/types";
 import { cn } from "@/lib/utils";
 
@@ -19,8 +20,33 @@ type AiDecisionPanelProps = {
   spectatorMode?: boolean;
   /** Tighter sidebar layout — hides long reasoning */
   compact?: boolean;
+  /** Human vs AI — hide PokerMaster private hand metadata before showdown */
+  hidePrivateHandInfo?: boolean;
   className?: string;
 };
+
+function ContextCell({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string;
+}) {
+  if (!value) return null;
+  return (
+    <div className="min-w-0">
+      <p className="text-[8px] font-medium uppercase tracking-wide text-white/40">
+        {label}
+      </p>
+      <p className="truncate text-[10px] leading-snug text-white/85">{value}</p>
+    </div>
+  );
+}
+
+function resolveStyleLabel(latest: SimulationAgentDecision): string | undefined {
+  if (latest.styleLabel) return latest.styleLabel;
+  return getAgentProfile(latest.agentId)?.title;
+}
 
 export function AiDecisionPanel({
   latest,
@@ -31,6 +57,7 @@ export function AiDecisionPanel({
   thinkingLabel,
   spectatorMode = false,
   compact = false,
+  hidePrivateHandInfo = false,
   className,
 }: AiDecisionPanelProps) {
   if (thinking && (guidedHand || spectatorMode)) {
@@ -63,15 +90,20 @@ export function AiDecisionPanel({
         {!compact ? (
           <p className="mt-2 text-[10px] text-white/40">
             {spectatorMode
-              ? "Decision will appear here once the agent acts."
-              : "Decision will appear here once PokerMaster acts."}
+              ? "Decision context will appear once the agent acts."
+              : "Decision context will appear once PokerMaster acts."}
           </p>
         ) : null}
       </div>
     );
   }
 
-  if (!latest) {
+  const displayDecision =
+    latest != null && hidePrivateHandInfo && !spectatorMode
+      ? sanitizeHumanVsAiDecisionDisplay(latest, false)
+      : latest;
+
+  if (!displayDecision) {
     return (
       <div
         className={cn(
@@ -110,17 +142,18 @@ export function AiDecisionPanel({
     );
   }
 
-  const confidencePct = Math.round(latest.confidence * 100);
-  const agentProfileLabel =
-    spectatorMode && !guidedHand
-      ? formatAgentProfileLabel(latest.agentId)
-      : null;
+  const confidencePct = Math.round(displayDecision.confidence * 100);
+  const styleLabel = resolveStyleLabel(displayDecision);
+  const hasContext =
+    displayDecision.handLabel != null ||
+    displayDecision.boardLabel != null ||
+    displayDecision.pressureLabel != null;
   const actionLabel = (() => {
-    if (latest.reasoning.startsWith("CALL all-in")) return "CALL all-in";
-    if (latest.reasoning.startsWith("FOLD to all-in")) return "FOLD to all-in";
-    if (latest.action === "all-in") return "All-in";
-    if (latest.action === "raise") return "Raise";
-    return latest.action;
+    if (displayDecision.reasoning.startsWith("CALL all-in")) return "CALL all-in";
+    if (displayDecision.reasoning.startsWith("FOLD to all-in")) return "FOLD to all-in";
+    if (displayDecision.action === "all-in") return "All-in";
+    if (displayDecision.action === "raise") return "Raise";
+    return displayDecision.action;
   })();
 
   return (
@@ -144,43 +177,25 @@ export function AiDecisionPanel({
             </h3>
           </div>
           {!compact ? (
-            <Badge variant="secondary" className="shrink-0 text-[9px]">
-              {latest.strategy}
-            </Badge>
+            <span className="shrink-0 text-[9px] uppercase tracking-wider text-muted-foreground">
+              {displayDecision.stage}
+            </span>
           ) : null}
         </div>
-        {!compact ? (
-          <p className="mt-1.5 text-[10px] text-white/45">
-            {guidedHand
-              ? "Latest PokerMaster decision this hand."
-              : spectatorMode
-                ? "Latest agent decision."
-                : "Latest decision from simulation."}
-          </p>
-        ) : spectatorMode ? (
-          <p className="mt-1 text-[9px] leading-none text-white/40">
-            Latest agent decision
-          </p>
-        ) : null}
       </div>
 
-      <div className={cn(compact ? "space-y-1.5 p-2" : "space-y-3 p-4")}>
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            {agentProfileLabel ? (
-              <p className="truncate text-[10px] font-medium text-violet-200/90">
-                {agentProfileLabel}
-              </p>
-            ) : (
-              <span className="truncate text-[11px] font-medium text-white">
-                {latest.agentName}
-              </span>
-            )}
-          </div>
-          {!compact ? (
-            <span className="shrink-0 text-[9px] uppercase tracking-wider text-muted-foreground">
-              {latest.stage}
-            </span>
+      <div className={cn(compact ? "space-y-1.5 p-2" : "space-y-2.5 p-4")}>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="truncate text-[11px] font-semibold text-white">
+            {displayDecision.agentName}
+          </span>
+          {styleLabel ? (
+            <Badge
+              variant="secondary"
+              className="border-violet-400/25 bg-violet-500/10 text-[8px] text-violet-200"
+            >
+              {styleLabel}
+            </Badge>
           ) : null}
         </div>
 
@@ -188,11 +203,11 @@ export function AiDecisionPanel({
           <span className="rounded-md border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[11px] font-bold uppercase text-cyan-300">
             {actionLabel}
           </span>
-          {latest.amount != null ? (
+          {displayDecision.amount != null ? (
             <span className="text-[11px] text-casino-goldLight">
-              {latest.action === "raise" || latest.action === "all-in"
-                ? `+${latest.amount} chips`
-                : `${latest.amount} chips`}
+              {displayDecision.action === "raise" || displayDecision.action === "all-in"
+                ? `+${displayDecision.amount} chips`
+                : `${displayDecision.amount} chips`}
             </span>
           ) : null}
         </div>
@@ -216,15 +231,42 @@ export function AiDecisionPanel({
           </div>
         </div>
 
-        {!compact && !spectatorMode ? (
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            &ldquo;{latest.reasoning}&rdquo;
-          </p>
-        ) : (
-          <p className="text-[9px] leading-snug text-white/50">
-            &ldquo;{latest.reasoning}&rdquo;
-          </p>
-        )}
+        {hasContext ? (
+          <div
+            className={cn(
+              "grid gap-1.5 rounded-lg border border-white/5 bg-black/20 p-1.5",
+              displayDecision.handLabel != null ? "grid-cols-3" : "grid-cols-2",
+            )}
+          >
+            {displayDecision.handLabel != null ? (
+              <ContextCell label="Hand" value={displayDecision.handLabel} />
+            ) : null}
+            <ContextCell label="Board" value={displayDecision.boardLabel ?? "—"} />
+            <ContextCell label="Pressure" value={displayDecision.pressureLabel} />
+          </div>
+        ) : null}
+
+        {displayDecision.reasonTags != null && displayDecision.reasonTags.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {displayDecision.reasonTags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[8px] text-white/65"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        <p
+          className={cn(
+            "leading-snug text-muted-foreground",
+            compact ? "line-clamp-2 text-[9px]" : "text-[11px]",
+          )}
+        >
+          &ldquo;{displayDecision.reasoning}&rdquo;
+        </p>
 
         {spectatorMode && totalDecisions > 1 ? (
           <p className="text-[9px] leading-snug text-violet-300/55">

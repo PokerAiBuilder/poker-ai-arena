@@ -1,6 +1,19 @@
 # Project status
 
-Last updated for **v0.6.3** — agent personality profiles UI in Arena Menu.
+Last updated for **v0.6.4** — structured AI Decision Panel explanations.
+
+---
+
+## v0.6.4 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Decision display metadata | v0.6.4 | Optional `handLabel`, `boardLabel`, `pressureLabel`, `styleLabel`, `reasonTags` on decisions |
+| Human vs AI panel context | v0.6.4 | PokerMaster hand/board/pressure from step-demo analysis |
+| Agent Battle panel context | v0.6.4 | Agent style + hand/board/pressure on spectator decisions |
+| AI Decision Panel layout | v0.6.4 | Compact context grid, tags row, style badge; thinking clears stale context |
+
+**Unchanged:** Human vs AI logic, Agent Battle decision logic, gameplay flow/timers, payment/demo.
 
 ---
 

@@ -137,7 +137,18 @@ export type SimulationAgentDecision = {
   amount?: number;
   confidence: number;
   reasoning: string;
+  /** Optional UI metadata — absent on older recorded decisions */
+  handLabel?: string;
+  boardLabel?: string;
+  pressureLabel?: string;
+  styleLabel?: string;
+  reasonTags?: string[];
 };
+
+export type AiDecisionDisplayMeta = Pick<
+  SimulationAgentDecision,
+  "handLabel" | "boardLabel" | "pressureLabel" | "styleLabel" | "reasonTags"
+>;
 
 export type GameMode = "human-vs-ai" | "agent-vs-agent";
 
