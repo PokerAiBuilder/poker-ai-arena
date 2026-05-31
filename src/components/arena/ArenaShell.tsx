@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Sparkles, Swords, Users } from "lucide-react";
 import { ArenaActionBar } from "@/components/arena/ArenaActionBar";
 import { ArenaMenuDrawer, ArenaMenuTrigger } from "@/components/arena/ArenaMenuDrawer";
@@ -64,10 +64,13 @@ import {
   applyHumanCallWithOutcome,
   applyHumanCheckWithOutcome,
   applyHumanFold,
+  applyHumanTimeoutCheckWithOutcome,
+  applyHumanTimeoutFold,
   applyHumanRaiseWithOutcome,
   buildStepDemoSeats,
   createInitialStepDemoState,
   dealStepDemoHand,
+  getStepDemoHumanActions,
   getStepDemoHumanCallAmount,
   getStepDemoPotDisplay,
   getStepDemoStackUpdates,
@@ -83,6 +86,15 @@ import {
   deriveStepDemoUiState,
   stepDemoUiBannerPhase,
 } from "@/lib/arena/stepDemoUiState";
+import {
+  buildAutoFlowDebugSnapshot,
+  canApplyAutoFlowAction,
+  createAutoStepTimerController,
+  resolveNextAutoFlowAction,
+  type StepDemoAutoFlowPending,
+} from "@/lib/arena/stepDemoAutoFlow";
+import { resolveHumanTurnTimeoutAction } from "@/lib/arena/humanTurnTimer";
+import { useHumanTurnTimer } from "@/hooks/useHumanTurnTimer";
 import {
   getHandResultDisplayType,
   isWinByFoldResult,
@@ -176,10 +188,36 @@ export function ArenaShell() {
   const thinkingGenerationRef = useRef(0);
   const pendingAiJobRef = useRef<PendingAiJob | null>(null);
   const transitionLockRef = useRef(false);
+  const autoStepTimerRef = useRef(createAutoStepTimerController());
+  const autoFlowScheduledKeyRef = useRef<string | null>(null);
+  const autoFlowPendingRef = useRef<StepDemoAutoFlowPending | null>(null);
+  const clearHumanTurnTimerRef = useRef<(() => void) | null>(null);
+  const lastAutoFlowDebugKeyRef = useRef<string>("");
+  const [autoFlowPending, setAutoFlowPending] =
+    useState<StepDemoAutoFlowPending | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  autoFlowPendingRef.current = autoFlowPending;
+
+  const clearAutoStepTimers = useCallback(() => {
+    autoStepTimerRef.current.clearAutoStepTimers();
+  }, []);
+
+  const resetAutoFlowSession = useCallback(() => {
+    autoStepTimerRef.current.bumpHandGeneration();
+    autoFlowScheduledKeyRef.current = null;
+    autoFlowPendingRef.current = null;
+    setAutoFlowPending(null);
+  }, []);
+
   const tryStepDemoTransition = useCallback((run: () => void) => {
-    if (pokerMasterThinkingRef.current || transitionLockRef.current) return false;
+    if (
+      pokerMasterThinkingRef.current ||
+      transitionLockRef.current ||
+      autoFlowPendingRef.current
+    ) {
+      return false;
+    }
     transitionLockRef.current = true;
     try {
       run();
@@ -214,7 +252,10 @@ export function ArenaShell() {
     setPokerMasterThinking(false);
   }, []);
 
-  useEffect(() => () => clearPokerMasterThinking(), [clearPokerMasterThinking]);
+  useEffect(() => () => {
+    clearPokerMasterThinking();
+    clearAutoStepTimers();
+  }, [clearPokerMasterThinking, clearAutoStepTimers]);
 
   const completePendingAiResponse = useCallback(
     (generation: number, useFallback: boolean) => {
@@ -486,6 +527,7 @@ export function ArenaShell() {
       return;
     }
     clearPokerMasterThinking();
+    resetAutoFlowSession();
     setError(null);
     setResult(null);
     setPreferredSeatLayout("human-vs-ai");
@@ -495,10 +537,11 @@ export function ArenaShell() {
       ...prev,
       createSessionLogEntry("Human vs AI — new hand started."),
     ]);
-  }, [isArenaUnlocked, sessionStacks, clearPokerMasterThinking]);
+  }, [isArenaUnlocked, sessionStacks, clearPokerMasterThinking, resetAutoFlowSession]);
 
   const handleResetDemoStacks = useCallback(() => {
     clearPokerMasterThinking();
+    resetAutoFlowSession();
     setSessionStacks((prev) => resetHeadsUpDemoStacks(prev));
     setStepDemo(createInitialStepDemoState());
     setResult(null);
@@ -508,7 +551,7 @@ export function ArenaShell() {
       ...prev,
       createSessionLogEntry("Demo stacks reset."),
     ]);
-  }, [clearPokerMasterThinking]);
+  }, [clearPokerMasterThinking, resetAutoFlowSession]);
 
   const commitStepDemo = useCallback(
     (updater: (prev: StepDemoState) => StepDemoState) => {
@@ -524,7 +567,14 @@ export function ArenaShell() {
 
   const runHumanActionWithThinking = useCallback(
     (apply: (prev: StepDemoState) => StepDemoHumanActionOutcome) => {
-      if (pokerMasterThinkingRef.current || transitionLockRef.current) return;
+      clearHumanTurnTimerRef.current?.();
+      if (
+        pokerMasterThinkingRef.current ||
+        transitionLockRef.current ||
+        autoFlowPendingRef.current
+      ) {
+        return;
+      }
 
       const outcome = apply(stepDemoRef.current);
       applyStepDemoStackUpdates(outcome.state);
@@ -553,8 +603,15 @@ export function ArenaShell() {
         pokerMasterThinking,
         headsUpStackDepleted,
         arenaUnlocked: isArenaUnlocked,
+        autoFlowPending,
       }),
-    [stepDemo, pokerMasterThinking, headsUpStackDepleted, isArenaUnlocked],
+    [
+      stepDemo,
+      pokerMasterThinking,
+      headsUpStackDepleted,
+      isArenaUnlocked,
+      autoFlowPending,
+    ],
   );
 
   const stepDemoGuidance = useMemo(
@@ -563,9 +620,65 @@ export function ArenaShell() {
       banner: stepDemoUi.banner,
       actionHint: stepDemoUi.actionHint,
       nextStep: stepDemoUi.nextStep ?? undefined,
+      autoFlowStatus: stepDemoUi.autoFlowStatus,
     }),
     [stepDemoUi],
   );
+
+  const humanTurnTimerEnabled =
+    stepDemo.isActive &&
+    stepDemoUi.pokerActionsEnabled &&
+    !pokerMasterThinking &&
+    !autoFlowPending &&
+    !headsUpStackDepleted &&
+    stepDemo.step !== "result";
+
+  const humanTurnTimerKey = humanTurnTimerEnabled
+    ? `${stepDemo.step}-${stepDemo.street}-${stepDemo.currentBet}-${stepDemo.humanStreetBet}-${stepDemo.turn}`
+    : null;
+
+  const handleHumanTurnTimeout = useCallback(() => {
+    if (
+      pokerMasterThinkingRef.current ||
+      transitionLockRef.current ||
+      autoFlowPendingRef.current
+    ) {
+      return;
+    }
+
+    clearHumanTurnTimerRef.current?.();
+
+    const current = stepDemoRef.current;
+    if (!current.isActive || current.turn !== "human" || current.step === "result") {
+      return;
+    }
+
+    const actions = getStepDemoHumanActions(current);
+    if (resolveHumanTurnTimeoutAction(actions) === "check") {
+      const outcome = applyHumanTimeoutCheckWithOutcome(current);
+      applyStepDemoStackUpdates(outcome.state);
+      setStepDemo(outcome.state);
+      if (outcome.pendingAi) {
+        schedulePendingAiResponse(outcome.state, outcome.pendingAi);
+      }
+      return;
+    }
+
+    commitStepDemo((prev) => applyHumanTimeoutFold(prev));
+  }, [
+    applyStepDemoStackUpdates,
+    schedulePendingAiResponse,
+    commitStepDemo,
+  ]);
+
+  const { secondsLeft: humanTurnSecondsLeft, clearTimer: clearHumanTurnTimer } =
+    useHumanTurnTimer({
+      enabled: humanTurnTimerEnabled,
+      turnKey: humanTurnTimerKey,
+      onTimeout: handleHumanTurnTimeout,
+    });
+
+  clearHumanTurnTimerRef.current = clearHumanTurnTimer;
 
   const guardedStepDemoUpdate = useCallback(
     (
@@ -580,6 +693,7 @@ export function ArenaShell() {
           headsUpStackDepleted: isHeadsUpStackDepleted(
             sanitizeSessionStacks(sessionStacks),
           ),
+          autoFlowPending: autoFlowPendingRef.current,
         });
         if (!canApplyStepDemoTransition(stepDemoRef.current, ui, action)) {
           return;
@@ -599,6 +713,7 @@ export function ArenaShell() {
       if (!ui.newHandEnabled) return;
 
       clearPokerMasterThinking();
+      resetAutoFlowSession();
       const readyStacks = sanitizeSessionStacks(sessionStacks);
       if (!canStartHeadsUpHand(readyStacks)) return;
 
@@ -612,6 +727,7 @@ export function ArenaShell() {
     });
   }, [
     clearPokerMasterThinking,
+    resetAutoFlowSession,
     sessionStacks,
     tryStepDemoTransition,
   ]);
@@ -636,8 +752,144 @@ export function ArenaShell() {
     guardedStepDemoUpdate("runout-board", (prev) => advanceStepDemoRunoutBoard(prev));
   }, [guardedStepDemoUpdate]);
 
+  const executeAutoFlowAction = useCallback(
+    (pending: StepDemoAutoFlowPending) => {
+      autoFlowPendingRef.current = null;
+      autoFlowScheduledKeyRef.current = null;
+      setAutoFlowPending(null);
+
+      if (pokerMasterThinkingRef.current || transitionLockRef.current) {
+        if (process.env.NODE_ENV !== "production") {
+          console.debug("[Human vs AI auto-flow] timer blocked", {
+            pending,
+            pokerMasterThinking: pokerMasterThinkingRef.current,
+            transitionLock: transitionLockRef.current,
+          });
+        }
+        return;
+      }
+
+      const current = stepDemoRef.current;
+      if (!canApplyAutoFlowAction(current, pending)) {
+        if (process.env.NODE_ENV !== "production") {
+          console.debug("[Human vs AI auto-flow] apply rejected", {
+            pending,
+            step: current.step,
+            allInShowdown: current.allInShowdown,
+            communityCards: current.communityCards.length,
+          });
+        }
+        return;
+      }
+
+      transitionLockRef.current = true;
+      try {
+        switch (pending) {
+          case "flop":
+            commitStepDemo((prev) => advanceStepDemoRevealFlop(prev));
+            break;
+          case "turn":
+            commitStepDemo((prev) => advanceStepDemoRevealTurn(prev));
+            break;
+          case "river":
+            commitStepDemo((prev) => advanceStepDemoRevealRiver(prev));
+            break;
+          case "runout-board":
+            commitStepDemo((prev) => advanceStepDemoRunoutBoard(prev));
+            break;
+          case "show-result":
+            commitStepDemo((prev) => advanceStepDemoShowResult(prev));
+            break;
+        }
+      } finally {
+        window.setTimeout(() => {
+          transitionLockRef.current = false;
+        }, 400);
+      }
+    },
+    [commitStepDemo],
+  );
+
+  const executeAutoFlowActionRef = useRef(executeAutoFlowAction);
+  executeAutoFlowActionRef.current = executeAutoFlowAction;
+
+  useLayoutEffect(() => {
+    if (!stepDemo.isActive) {
+      autoFlowScheduledKeyRef.current = null;
+      clearAutoStepTimers();
+      autoFlowPendingRef.current = null;
+      setAutoFlowPending(null);
+      return;
+    }
+
+    const nextAction = resolveNextAutoFlowAction(stepDemo, {
+      pokerMasterThinking,
+      headsUpStackDepleted,
+    });
+
+    if (process.env.NODE_ENV !== "production") {
+      const snapshot = buildAutoFlowDebugSnapshot(stepDemo, {
+        pokerMasterThinking,
+        headsUpStackDepleted,
+        autoFlowPending,
+        scheduledKey: autoFlowScheduledKeyRef.current,
+      });
+      const debugKey = [
+        snapshot.step,
+        snapshot.autoFlowStatus,
+        snapshot.autoFlowPending ?? "none",
+        snapshot.nextAction?.stepKey ?? "none",
+        snapshot.blockedReason ?? "scheduled",
+        snapshot.scheduledKey ?? "none",
+      ].join("|");
+      if (debugKey !== lastAutoFlowDebugKeyRef.current) {
+        lastAutoFlowDebugKeyRef.current = debugKey;
+        console.debug("[Human vs AI auto-flow]", snapshot);
+      }
+    }
+
+    if (!nextAction) {
+      autoFlowScheduledKeyRef.current = null;
+      clearAutoStepTimers();
+      autoFlowPendingRef.current = null;
+      setAutoFlowPending(null);
+      return;
+    }
+
+    if (autoFlowScheduledKeyRef.current === nextAction.stepKey) {
+      autoFlowPendingRef.current = nextAction.pending;
+      setAutoFlowPending(nextAction.pending);
+      return;
+    }
+
+    autoFlowScheduledKeyRef.current = nextAction.stepKey;
+    autoFlowPendingRef.current = nextAction.pending;
+    setAutoFlowPending(nextAction.pending);
+
+    autoStepTimerRef.current.scheduleAutoStep(() => {
+      executeAutoFlowActionRef.current(nextAction.pending);
+    }, nextAction.delayMs, nextAction.stepKey);
+  }, [
+    stepDemo,
+    stepDemo.isActive,
+    stepDemo.step,
+    stepDemo.allInShowdown,
+    stepDemo.communityCards.length,
+    pokerMasterThinking,
+    headsUpStackDepleted,
+    autoFlowPending,
+    clearAutoStepTimers,
+  ]);
+
   const handleHumanFold = useCallback(() => {
-    if (pokerMasterThinkingRef.current || transitionLockRef.current) return;
+    clearHumanTurnTimerRef.current?.();
+    if (
+      pokerMasterThinkingRef.current ||
+      transitionLockRef.current ||
+      autoFlowPendingRef.current
+    ) {
+      return;
+    }
     commitStepDemo((prev) => applyHumanFold(prev));
   }, [commitStepDemo]);
 
@@ -819,6 +1071,9 @@ export function ArenaShell() {
                 headsUpGuidedMode={isHeadsUpGuided}
                 showHumanVsAiBadge={stepDemo.isActive}
                 headsUpLayoutKey={headsUpLayoutKey}
+                humanTurnSecondsLeft={
+                  isHeadsUpGuided && stepDemo.isActive ? humanTurnSecondsLeft : null
+                }
               />
             </div>
           </div>
@@ -898,6 +1153,9 @@ export function ArenaShell() {
         onResetAgentBattleStacks={handleResetAgentBattleStacks}
         agentBattleSpectator={isAgentBattleSpectator && !stepDemo.isActive}
         agentBattleHasResult={isAgentBattleSpectator && !stepDemo.isActive && result != null}
+        humanTurnSecondsLeft={
+          isHeadsUpGuided && stepDemo.isActive ? humanTurnSecondsLeft : null
+        }
       />
 
       <ArenaMenuDrawer

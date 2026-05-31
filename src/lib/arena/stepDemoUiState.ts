@@ -8,6 +8,13 @@ import {
   getStepDemoNextStep,
   isStepDemoBettingInProgress,
 } from "@/lib/arena/stepDemo";
+import {
+  deriveStepDemoAutoFlowStatus,
+  getAutoFlowPendingHint,
+  getStepDemoAutoFlowHint,
+  type StepDemoAutoFlowPending,
+  type StepDemoAutoFlowStatus,
+} from "@/lib/arena/stepDemoAutoFlow";
 
 export type StepDemoUiActionState =
   | "ready_to_start"
@@ -22,6 +29,8 @@ export type StepDemoUiActionState =
 
 export type StepDemoUiControls = {
   state: StepDemoUiActionState;
+  autoFlowStatus: StepDemoAutoFlowStatus;
+  autoFlowPending: StepDemoAutoFlowPending | null;
   banner: string;
   actionHint: string;
   nextStep: StepDemoNextStep | null;
@@ -51,9 +60,9 @@ const HINTS: Record<StepDemoUiActionState, string> = {
   your_turn: "Your turn — choose an action.",
   poker_master_thinking: "PokerMaster is thinking...",
   all_in_pending: "You are all-in — PokerMaster is thinking...",
-  next_step: "PokerMaster called — reveal the next street.",
+  next_step: "Ready to deal the next street.",
   runout_ready: "All-in called — run out the board.",
-  show_result_ready: "Board runout complete — show result.",
+  show_result_ready: "Ready for showdown.",
   hand_complete: "Hand complete — start a new hand.",
   stack_depleted: "Stack depleted — reset demo stacks to continue.",
 };
@@ -81,14 +90,23 @@ export function deriveStepDemoUiState(
     pokerMasterThinking: boolean;
     headsUpStackDepleted: boolean;
     arenaUnlocked?: boolean;
+    autoFlowPending?: StepDemoAutoFlowPending | null;
   },
 ): StepDemoUiControls {
   const humanActions = getStepDemoHumanActions(state);
   const rawNextStep = getStepDemoNextStep(state);
-  const { pokerMasterThinking, headsUpStackDepleted } = options;
+  const {
+    pokerMasterThinking,
+    headsUpStackDepleted,
+    autoFlowPending = null,
+  } = options;
+  const autoFlowStatus = deriveStepDemoAutoFlowStatus(state, {
+    pokerMasterThinking,
+    headsUpStackDepleted,
+  });
 
   let uiState: StepDemoUiActionState;
-  let actionHint = HINTS.ready_to_start;
+  let actionHint = getStepDemoAutoFlowHint(autoFlowStatus);
   let nextStep: StepDemoNextStep | null = null;
 
   if (headsUpStackDepleted && (!state.isActive || state.step === "result")) {
@@ -144,22 +162,19 @@ export function deriveStepDemoUiState(
     };
   } else if (rawNextStep?.action === "show-result") {
     uiState = "show_result_ready";
-    actionHint =
-      state.step === "river-complete"
-        ? "River complete — show the result."
-        : HINTS.show_result_ready;
+    actionHint = HINTS.show_result_ready;
     nextStep = rawNextStep;
   } else if (rawNextStep) {
     uiState = "next_step";
-    actionHint = HINTS.next_step;
+    actionHint = getStepDemoAutoFlowHint(autoFlowStatus);
     nextStep = rawNextStep;
   } else {
     uiState = "poker_master_thinking";
     actionHint = HINTS.poker_master_thinking;
   }
 
-  const pokerActionsEnabled = uiState === "your_turn";
-  const nextStepEnabled =
+  let pokerActionsEnabled = uiState === "your_turn";
+  let nextStepEnabled =
     Boolean(nextStep) &&
     (uiState === "next_step" ||
       uiState === "runout_ready" ||
@@ -171,8 +186,16 @@ export function deriveStepDemoUiState(
   const agentBattleEnabled =
     !pokerMasterThinking && (!state.isActive || state.step === "result");
 
+  if (autoFlowPending) {
+    actionHint = getAutoFlowPendingHint(autoFlowPending, state);
+    pokerActionsEnabled = false;
+    nextStepEnabled = false;
+  }
+
   return {
     state: uiState,
+    autoFlowStatus,
+    autoFlowPending,
     banner: BANNERS[uiState],
     actionHint,
     nextStep,
@@ -212,7 +235,14 @@ export function canApplyStepDemoTransition(
   state: StepDemoState,
   ui: StepDemoUiControls,
   action: NonNullable<StepDemoNextStep["action"]>,
+  options?: { ignoreAutoFlowPending?: boolean },
 ): boolean {
+  if (
+    !options?.ignoreAutoFlowPending &&
+    ui.autoFlowPending
+  ) {
+    return false;
+  }
   if (!ui.nextStep || ui.nextStep.action !== action || !ui.nextStepEnabled) {
     return false;
   }

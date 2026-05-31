@@ -1,5 +1,6 @@
 import { PlayingCard } from "@/components/arena/PlayingCard";
 import { AgentAvatar, type AgentStatus } from "@/components/arena/AgentAvatar";
+import { HumanTurnTimerRing } from "@/components/arena/HumanTurnTimerRing";
 import { ChipStack } from "@/components/arena/ChipStack";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,8 @@ type PokerTableProps = {
   headsUpLayoutKey?: string;
   /** Fill parent height for poker-room viewport layout */
   roomLayout?: boolean;
+  /** Human vs AI — countdown seconds during player turn */
+  humanTurnSecondsLeft?: number | null;
   onPayEntryFee?: () => void;
   payingEntryFee?: boolean;
   paymentError?: string | null;
@@ -657,6 +660,7 @@ function RoomHeadsUpTableLayout({
   resultType,
   boardCardSize,
   headsUpLayoutKey,
+  humanTurnSecondsLeft,
 }: {
   pot: number | null;
   communityCards: Card[];
@@ -666,6 +670,7 @@ function RoomHeadsUpTableLayout({
   resultType: HandResultDisplayType;
   boardCardSize: CardSize;
   headsUpLayoutKey?: string;
+  humanTurnSecondsLeft?: number | null;
 }) {
   const topSeat = seats.find((s) => s.position === "top");
   const bottomSeat = seats.find((s) => s.position === "bottom");
@@ -738,6 +743,9 @@ function RoomHeadsUpTableLayout({
               seat={bottomSeat}
               layoutMode="roomHeadsUp"
               part="avatar"
+              humanTurnSecondsLeft={
+                bottomSeat.id === "human" ? humanTurnSecondsLeft : null
+              }
             />
           ) : null}
         </div>
@@ -756,12 +764,14 @@ function TableSeatCluster({
   part = "full",
   inZone = false,
   topSideByAvatar = false,
+  humanTurnSecondsLeft = null,
 }: {
   seat: TableSeat;
   layoutMode: SeatLayoutMode;
   part?: "full" | "cards" | "avatar";
   inZone?: boolean;
   topSideByAvatar?: boolean;
+  humanTurnSecondsLeft?: number | null;
 }) {
   const cardSize = holeCardSize(seat, layoutMode, topSideByAvatar);
   const isFolded = seat.status === "folded";
@@ -785,7 +795,7 @@ function TableSeatCluster({
     </div>
   );
 
-  const avatar = (
+  const avatarNode = (
     <AgentAvatar
       name={seat.name}
       avatar={seat.avatar}
@@ -801,6 +811,15 @@ function TableSeatCluster({
       className={cn(isSpectator && "scale-90 opacity-70")}
     />
   );
+
+  const avatar =
+    humanTurnSecondsLeft != null && seat.id === "human" ? (
+      <HumanTurnTimerRing secondsLeft={humanTurnSecondsLeft}>
+        {avatarNode}
+      </HumanTurnTimerRing>
+    ) : (
+      avatarNode
+    );
 
   const positionClass = seatPositionClasses[seat.position][layoutMode];
   const topRoomGap = layoutMode === "roomHeadsUp" && seat.position === "top";
@@ -916,6 +935,7 @@ export function PokerTable({
   showHumanVsAiBadge = false,
   roomLayout = false,
   headsUpLayoutKey,
+  humanTurnSecondsLeft = null,
   onPayEntryFee,
   payingEntryFee = false,
   paymentError,
@@ -993,6 +1013,7 @@ export function PokerTable({
             resultType={resultType}
             boardCardSize={boardCardSize}
             headsUpLayoutKey={headsUpLayoutKey}
+            humanTurnSecondsLeft={humanTurnSecondsLeft}
           />
         ) : agentBattleMode && roomLayout ? (
           <RoomAgentBattleTableLayout

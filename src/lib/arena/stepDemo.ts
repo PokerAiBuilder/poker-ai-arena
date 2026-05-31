@@ -1,5 +1,6 @@
 import { PokerMaster } from "@/lib/agents/pokerMaster";
 import { getStepDemoPokerMasterDecision } from "@/lib/arena/stepDemoAiDecision";
+import type { StepDemoAutoFlowStatus } from "@/lib/arena/stepDemoAutoFlow";
 import type { AgentDecision } from "@/lib/agents/agentTypes";
 import type { TableSeat } from "@/components/arena/PokerTable";
 import type { AgentStatus } from "@/components/arena/AgentAvatar";
@@ -164,6 +165,7 @@ export type StepDemoGameplayGuidance = {
   banner: string;
   actionHint: string;
   nextStep?: StepDemoNextStep;
+  autoFlowStatus?: StepDemoAutoFlowStatus;
 };
 
 export function createInitialStepDemoState(): StepDemoState {
@@ -893,6 +895,27 @@ export function applyHumanFold(state: StepDemoState): StepDemoState {
   );
 }
 
+export function applyHumanTimeoutFold(state: StepDemoState): StepDemoState {
+  if (state.turn !== "human" || state.step === "result" || state.allInShowdown) {
+    return state;
+  }
+
+  const human = { ...state.players.human, hasFolded: true };
+  const log = playerLog(
+    human.id,
+    human.name,
+    "fold",
+    "Time expired — auto-fold.",
+    gameStage(state),
+  );
+
+  return finishHandByFold(
+    { ...state, players: { human, pokerMaster: state.players.pokerMaster } },
+    "poker-master",
+    [log],
+  );
+}
+
 function applyAiDecisionChips(
   state: StepDemoState,
   ai: StepDemoPlayerState,
@@ -1156,6 +1179,32 @@ export function applyHumanCheck(state: StepDemoState): StepDemoState {
   return outcome.pendingAi
     ? resolveStepDemoPendingAi(outcome.state, outcome.pendingAi)
     : outcome.state;
+}
+
+export function applyHumanTimeoutCheckWithOutcome(
+  state: StepDemoState,
+): StepDemoHumanActionOutcome {
+  if (state.turn !== "human" || state.allInShowdown || humanAmountToCall(state) > 0) {
+    return { state, pendingAi: null };
+  }
+
+  const log = playerLog(
+    state.players.human.id,
+    state.players.human.name,
+    "check",
+    "Time expired — auto-check.",
+    gameStage(state),
+  );
+
+  const next = {
+    ...state,
+    actionLog: [...state.actionLog, log],
+  };
+
+  return {
+    state: awaitingAiResponse(next),
+    pendingAi: "street-response",
+  };
 }
 
 export function applyHumanRaiseWithOutcome(
@@ -1565,11 +1614,13 @@ export function getStepDemoStatusMessage(state: StepDemoState): string {
 
   switch (state.step) {
     case "preflop-complete":
+      return "Ready to deal flop.";
     case "flop-complete":
+      return "Ready to deal turn.";
     case "turn-complete":
-      return "PokerMaster called — reveal the next street.";
+      return "Ready to deal river.";
     case "river-complete":
-      return "River complete — show the result.";
+      return "Ready for showdown.";
   }
 
   return STEP_DEMO_LABELS[state.step];

@@ -45,6 +45,8 @@ type ArenaActionBarProps = {
   agentBattleHasResult?: boolean;
   agentBattleStackDepleted?: boolean;
   onResetAgentBattleStacks?: () => void;
+  /** Human vs AI — seconds left on player turn timer */
+  humanTurnSecondsLeft?: number | null;
   className?: string;
 };
 
@@ -98,6 +100,7 @@ export function ArenaActionBar({
   agentBattleStackDepleted = false,
   onResetAgentBattleStacks,
   pokerMasterThinking = false,
+  humanTurnSecondsLeft = null,
   className,
 }: ArenaActionBarProps) {
   const useHeadsUpUi = !agentBattleSpectator && stepDemoUi != null;
@@ -243,6 +246,9 @@ export function ArenaActionBar({
               )}
             >
               Your turn
+              {humanTurnSecondsLeft != null
+                ? ` · ${String(Math.max(0, humanTurnSecondsLeft)).padStart(2, "0")}s`
+                : null}
             </span>
           </div>
         ) : showGuidanceBanner && guidance.phase ? (
