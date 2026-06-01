@@ -54,6 +54,10 @@ export type AgentBattleReplaySession = {
   /** Wall-clock start for local elapsed derivation (server hand start later). */
   startedAt: number;
   status: "playing" | "complete" | "skipped";
+  /** Pre-built timeline (server shared hand) — rebuilt from finalResult if absent. */
+  timeline?: AgentBattleReplayTimeline;
+  /** Joined from server shared hand endpoint. */
+  isShared?: boolean;
 };
 
 export type AgentBattleReplayDisplay = {

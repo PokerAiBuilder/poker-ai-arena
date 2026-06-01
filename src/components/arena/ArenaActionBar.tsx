@@ -44,9 +44,15 @@ type ArenaActionBarProps = {
   agentBattleSpectator?: boolean;
   agentBattleHasResult?: boolean;
   agentBattleStackDepleted?: boolean;
+  /** Local-only Agent Battle fallback (not server shared hand). */
+  agentBattleLocalFallback?: boolean;
+  /** Shared spectator mode — stacks/timeline controlled by server. */
+  agentBattleSharedSpectator?: boolean;
   onResetAgentBattleStacks?: () => void;
   /** Agent Battle live replay in progress */
   agentBattleReplayActive?: boolean;
+  /** Server shared spectator hand */
+  agentBattleSharedHand?: boolean;
   onSkipAgentBattleReplay?: () => void;
   /** Live replay — current bot thinking copy for action bar */
   agentBattleActionHint?: string;
@@ -103,8 +109,11 @@ export function ArenaActionBar({
   agentBattleSpectator = false,
   agentBattleHasResult = false,
   agentBattleStackDepleted = false,
+  agentBattleLocalFallback = false,
+  agentBattleSharedSpectator = false,
   onResetAgentBattleStacks,
   agentBattleReplayActive = false,
+  agentBattleSharedHand = false,
   onSkipAgentBattleReplay,
   agentBattleActionHint,
   pokerMasterThinking = false,
@@ -137,13 +146,16 @@ export function ArenaActionBar({
       loading ||
       agentBattleReplayActive ||
       pokerMasterThinking ||
-      agentBattleStackDepleted ||
+      (agentBattleLocalFallback && agentBattleStackDepleted) ||
       (stepDemoActive && !stepDemoHandComplete);
   const showStackDepletedUi = useHeadsUpUi
     ? stepDemoUi.state === "stack_depleted"
     : headsUpStackDepleted && !agentBattleSpectator && !humanTurnActive;
   const showAgentBattleDepletedUi =
-    agentBattleSpectator && agentBattleStackDepleted;
+    agentBattleSpectator &&
+    agentBattleLocalFallback &&
+    agentBattleStackDepleted &&
+    !agentBattleSharedSpectator;
 
   const guidance: StepDemoGameplayGuidance | undefined = showStackDepletedUi
     ? {
@@ -163,9 +175,9 @@ export function ArenaActionBar({
     : showAgentBattleDepletedUi
       ? {
           phase: "hand-complete" as const,
-          banner: "SPECTATOR STACKS DEPLETED",
+          banner: "LOCAL SPECTATOR STACKS DEPLETED",
           actionHint:
-            "Agent Battle stacks depleted — reset spectator stacks to continue.",
+            "Local replay stacks depleted — reset spectator stacks to continue.",
         }
     : agentBattleSpectator
       ? {
@@ -175,16 +187,37 @@ export function ArenaActionBar({
               ? ("hand-complete" as const)
               : ("waiting" as const),
           banner: agentBattleReplayActive
-            ? "LIVE REPLAY"
+            ? agentBattleSharedHand || agentBattleSharedSpectator
+              ? "LIVE REPLAY · SHARED HAND"
+              : "LIVE REPLAY · LOCAL"
             : agentBattleHasResult
-              ? "SPECTATOR RESULT"
-              : "AI AGENT BATTLE",
+              ? agentBattleSharedSpectator
+                ? "SHARED HAND COMPLETE"
+                : agentBattleLocalFallback
+                  ? "LOCAL REPLAY RESULT"
+                  : "SPECTATOR RESULT"
+              : agentBattleSharedSpectator
+                ? "SHARED SPECTATOR ARENA"
+                : agentBattleLocalFallback
+                  ? "LOCAL AGENT BATTLE"
+                  : "AI AGENT BATTLE",
           actionHint: agentBattleReplayActive
-            ? agentBattleActionHint ??
-              "Spectator replay — agents acting in sequence."
+            ? agentBattleSharedHand || agentBattleSharedSpectator
+              ? (agentBattleActionHint ??
+                "Shared spectator hand — live replay in sync with the arena.")
+              : (agentBattleActionHint ??
+                "Local replay — agents acting in sequence.")
             : agentBattleHasResult
-              ? "Spectator result — run Agent Battle again or play vs PokerMaster."
-              : "Spectator Mode — player actions are disabled while watching.",
+              ? agentBattleSharedSpectator
+                ? "This shared hand is complete. Join again for the next live hand."
+                : agentBattleLocalFallback
+                  ? "Local replay result — join Agent Battle again or play vs PokerMaster."
+                  : "Spectator result — join Agent Battle again or play vs PokerMaster."
+              : agentBattleSharedSpectator
+                ? "Join Agent Battle to watch the current shared live hand."
+                : agentBattleLocalFallback
+                  ? "Local fallback — shared hand unavailable on this device."
+                  : "Spectator Mode — player actions are disabled while watching.",
         }
       : stepDemoGuidance ?? {
           phase: "start-hand",
@@ -321,6 +354,11 @@ export function ArenaActionBar({
                 </Button>
               ) : (
                 <>
+                  {agentBattleSharedSpectator && !agentBattleReplayActive ? (
+                    <p className="mb-2 w-full text-center text-[10px] text-violet-200/70">
+                      Shared spectator stacks are controlled by the live hand.
+                    </p>
+                  ) : null}
                   <Button
                     onClick={onSimulateAgentBattle}
                     disabled={agentBattleDisabled}
@@ -350,7 +388,7 @@ export function ArenaActionBar({
                     ) : (
                       <>
                         <Swords className="h-4 w-4" />
-                        Run Agent Battle Again
+                        Join Agent Battle
                       </>
                     )}
                   </Button>

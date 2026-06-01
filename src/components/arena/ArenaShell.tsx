@@ -102,6 +102,11 @@ import {
   deriveAgentBattleReplayDisplayFromTimeline,
   type AgentBattleReplaySession,
 } from "@/lib/arena/agentBattleReplay";
+import {
+  fetchSharedAgentBattleCurrent,
+  logSharedAgentBattleDebug,
+} from "@/lib/arena/sharedAgentBattleClient";
+import { formatCommunityCardsForDebug } from "@/lib/arena/sharedAgentBattleTypes";
 import { useAgentBattleTimelineReplay } from "@/hooks/useAgentBattleTimelineReplay";
 import {
   getHandResultDisplayType,
@@ -203,6 +208,19 @@ export function ArenaShell() {
   const agentBattleReplayRef = useRef<AgentBattleReplaySession | null>(null);
   const [agentBattleReplay, setAgentBattleReplay] =
     useState<AgentBattleReplaySession | null>(null);
+  const [agentBattleLocalFallback, setAgentBattleLocalFallback] = useState(false);
+  const [agentBattleSource, setAgentBattleSource] = useState<
+    "shared-api" | "local-fallback" | null
+  >(null);
+  const [agentBattleDebugInfo, setAgentBattleDebugInfo] = useState<{
+    handId: string;
+    cacheStatus?: string;
+    startedAt?: number;
+    serverNow?: number;
+    timelineSteps?: number;
+    communityCards?: string[];
+    winner?: string;
+  } | null>(null);
   agentBattleReplayRef.current = agentBattleReplay;
   const lastAutoFlowDebugKeyRef = useRef<string>("");
   const [autoFlowPending, setAutoFlowPending] =
@@ -375,6 +393,9 @@ export function ArenaShell() {
 
   const clearAgentBattleReplay = useCallback(() => {
     setAgentBattleReplay(null);
+    setAgentBattleLocalFallback(false);
+    setAgentBattleSource(null);
+    setAgentBattleDebugInfo(null);
   }, []);
 
   useEffect(() => {
@@ -447,31 +468,66 @@ export function ArenaShell() {
       if (mode === "agent-vs-agent") {
         clearAgentBattleReplay();
         setResult(null);
-        const readyAgentBattleStacks = sanitizeAgentBattleStacks(agentBattleStacks);
-        if (!canRunAgentBattle(readyAgentBattleStacks)) {
-          setError(
-            "Agent Battle stacks depleted — reset spectator stacks to continue.",
-          );
-          setLoading(false);
-          setLoadingMode(null);
-          return;
-        }
       }
 
       try {
         const readyAgentBattleStacks = sanitizeAgentBattleStacks(agentBattleStacks);
-        const url =
-          mode === "agent-vs-agent"
-            ? `/api/poker/simulate?mode=agent-vs-agent&stacks=${encodeURIComponent(JSON.stringify(readyAgentBattleStacks))}`
-            : `/api/poker/simulate?mode=${mode}`;
-        const response = await fetch(url);
-        if (!response.ok) {
-          const body = (await response.json()) as { error?: string };
-          throw new Error(body.error ?? "Simulation failed");
-        }
-        const data = (await response.json()) as SimulationResult;
-        setAnalytics((prev) => applySimulationAnalytics(prev, data));
+
         if (mode === "agent-vs-agent") {
+          const sharedResult = await fetchSharedAgentBattleCurrent();
+          if (sharedResult.ok) {
+            const shared = sharedResult.payload;
+            setAnalytics((prev) => applySimulationAnalytics(prev, shared.finalResult));
+            setError(null);
+            lastSimHistoryKeyRef.current = null;
+            setAgentBattleLocalFallback(false);
+            setAgentBattleSource("shared-api");
+            setAgentBattleDebugInfo({
+              handId: shared.handId,
+              cacheStatus: shared.cacheStatus,
+              startedAt: shared.startedAt,
+              serverNow: shared.serverNow,
+              timelineSteps: shared.timeline.steps.length,
+              communityCards: formatCommunityCardsForDebug(
+                shared.finalResult.communityCards,
+              ),
+              winner: shared.finalResult.winner.name,
+            });
+            setAgentBattleReplay({
+              handId: shared.handId,
+              finalResult: shared.finalResult,
+              timeline: shared.timeline,
+              startedAt: shared.clientStartedAt,
+              status: "playing",
+              isShared: true,
+            });
+            return;
+          }
+
+          logSharedAgentBattleDebug("local-fallback", {
+            reason: sharedResult.reason,
+            detail: sharedResult.detail,
+          });
+
+          if (!canRunAgentBattle(readyAgentBattleStacks)) {
+            setError(
+              "Local Agent Battle stacks depleted — reset spectator stacks to continue.",
+            );
+            setLoading(false);
+            setLoadingMode(null);
+            return;
+          }
+
+          setAgentBattleLocalFallback(true);
+          setAgentBattleSource("local-fallback");
+          const url = `/api/poker/simulate?mode=agent-vs-agent&stacks=${encodeURIComponent(JSON.stringify(readyAgentBattleStacks))}`;
+          const response = await fetch(url);
+          if (!response.ok) {
+            const body = (await response.json()) as { error?: string };
+            throw new Error(body.error ?? "Simulation failed");
+          }
+          const data = (await response.json()) as SimulationResult;
+          setAnalytics((prev) => applySimulationAnalytics(prev, data));
           setAgentBattleStacks((prev) =>
             sanitizeAgentBattleStacks(updateAgentBattleStacksAfterHand(prev, data)),
           );
@@ -481,13 +537,42 @@ export function ArenaShell() {
             finalResult: data,
             startedAt: Date.now(),
             status: "playing",
+            isShared: false,
           });
-        } else {
-          setResult(data);
-          setSessionStacks((prev) =>
-            sanitizeSessionStacks(updateSessionStacksAfterGame(prev, data)),
-          );
+          setAgentBattleDebugInfo({
+            handId: data.gameId,
+            timelineSteps: buildAgentBattleReplayTimeline(data).steps.length,
+            communityCards: formatCommunityCardsForDebug(data.communityCards),
+            winner: data.winner.name,
+          });
+          setSessionLog((prev) => [
+            ...prev,
+            createSessionLogEntry(
+              "Shared hand unavailable — local Agent Battle simulation.",
+            ),
+          ]);
+          if (process.env.NODE_ENV === "development") {
+            logSharedAgentBattleDebug("local-fallback", {
+              handId: data.gameId,
+              communityCards: formatCommunityCardsForDebug(data.communityCards),
+              winner: data.winner.name,
+            });
+          }
+          return;
         }
+
+        const url = `/api/poker/simulate?mode=${mode}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          const body = (await response.json()) as { error?: string };
+          throw new Error(body.error ?? "Simulation failed");
+        }
+        const data = (await response.json()) as SimulationResult;
+        setAnalytics((prev) => applySimulationAnalytics(prev, data));
+        setResult(data);
+        setSessionStacks((prev) =>
+          sanitizeSessionStacks(updateSessionStacksAfterGame(prev, data)),
+        );
 
         if (process.env.NODE_ENV === "development") {
           console.debug("[arena] simulation result", data);
@@ -514,6 +599,8 @@ export function ArenaShell() {
     clearArenaAnalytics();
     clearSessionStacks();
     clearAgentBattleStacks();
+    clearAgentBattleReplay();
+    setAgentBattleLocalFallback(false);
     setAnalytics(createInitialArenaAnalytics());
     setSessionStacks(createInitialSessionStacks());
     setAgentBattleStacks(createInitialAgentBattleStacks());
@@ -521,7 +608,7 @@ export function ArenaShell() {
       ...prev,
       createSessionLogEntry("Arena stats and demo stacks reset."),
     ]);
-  }, []);
+  }, [clearAgentBattleReplay]);
 
   const handleClearHandHistory = useCallback(() => {
     clearHandHistoryStorage();
@@ -531,16 +618,26 @@ export function ArenaShell() {
   }, []);
 
   const handleResetAgentBattleStacks = useCallback(() => {
+    if (agentBattleReplay?.isShared || !agentBattleLocalFallback) {
+      setSessionLog((prev) => [
+        ...prev,
+        createSessionLogEntry(
+          "Shared spectator stacks are controlled by the live hand.",
+        ),
+      ]);
+      return;
+    }
     clearAgentBattleReplay();
     setAgentBattleStacks(resetAgentBattleStacks());
     setResult(null);
     setError(null);
     setPreferredSeatLayout("agent-vs-agent");
+    setAgentBattleLocalFallback(true);
     setSessionLog((prev) => [
       ...prev,
-      createSessionLogEntry("Agent Battle stacks reset."),
+      createSessionLogEntry("Local Agent Battle stacks reset."),
     ]);
-  }, [clearAgentBattleReplay]);
+  }, [agentBattleReplay?.isShared, agentBattleLocalFallback, clearAgentBattleReplay]);
 
   const handleSimulateAgentBattle = useCallback(
     () => runSimulation("agent-vs-agent"),
@@ -587,13 +684,22 @@ export function ArenaShell() {
     ]);
   }, [clearPokerMasterThinking, resetAutoFlowSession, clearAgentBattleReplay]);
 
-  const agentBattleReplayTimeline = useMemo(
-    () =>
-      agentBattleReplay?.finalResult
-        ? buildAgentBattleReplayTimeline(agentBattleReplay.finalResult)
-        : null,
-    [agentBattleReplay?.finalResult],
-  );
+  const agentBattleReplayTimeline = useMemo(() => {
+    if (agentBattleReplay?.timeline) {
+      return agentBattleReplay.timeline;
+    }
+    if (agentBattleReplay?.isShared) {
+      return null;
+    }
+    if (agentBattleReplay?.finalResult) {
+      return buildAgentBattleReplayTimeline(agentBattleReplay.finalResult);
+    }
+    return null;
+  }, [
+    agentBattleReplay?.timeline,
+    agentBattleReplay?.isShared,
+    agentBattleReplay?.finalResult,
+  ]);
 
   const agentBattleReplayActive = agentBattleReplay?.status === "playing";
 
@@ -1017,10 +1123,16 @@ export function ArenaShell() {
       return buildStepDemoSeats(stepDemo, sessionStacks);
     }
     if (agentBattleReplayDisplay && agentBattleReplay?.finalResult) {
+      const replayStacks = agentBattleReplay.isShared
+        ? sanitizeAgentBattleStacks(
+            agentBattleReplay.finalResult.agentBattleAccounting?.startingStacks ??
+              createInitialAgentBattleStacks(),
+          )
+        : agentBattleStacks;
       return buildAgentBattleReplaySeats(
         agentBattleReplay.finalResult,
         agentBattleReplayDisplay,
-        agentBattleStacks,
+        replayStacks,
       );
     }
     return buildTableSeats(
@@ -1042,11 +1154,14 @@ export function ArenaShell() {
     activeGameMode,
     agentBattleReplayDisplay,
     agentBattleReplay?.finalResult,
+    agentBattleReplay?.isShared,
   ]);
 
   const aiDecisions = result?.agentDecisions ?? [];
   const isAgentBattleSpectatorEarly =
     activeGameMode === "agent-vs-agent" && !isHeadsUpGuided;
+  const agentBattleSharedSpectator =
+    isAgentBattleSpectatorEarly && !agentBattleLocalFallback;
   const latestAiDecision = stepDemo.isActive
     ? (stepDemo.aiDecision ?? undefined)
     : agentBattleReplayDisplay?.latestDecision
@@ -1149,6 +1264,31 @@ export function ArenaShell() {
           ) : agentBattleReplay?.finalResult ? (
             <Badge variant="secondary">
               Hand #{agentBattleReplay.finalResult.handNumber}
+            </Badge>
+          ) : null}
+          {agentBattleSharedSpectator ? (
+            <Badge
+              variant="outline"
+              className="border-violet-400/40 text-violet-200"
+            >
+              Shared hand
+            </Badge>
+          ) : null}
+          {agentBattleLocalFallback && agentBattleSource === "local-fallback" ? (
+            <Badge variant="secondary" className="text-[10px]">
+              Local replay
+            </Badge>
+          ) : null}
+          {process.env.NODE_ENV === "development" &&
+          agentBattleDebugInfo &&
+          isAgentBattleSpectatorEarly ? (
+            <Badge variant="outline" className="font-mono text-[9px] text-white/70">
+              {agentBattleSource ?? "?"} · {agentBattleDebugInfo.handId.slice(0, 8)} ·{" "}
+              {agentBattleDebugInfo.communityCards?.join(" ") || "—"} ·{" "}
+              {agentBattleDebugInfo.winner ?? "?"}
+              {agentBattleDebugInfo.cacheStatus
+                ? ` · cache ${agentBattleDebugInfo.cacheStatus}`
+                : ""}
             </Badge>
           ) : null}
           <Badge
@@ -1296,6 +1436,8 @@ export function ArenaShell() {
         error={error}
         headsUpStackDepleted={headsUpStackDepleted}
         agentBattleStackDepleted={agentBattleStackDepleted}
+        agentBattleLocalFallback={agentBattleLocalFallback}
+        agentBattleSharedSpectator={agentBattleSharedSpectator}
         onResetAgentBattleStacks={handleResetAgentBattleStacks}
         agentBattleSpectator={isAgentBattleSpectator && !stepDemo.isActive}
         agentBattleHasResult={
@@ -1305,6 +1447,9 @@ export function ArenaShell() {
           result != null
         }
         agentBattleReplayActive={agentBattleReplayActive}
+        agentBattleSharedHand={
+          agentBattleReplay?.isShared === true || agentBattleSharedSpectator
+        }
         onSkipAgentBattleReplay={handleSkipAgentBattleReplay}
         agentBattleActionHint={agentBattleThinkingLabel}
         humanTurnSecondsLeft={
