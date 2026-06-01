@@ -7,10 +7,19 @@ export type SharedAgentBattleCurrentResponse = {
   ok: true;
   handId: string;
   startedAt: number;
+  /** When the animated timeline finishes on the server clock. */
+  playingEndsAt: number;
+  /** When the next shared hand will be generated. */
+  nextHandAt: number;
+  /** Pause duration after result before the next hand. */
+  resultPauseMs: number;
+  /** Milliseconds until the next hand from the server's perspective. */
+  msUntilNextHand: number;
   expiresAt: number;
   generatedAt: number;
   serverNow: number;
   cacheStatus: SharedAgentBattleCacheStatus;
+  lifecyclePhase: "playing" | "result_pause";
   timeline: AgentBattleReplayTimeline;
   finalResult: SimulationResult;
 };

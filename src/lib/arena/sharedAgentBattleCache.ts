@@ -6,12 +6,16 @@ import { createInitialAgentBattleStacks } from "@/lib/analytics/agentBattleStack
 import { simulateAgentBattle } from "@/lib/poker/engine";
 import type { SimulationResult } from "@/lib/poker/types";
 
-/** Buffer after timeline ends before the next request generates a new hand. */
-export const SHARED_AGENT_BATTLE_EXPIRY_BUFFER_MS = 15_000;
+/** Pause after result before the next shared hand is generated. */
+export const SHARED_AGENT_BATTLE_RESULT_PAUSE_MS = 7_000;
 
 export type CachedSharedAgentBattleHand = {
   handId: string;
   startedAt: number;
+  /** When the animated timeline finishes. */
+  playingEndsAt: number;
+  /** When the next shared hand will be generated. */
+  nextHandAt: number;
   expiresAt: number;
   generatedAt: number;
   finalResult: SimulationResult;
@@ -68,12 +72,15 @@ export function getOrCreateSharedAgentBattleHand(
   const finalResult = simulateAgentBattle(startingStacks);
   const timeline = buildAgentBattleReplayTimeline(finalResult);
   const startedAt = nowMs;
-  const expiresAt =
-    startedAt + timeline.totalDurationMs + SHARED_AGENT_BATTLE_EXPIRY_BUFFER_MS;
+  const playingEndsAt = startedAt + timeline.totalDurationMs;
+  const nextHandAt = playingEndsAt + SHARED_AGENT_BATTLE_RESULT_PAUSE_MS;
+  const expiresAt = nextHandAt;
 
   const hand: CachedSharedAgentBattleHand = {
     handId: finalResult.gameId,
     startedAt,
+    playingEndsAt,
+    nextHandAt,
     expiresAt,
     generatedAt: nowMs,
     finalResult,

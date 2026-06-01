@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { getOrCreateSharedAgentBattleHand } from "@/lib/arena/sharedAgentBattleCache";
+import {
+  SHARED_AGENT_BATTLE_RESULT_PAUSE_MS,
+  getOrCreateSharedAgentBattleHand,
+} from "@/lib/arena/sharedAgentBattleCache";
 import {
   formatCommunityCardsForDebug,
   type SharedAgentBattleCurrentResponse,
@@ -13,14 +16,25 @@ export async function GET() {
     const serverNow = Date.now();
     const { hand, cacheStatus } = getOrCreateSharedAgentBattleHand(serverNow);
 
+    const playingEndsAt = hand.playingEndsAt;
+    const nextHandAt = hand.nextHandAt;
+    const lifecyclePhase =
+      serverNow < playingEndsAt ? ("playing" as const) : ("result_pause" as const);
+    const msUntilNextHand = Math.max(0, nextHandAt - serverNow);
+
     const body: SharedAgentBattleCurrentResponse = {
       ok: true,
       handId: hand.handId,
       startedAt: hand.startedAt,
+      playingEndsAt,
+      nextHandAt,
+      resultPauseMs: SHARED_AGENT_BATTLE_RESULT_PAUSE_MS,
+      msUntilNextHand,
       expiresAt: hand.expiresAt,
       generatedAt: hand.generatedAt,
       serverNow,
       cacheStatus,
+      lifecyclePhase,
       timeline: hand.timeline,
       finalResult: hand.finalResult,
     };

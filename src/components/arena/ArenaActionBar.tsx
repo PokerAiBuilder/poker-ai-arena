@@ -48,6 +48,12 @@ type ArenaActionBarProps = {
   agentBattleLocalFallback?: boolean;
   /** Shared spectator mode — stacks/timeline controlled by server. */
   agentBattleSharedSpectator?: boolean;
+  /** Joined shared broadcast — auto-advances hands. */
+  agentBattleWatchingShared?: boolean;
+  /** Shared hand in result pause before next hand. */
+  agentBattleSharedResultPause?: boolean;
+  /** Countdown seconds until next shared hand. */
+  agentBattleSecondsUntilNextHand?: number | null;
   onResetAgentBattleStacks?: () => void;
   /** Agent Battle live replay in progress */
   agentBattleReplayActive?: boolean;
@@ -111,6 +117,9 @@ export function ArenaActionBar({
   agentBattleStackDepleted = false,
   agentBattleLocalFallback = false,
   agentBattleSharedSpectator = false,
+  agentBattleWatchingShared = false,
+  agentBattleSharedResultPause = false,
+  agentBattleSecondsUntilNextHand = null,
   onResetAgentBattleStacks,
   agentBattleReplayActive = false,
   agentBattleSharedHand = false,
@@ -141,13 +150,22 @@ export function ArenaActionBar({
       headsUpStackDepleted ||
       pokerMasterThinking;
   const agentBattleDisabled = useHeadsUpUi
-    ? !stepDemoUi.agentBattleEnabled || disabled || loading || agentBattleReplayActive
+    ? !stepDemoUi.agentBattleEnabled ||
+      disabled ||
+      loading ||
+      agentBattleReplayActive ||
+      agentBattleWatchingShared
     : disabled ||
       loading ||
       agentBattleReplayActive ||
+      agentBattleWatchingShared ||
       pokerMasterThinking ||
       (agentBattleLocalFallback && agentBattleStackDepleted) ||
       (stepDemoActive && !stepDemoHandComplete);
+  const showSkipAgentBattleReplay =
+    agentBattleReplayActive &&
+    !agentBattleSharedResultPause &&
+    onSkipAgentBattleReplay != null;
   const showStackDepletedUi = useHeadsUpUi
     ? stepDemoUi.state === "stack_depleted"
     : headsUpStackDepleted && !agentBattleSpectator && !humanTurnActive;
@@ -181,43 +199,53 @@ export function ArenaActionBar({
         }
     : agentBattleSpectator
       ? {
-          phase: agentBattleReplayActive
-            ? ("waiting" as const)
-            : agentBattleHasResult
-              ? ("hand-complete" as const)
-              : ("waiting" as const),
-          banner: agentBattleReplayActive
-            ? agentBattleSharedHand || agentBattleSharedSpectator
-              ? "LIVE REPLAY · SHARED HAND"
-              : "LIVE REPLAY · LOCAL"
-            : agentBattleHasResult
-              ? agentBattleSharedSpectator
-                ? "SHARED HAND COMPLETE"
-                : agentBattleLocalFallback
-                  ? "LOCAL REPLAY RESULT"
-                  : "SPECTATOR RESULT"
-              : agentBattleSharedSpectator
-                ? "SHARED SPECTATOR ARENA"
-                : agentBattleLocalFallback
-                  ? "LOCAL AGENT BATTLE"
-                  : "AI AGENT BATTLE",
-          actionHint: agentBattleReplayActive
-            ? agentBattleSharedHand || agentBattleSharedSpectator
-              ? (agentBattleActionHint ??
-                "Shared spectator hand — live replay in sync with the arena.")
-              : (agentBattleActionHint ??
-                "Local replay — agents acting in sequence.")
-            : agentBattleHasResult
-              ? agentBattleSharedSpectator
-                ? "This shared hand is complete. Join again for the next live hand."
-                : agentBattleLocalFallback
-                  ? "Local replay result — join Agent Battle again or play vs PokerMaster."
-                  : "Spectator result — join Agent Battle again or play vs PokerMaster."
-              : agentBattleSharedSpectator
-                ? "Join Agent Battle to watch the current shared live hand."
-                : agentBattleLocalFallback
-                  ? "Local fallback — shared hand unavailable on this device."
-                  : "Spectator Mode — player actions are disabled while watching.",
+          phase: agentBattleSharedResultPause
+            ? ("hand-complete" as const)
+            : agentBattleReplayActive
+              ? ("waiting" as const)
+              : agentBattleHasResult
+                ? ("hand-complete" as const)
+                : ("waiting" as const),
+          banner: agentBattleSharedResultPause
+            ? "SHARED RESULT · NEXT HAND SOON"
+            : agentBattleReplayActive
+              ? agentBattleSharedHand || agentBattleSharedSpectator
+                ? "LIVE REPLAY · SHARED HAND"
+                : "LIVE REPLAY · LOCAL"
+              : agentBattleHasResult
+                ? agentBattleSharedSpectator
+                  ? "SHARED HAND COMPLETE"
+                  : agentBattleLocalFallback
+                    ? "LOCAL REPLAY RESULT"
+                    : "SPECTATOR RESULT"
+                : agentBattleSharedSpectator
+                  ? "SHARED SPECTATOR ARENA"
+                  : agentBattleLocalFallback
+                    ? "LOCAL AGENT BATTLE"
+                    : "AI AGENT BATTLE",
+          actionHint: agentBattleSharedResultPause
+            ? agentBattleSecondsUntilNextHand != null
+              ? `Next shared hand starts in ${agentBattleSecondsUntilNextHand}s`
+              : "Next shared hand starts soon."
+            : agentBattleReplayActive
+              ? agentBattleSharedHand || agentBattleSharedSpectator
+                ? (agentBattleActionHint ??
+                  "Shared spectator hand — live replay in sync with the arena.")
+                : (agentBattleActionHint ??
+                  "Local replay — agents acting in sequence.")
+              : agentBattleHasResult
+                ? agentBattleWatchingShared
+                  ? agentBattleSecondsUntilNextHand != null
+                    ? `Next shared hand starts in ${agentBattleSecondsUntilNextHand}s`
+                    : "Waiting for the next shared hand."
+                  : agentBattleLocalFallback
+                    ? "Local replay result — join Agent Battle again or play vs PokerMaster."
+                    : "Spectator result — join Agent Battle again or play vs PokerMaster."
+                : agentBattleSharedSpectator
+                  ? "Join Agent Battle to watch the current shared live hand."
+                  : agentBattleLocalFallback
+                    ? "Local fallback — shared hand unavailable on this device."
+                    : "Spectator Mode — player actions are disabled while watching.",
         }
       : stepDemoGuidance ?? {
           phase: "start-hand",
@@ -378,12 +406,17 @@ export function ArenaActionBar({
                     {loading && loadingMode === "agent-vs-agent" ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Running...
+                        Joining...
+                      </>
+                    ) : agentBattleWatchingShared ? (
+                      <>
+                        <Swords className="h-4 w-4" />
+                        Watching Shared Battle
                       </>
                     ) : agentBattleReplayActive ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Running...
+                        Live Agent Battle
                       </>
                     ) : (
                       <>
@@ -392,7 +425,7 @@ export function ArenaActionBar({
                       </>
                     )}
                   </Button>
-                  {agentBattleReplayActive && onSkipAgentBattleReplay ? (
+                  {showSkipAgentBattleReplay ? (
                     <Button
                       type="button"
                       size="lg"

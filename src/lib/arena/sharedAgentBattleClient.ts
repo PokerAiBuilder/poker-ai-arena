@@ -2,9 +2,9 @@ import type { AgentBattleReplayTimeline } from "@/lib/arena/agentBattleReplay";
 import {
   formatCommunityCardsForDebug,
   mapSharedHandStartedAtToClient,
+  type SharedAgentBattleCurrentResponse,
   type SharedAgentBattleApiResponse,
   type SharedAgentBattleCacheStatus,
-  type SharedAgentBattleCurrentResponse,
 } from "@/lib/arena/sharedAgentBattleTypes";
 import type { SimulationResult } from "@/lib/poker/types";
 
@@ -15,8 +15,13 @@ export type SharedAgentBattleJoinPayload = {
   clientStartedAt: number;
   isShared: true;
   cacheStatus: SharedAgentBattleCacheStatus;
+  lifecyclePhase: SharedAgentBattleCurrentResponse["lifecyclePhase"];
   serverNow: number;
   startedAt: number;
+  playingEndsAt: number;
+  nextHandAt: number;
+  resultPauseMs: number;
+  msUntilNextHand: number;
   expiresAt: number;
   generatedAt: number;
 };
@@ -67,10 +72,15 @@ export function parseSharedAgentBattleResponse(
   if (
     typeof body.handId !== "string" ||
     !isFiniteNumber(body.startedAt) ||
+    !isFiniteNumber(body.playingEndsAt) ||
+    !isFiniteNumber(body.nextHandAt) ||
+    !isFiniteNumber(body.resultPauseMs) ||
+    !isFiniteNumber(body.msUntilNextHand) ||
     !isFiniteNumber(body.expiresAt) ||
     !isFiniteNumber(body.generatedAt) ||
     !isFiniteNumber(body.serverNow) ||
     (body.cacheStatus !== "hit" && body.cacheStatus !== "miss") ||
+    (body.lifecyclePhase !== "playing" && body.lifecyclePhase !== "result_pause") ||
     !isValidTimeline(body.timeline) ||
     !isValidFinalResult(body.finalResult)
   ) {
@@ -81,6 +91,14 @@ export function parseSharedAgentBattleResponse(
     body.handId !== body.finalResult.gameId ||
     body.timeline.handId !== body.finalResult.gameId
   ) {
+    return null;
+  }
+
+  if (body.expiresAt !== body.nextHandAt) {
+    return null;
+  }
+
+  if (body.serverNow >= body.expiresAt) {
     return null;
   }
 
@@ -122,10 +140,6 @@ export async function fetchSharedAgentBattleCurrent(): Promise<
       return { ok: false, reason: "invalid-response" };
     }
 
-    if (parsed.serverNow >= parsed.expiresAt) {
-      return { ok: false, reason: "expired" };
-    }
-
     const clientNow = Date.now();
     const payload: SharedAgentBattleJoinPayload = {
       handId: parsed.handId,
@@ -138,8 +152,13 @@ export async function fetchSharedAgentBattleCurrent(): Promise<
       ),
       isShared: true,
       cacheStatus: parsed.cacheStatus,
+      lifecyclePhase: parsed.lifecyclePhase,
       serverNow: parsed.serverNow,
       startedAt: parsed.startedAt,
+      playingEndsAt: parsed.playingEndsAt,
+      nextHandAt: parsed.nextHandAt,
+      resultPauseMs: parsed.resultPauseMs,
+      msUntilNextHand: parsed.msUntilNextHand,
       expiresAt: parsed.expiresAt,
       generatedAt: parsed.generatedAt,
     };
