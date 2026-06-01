@@ -167,11 +167,19 @@ function CommunityBoard({
 function SpectatorCommunityBoard({
   communityCards,
   cardSize,
+  winByFold = false,
 }: {
   communityCards: Card[];
   cardSize: CardSize;
+  winByFold?: boolean;
 }) {
   const isFullBoard = communityCards.length >= 5;
+
+  const caption = isFullBoard
+    ? winByFold
+      ? "Agent Battle — win by fold"
+      : "Agent Battle: full-board spectator simulation"
+    : "Spectator board completing…";
 
   return (
     <div className="flex flex-col items-center gap-1.5">
@@ -205,9 +213,7 @@ function SpectatorCommunityBoard({
         )}
       </div>
       <p className="text-center text-[7px] font-medium uppercase tracking-wider text-violet-200/70">
-        {isFullBoard
-          ? "Agent Battle: full-board spectator simulation"
-          : "Spectator Mode — hand ended early"}
+        {caption}
       </p>
     </div>
   );
@@ -676,6 +682,7 @@ function RoomAgentBattleTableLayout({
         <SpectatorCommunityBoard
           communityCards={communityCards}
           cardSize={agentBattleBoardCardSize}
+          winByFold={resultType === "fold"}
         />
       </div>
 
@@ -1111,6 +1118,7 @@ export function PokerTable({
               <SpectatorCommunityBoard
                 communityCards={communityCards}
                 cardSize={boardCardSize}
+                winByFold={resultType === "fold"}
               />
             ) : (
               <CommunityBoard flopCards={communityCards} cardSize={boardCardSize} />

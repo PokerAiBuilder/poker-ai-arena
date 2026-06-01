@@ -347,3 +347,32 @@ export function runAgentBattlePostflopStreets(state: GameState): void {
 
   runAgentBattleStreetSequence(state, () => dealAgentBattleRiver(state));
 }
+
+/**
+ * Deal remaining board cards when a hand ends by fold — spectator display only.
+ * No betting, no stack/pot changes, winner unchanged.
+ */
+export function completeAgentBattleSpectatorBoard(state: GameState): boolean {
+  if (getActivePlayers(state).length !== 1) return false;
+  if (state.communityCards.length >= 5) return false;
+
+  const before = state.communityCards.length;
+
+  if (before < 3) dealAgentBattleFlop(state);
+  if (state.communityCards.length < 4) dealAgentBattleTurn(state);
+  if (state.communityCards.length < 5) dealAgentBattleRiver(state);
+
+  if (state.communityCards.length === 5 && before < 5) {
+    state.actionLog.push({
+      playerId: "system",
+      playerName: "Arena",
+      action: "deal",
+      stage: "showdown",
+      message: "Board completed for spectator display.",
+      timestamp: Date.now(),
+    });
+    return true;
+  }
+
+  return false;
+}

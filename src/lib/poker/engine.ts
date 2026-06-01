@@ -24,7 +24,11 @@ import {
   postBlinds,
   runBettingRound,
 } from "@/lib/poker/betting";
-import { runAgentBattlePostflopStreets, runAgentBattlePreflopRound } from "@/lib/poker/agentBattleBetting";
+import {
+  completeAgentBattleSpectatorBoard,
+  runAgentBattlePostflopStreets,
+  runAgentBattlePreflopRound,
+} from "@/lib/poker/agentBattleBetting";
 import {
   canRunAgentBattle as canRunAgentBattleStacks,
   createInitialAgentBattleStacks,
@@ -230,6 +234,17 @@ export function determineWinner(
       isSplit: false,
       loserIds: state.players.filter((p) => p.id !== winner.id).map((p) => p.id),
     };
+
+    if (isAgentBattle) {
+      state.actionLog.push({
+        playerId: "system",
+        playerName: "Arena",
+        action: "showdown",
+        stage: "showdown",
+        message: "Hand won by fold.",
+        timestamp: Date.now(),
+      });
+    }
 
     state.actionLog.push({
       playerId: winner.id,
@@ -457,12 +472,14 @@ export function simulateAgentBattleHand(state: GameState): SimulationResult {
   const contenders = state.players.filter((p) => !p.hasFolded);
 
   if (contenders.length <= 1) {
+    completeAgentBattleSpectatorBoard(state);
     const result = determineWinner(state, { gameMode });
     return toSimulationResult(state, result, gameMode);
   }
 
   runAgentBattlePostflopStreets(state);
 
+  completeAgentBattleSpectatorBoard(state);
   const result = determineWinner(state, { gameMode });
   const simulation = toSimulationResult(state, result, gameMode);
 
