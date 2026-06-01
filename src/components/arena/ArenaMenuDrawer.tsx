@@ -216,6 +216,10 @@ export function ArenaMenuDrawer({
                 Session analytics and demo stacks are stored in localStorage on
                 this device only.
               </p>
+              <p className="text-xs leading-relaxed text-violet-200/70">
+                Agent Battle uses a shared server timeline. Multiple viewers can
+                watch the same AI hand. Skip animations is local only.
+              </p>
               <p className="text-[10px] leading-relaxed text-white/40">
                 Built with Next.js · Base-ready · Bankr/x402 integration layer
                 (x402-style access flow mocked in this MVP).

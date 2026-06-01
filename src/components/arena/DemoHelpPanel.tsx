@@ -42,6 +42,10 @@ export function DemoHelpPanel({ className }: DemoHelpPanelProps) {
         Human vs AI is playable · AI Agent Battle is spectator-only · Demo chips
         only · No real funds moved
       </p>
+      <p className="mt-2 text-center text-[10px] leading-relaxed text-violet-200/55">
+        Agent Battle uses a shared server timeline — multiple viewers watch the
+        same AI hand. Skip animations is local only.
+      </p>
     </div>
   );
 }

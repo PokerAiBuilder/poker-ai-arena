@@ -52,13 +52,9 @@ type ArenaActionBarProps = {
   agentBattleWatchingShared?: boolean;
   /** Shared hand in result pause before next hand. */
   agentBattleSharedResultPause?: boolean;
-  /** Countdown seconds until next shared hand. */
-  agentBattleSecondsUntilNextHand?: number | null;
   onResetAgentBattleStacks?: () => void;
   /** Agent Battle live replay in progress */
   agentBattleReplayActive?: boolean;
-  /** Server shared spectator hand */
-  agentBattleSharedHand?: boolean;
   onSkipAgentBattleReplay?: () => void;
   /** Live replay — current bot thinking copy for action bar */
   agentBattleActionHint?: string;
@@ -119,10 +115,8 @@ export function ArenaActionBar({
   agentBattleSharedSpectator = false,
   agentBattleWatchingShared = false,
   agentBattleSharedResultPause = false,
-  agentBattleSecondsUntilNextHand = null,
   onResetAgentBattleStacks,
   agentBattleReplayActive = false,
-  agentBattleSharedHand = false,
   onSkipAgentBattleReplay,
   agentBattleActionHint,
   pokerMasterThinking = false,
@@ -175,6 +169,15 @@ export function ArenaActionBar({
     agentBattleStackDepleted &&
     !agentBattleSharedSpectator;
 
+  const sharedLiveSpectator =
+    agentBattleSpectator &&
+    agentBattleWatchingShared &&
+    !agentBattleLocalFallback;
+
+  const compactSharedSpectatorBar =
+    sharedLiveSpectator &&
+    (agentBattleSharedResultPause || agentBattleReplayActive);
+
   const guidance: StepDemoGameplayGuidance | undefined = showStackDepletedUi
     ? {
         phase: "hand-complete",
@@ -206,46 +209,44 @@ export function ArenaActionBar({
               : agentBattleHasResult
                 ? ("hand-complete" as const)
                 : ("waiting" as const),
-          banner: agentBattleSharedResultPause
-            ? "SHARED RESULT · NEXT HAND SOON"
-            : agentBattleReplayActive
-              ? agentBattleSharedHand || agentBattleSharedSpectator
-                ? "LIVE REPLAY · SHARED HAND"
-                : "LIVE REPLAY · LOCAL"
-              : agentBattleHasResult
-                ? agentBattleSharedSpectator
-                  ? "SHARED HAND COMPLETE"
-                  : agentBattleLocalFallback
+          banner: sharedLiveSpectator
+            ? agentBattleSharedResultPause
+              ? "SHARED LIVE ARENA · RESULT"
+              : agentBattleReplayActive
+                ? "SHARED LIVE ARENA · PLAYING"
+                : "SHARED LIVE ARENA"
+            : agentBattleSharedResultPause
+              ? "SHARED RESULT"
+              : agentBattleReplayActive
+                ? agentBattleLocalFallback
+                  ? "LIVE REPLAY · LOCAL"
+                  : "LIVE REPLAY"
+                : agentBattleHasResult
+                  ? agentBattleLocalFallback
                     ? "LOCAL REPLAY RESULT"
                     : "SPECTATOR RESULT"
-                : agentBattleSharedSpectator
-                  ? "SHARED SPECTATOR ARENA"
                   : agentBattleLocalFallback
                     ? "LOCAL AGENT BATTLE"
                     : "AI AGENT BATTLE",
-          actionHint: agentBattleSharedResultPause
-            ? agentBattleSecondsUntilNextHand != null
-              ? `Next shared hand starts in ${agentBattleSecondsUntilNextHand}s`
-              : "Next shared hand starts soon."
-            : agentBattleReplayActive
-              ? agentBattleSharedHand || agentBattleSharedSpectator
+          actionHint: sharedLiveSpectator
+            ? agentBattleSharedResultPause
+              ? "Next shared hand starts automatically."
+              : agentBattleReplayActive
                 ? (agentBattleActionHint ??
                   "Shared spectator hand — live replay in sync with the arena.")
-                : (agentBattleActionHint ??
+                : "Join the shared AI arena to watch the current live hand."
+            : agentBattleSharedResultPause
+              ? "Next shared hand starts automatically."
+              : agentBattleReplayActive
+                ? (agentBattleActionHint ??
                   "Local replay — agents acting in sequence.")
               : agentBattleHasResult
-                ? agentBattleWatchingShared
-                  ? agentBattleSecondsUntilNextHand != null
-                    ? `Next shared hand starts in ${agentBattleSecondsUntilNextHand}s`
-                    : "Waiting for the next shared hand."
-                  : agentBattleLocalFallback
-                    ? "Local replay result — join Agent Battle again or play vs PokerMaster."
-                    : "Spectator result — join Agent Battle again or play vs PokerMaster."
-                : agentBattleSharedSpectator
-                  ? "Join Agent Battle to watch the current shared live hand."
-                  : agentBattleLocalFallback
-                    ? "Local fallback — shared hand unavailable on this device."
-                    : "Spectator Mode — player actions are disabled while watching.",
+                ? agentBattleLocalFallback
+                  ? "Local replay result — join Agent Battle again or play vs PokerMaster."
+                  : "Spectator result — join Agent Battle again or play vs PokerMaster."
+                : agentBattleLocalFallback
+                  ? "Local fallback — shared hand unavailable on this device."
+                  : "Spectator Mode — player actions are disabled while watching.",
         }
       : stepDemoGuidance ?? {
           phase: "start-hand",
@@ -322,7 +323,12 @@ export function ArenaActionBar({
         className,
       )}
     >
-      <div className="mx-auto max-w-[1400px] px-3 py-3 sm:px-4 sm:py-3.5">
+      <div
+        className={cn(
+          "mx-auto max-w-[1400px] px-3 sm:px-4",
+          compactSharedSpectatorBar ? "py-2" : "py-3 sm:py-3.5",
+        )}
+      >
         {humanTurnActive ? (
           <div className="mb-2 flex justify-center">
             <span
@@ -338,10 +344,15 @@ export function ArenaActionBar({
             </span>
           </div>
         ) : showGuidanceBanner && guidance.phase ? (
-          <div className="mb-2 flex justify-center">
+          <div
+            className={cn(
+              "flex justify-center",
+              compactSharedSpectatorBar ? "mb-1.5" : "mb-2",
+            )}
+          >
             <span
               className={cn(
-                "rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]",
+                "rounded-full border px-3 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]",
                 agentBattleSpectator
                   ? spectatorBannerClass
                   : bannerStyles[guidance.phase],
@@ -352,16 +363,33 @@ export function ArenaActionBar({
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div
+          className={cn(
+            "flex flex-col lg:flex-row lg:items-center lg:justify-between",
+            compactSharedSpectatorBar ? "gap-2" : "gap-3",
+          )}
+        >
           {agentBattleSpectator ? (
-            <div className="flex flex-wrap items-center justify-center gap-2 lg:flex-1 lg:justify-start">
+            <div
+              className={cn(
+                "flex items-center justify-center gap-2 lg:flex-1 lg:justify-start",
+                compactSharedSpectatorBar
+                  ? "flex-nowrap overflow-x-auto"
+                  : "flex-wrap",
+              )}
+            >
               {onPlayStepDemo ? (
                 <Button
                   onClick={onPlayStepDemo}
                   disabled={playStepDemoDisabled}
-                  size="lg"
+                  size={compactSharedSpectatorBar ? "default" : "lg"}
                   variant="outline"
-                  className="h-11 min-w-[200px] border-emerald-400/40 text-emerald-100 hover:bg-emerald-950/40"
+                  className={cn(
+                    "shrink-0 border-emerald-400/40 text-emerald-100 hover:bg-emerald-950/40",
+                    compactSharedSpectatorBar
+                      ? "h-10 min-w-[10.5rem] px-4 text-sm"
+                      : "h-11 min-w-[200px]",
+                  )}
                 >
                   <Play className="h-4 w-4" />
                   Play vs PokerMaster
@@ -382,17 +410,15 @@ export function ArenaActionBar({
                 </Button>
               ) : (
                 <>
-                  {agentBattleSharedSpectator && !agentBattleReplayActive ? (
-                    <p className="mb-2 w-full text-center text-[10px] text-violet-200/70">
-                      Shared spectator stacks are controlled by the live hand.
-                    </p>
-                  ) : null}
                   <Button
                     onClick={onSimulateAgentBattle}
                     disabled={agentBattleDisabled}
-                    size="lg"
+                    size={compactSharedSpectatorBar ? "default" : "lg"}
                     className={cn(
-                      "h-11 min-w-[220px] border-2 border-violet-400/50 font-semibold text-white",
+                      "shrink-0 border-2 border-violet-400/50 font-semibold text-white",
+                      compactSharedSpectatorBar
+                        ? "h-10 min-w-[11.5rem] px-4 text-sm"
+                        : "h-11 min-w-[220px]",
                       agentBattleReplayActive
                         ? "cursor-not-allowed border-violet-400/25 bg-violet-900/40 opacity-70"
                         : "bg-violet-700 shadow-glow hover:bg-violet-600",
@@ -712,13 +738,19 @@ export function ArenaActionBar({
         ) : null}
 
         {error ? (
-          <p className="mt-2 text-center text-xs leading-relaxed text-red-400">
+          <p
+            className={cn(
+              "text-center text-xs leading-snug text-red-400",
+              compactSharedSpectatorBar ? "mt-1" : "mt-2",
+            )}
+          >
             {error}
           </p>
         ) : actionHint ? (
           <p
             className={cn(
-              "mt-2 text-center text-xs leading-relaxed",
+              "text-center text-xs leading-snug",
+              compactSharedSpectatorBar ? "mt-1" : "mt-2 leading-relaxed",
               humanTurnActive
                 ? "text-emerald-300/90"
                 : agentBattleSpectator

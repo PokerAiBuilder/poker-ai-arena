@@ -6,6 +6,7 @@ import { ArrowLeft, Sparkles, Swords, Users } from "lucide-react";
 import { ArenaActionBar } from "@/components/arena/ArenaActionBar";
 import { ArenaMenuDrawer, ArenaMenuTrigger } from "@/components/arena/ArenaMenuDrawer";
 import { AiDecisionPanel } from "@/components/arena/AiDecisionPanel";
+import { SharedAgentBattleStatus } from "@/components/arena/SharedAgentBattleStatus";
 import { EntryFeePanel } from "@/components/arena/EntryFeePanel";
 import { PokerTable } from "@/components/arena/PokerTable";
 import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
@@ -1503,6 +1504,42 @@ export function ArenaShell() {
     ],
   );
 
+  const sharedAgentBattleStatusActive =
+    isAgentBattleSpectatorEarly &&
+    !stepDemo.isActive &&
+    (watchingSharedAgentBattle ||
+      agentBattleLocalFallback ||
+      agentBattleReplay != null ||
+      (result?.gameMode === "agent-vs-agent" && result != null));
+
+  const sharedAgentBattleStatusSource = agentBattleLocalFallback
+    ? ("local" as const)
+    : agentBattleWatchingShared || agentBattleSharedSpectator
+      ? ("shared" as const)
+      : null;
+
+  const sharedAgentBattleStatusPhase = agentBattleSharedResultPause
+    ? ("result_pause" as const)
+    : agentBattleReplayActive
+      ? ("playing" as const)
+      : sharedLifecycle?.lifecyclePhase ?? null;
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development" || !agentBattleDebugInfo) return;
+    console.debug("[arena/shared-agent-battle/status]", {
+      source: agentBattleSource,
+      handId: agentBattleDebugInfo.handId,
+      cacheStatus: agentBattleDebugInfo.cacheStatus,
+      phase: sharedAgentBattleStatusPhase,
+      secondsUntilNextHand: sharedNextHandCountdown,
+    });
+  }, [
+    agentBattleSource,
+    agentBattleDebugInfo,
+    sharedAgentBattleStatusPhase,
+    sharedNextHandCountdown,
+  ]);
+
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[#030305]">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(13,92,54,0.12),transparent_50%)]" />
@@ -1539,31 +1576,12 @@ export function ArenaShell() {
               Hand #{agentBattleReplay.finalResult.handNumber}
             </Badge>
           ) : null}
-          {agentBattleSharedSpectator ? (
-            <Badge
-              variant="outline"
-              className="border-violet-400/40 text-violet-200"
-            >
-              Shared hand
-            </Badge>
-          ) : null}
-          {agentBattleLocalFallback && agentBattleSource === "local-fallback" ? (
-            <Badge variant="secondary" className="text-[10px]">
-              Local replay
-            </Badge>
-          ) : null}
-          {process.env.NODE_ENV === "development" &&
-          agentBattleDebugInfo &&
-          isAgentBattleSpectatorEarly ? (
-            <Badge variant="outline" className="font-mono text-[9px] text-white/70">
-              {agentBattleSource ?? "?"} · {agentBattleDebugInfo.handId.slice(0, 8)} ·{" "}
-              {agentBattleDebugInfo.communityCards?.join(" ") || "—"} ·{" "}
-              {agentBattleDebugInfo.winner ?? "?"}
-              {agentBattleDebugInfo.cacheStatus
-                ? ` · cache ${agentBattleDebugInfo.cacheStatus}`
-                : ""}
-            </Badge>
-          ) : null}
+          <SharedAgentBattleStatus
+            active={sharedAgentBattleStatusActive}
+            source={sharedAgentBattleStatusSource}
+            lifecyclePhase={sharedAgentBattleStatusPhase}
+            secondsUntilNextHand={sharedNextHandCountdown}
+          />
           <Badge
             variant="outline"
             className={cn(
@@ -1590,7 +1608,7 @@ export function ArenaShell() {
       </div>
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-3 pt-2 sm:px-4 lg:overflow-hidden lg:pr-2 lg:pb-0">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-3 pt-2 sm:px-4 lg:pr-2 lg:pb-0">
           <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col lg:min-h-0">
             <div className="relative mx-auto min-h-[280px] w-full max-w-4xl flex-1 lg:min-h-0">
               <PokerTable
@@ -1713,7 +1731,6 @@ export function ArenaShell() {
         agentBattleSharedSpectator={agentBattleSharedSpectator}
         agentBattleWatchingShared={agentBattleWatchingShared}
         agentBattleSharedResultPause={agentBattleSharedResultPause}
-        agentBattleSecondsUntilNextHand={sharedNextHandCountdown}
         onResetAgentBattleStacks={handleResetAgentBattleStacks}
         agentBattleSpectator={isAgentBattleSpectator && !stepDemo.isActive}
         agentBattleHasResult={
@@ -1723,9 +1740,6 @@ export function ArenaShell() {
           result != null
         }
         agentBattleReplayActive={agentBattleReplayActive}
-        agentBattleSharedHand={
-          agentBattleReplay?.isShared === true || agentBattleSharedSpectator
-        }
         onSkipAgentBattleReplay={handleSkipAgentBattleReplay}
         agentBattleActionHint={agentBattleThinkingLabel}
         humanTurnSecondsLeft={
