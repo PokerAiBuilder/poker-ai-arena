@@ -1569,7 +1569,17 @@ export function ArenaShell() {
           <Badge className="shrink-0 gap-1 text-[10px] sm:text-xs">
             <Sparkles className="h-3 w-3 shrink-0" />
             <span className="max-w-[7.5rem] truncate sm:max-w-none">
-              {isArenaUnlocked ? "Demo session active" : "Start demo to play"}
+              {isArenaUnlocked ? (
+                <>
+                  <span className="sm:hidden">Demo</span>
+                  <span className="hidden sm:inline">Demo session active</span>
+                </>
+              ) : (
+                <>
+                  <span className="sm:hidden">Start demo</span>
+                  <span className="hidden sm:inline">Start demo to play</span>
+                </>
+              )}
             </span>
           </Badge>
           {result && !stepDemo.isActive && !agentBattleReplayActive ? (
@@ -1603,8 +1613,11 @@ export function ArenaShell() {
           </Badge>
           {analytics.sessionStats.totalGames > 0 ? (
             <Badge variant="secondary" className="shrink-0 text-[10px] sm:text-xs">
-              <span className="sm:hidden">{analytics.sessionStats.totalGames} games</span>
-              <span className="hidden sm:inline">
+              <span className="max-sm:hidden sm:inline md:hidden">
+                {analytics.sessionStats.totalGames} games
+              </span>
+              <span className="sm:hidden">{analytics.sessionStats.totalGames}g</span>
+              <span className="hidden md:inline">
                 {analytics.sessionStats.totalGames} games tracked
               </span>
             </Badge>

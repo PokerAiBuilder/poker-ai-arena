@@ -57,24 +57,35 @@ export function ArenaMenuTrigger({
   onClick,
   className,
   compact = false,
+  iconOnly = false,
+  "aria-label": ariaLabel = "Open arena menu",
 }: {
   onClick: () => void;
   className?: string;
   compact?: boolean;
+  iconOnly?: boolean;
+  "aria-label"?: string;
 }) {
   return (
     <Button
       type="button"
       variant="outline"
-      size={compact ? "sm" : "default"}
+      size={iconOnly ? "icon" : compact ? "sm" : "default"}
       className={cn(
         "border-casino-gold/30 bg-black/40 text-casino-goldLight hover:bg-casino-gold/10",
         className,
       )}
       onClick={onClick}
+      aria-label={ariaLabel}
     >
       <Menu className="h-4 w-4" />
-      {compact ? "Menu" : "Arena Menu"}
+      {iconOnly ? (
+        <span className="sr-only">Menu</span>
+      ) : compact ? (
+        "Menu"
+      ) : (
+        "Arena Menu"
+      )}
     </Button>
   );
 }
@@ -127,7 +138,7 @@ export function ArenaMenuDrawer({
 
       <aside
         className={cn(
-          "relative flex h-dvh max-h-dvh w-full max-w-[min(28rem,calc(100vw-0.5rem))] flex-col overflow-hidden",
+          "relative flex h-dvh max-h-dvh w-full max-w-full flex-col overflow-hidden sm:max-w-[min(28rem,calc(100vw-0.5rem))]",
           "border-l border-casino-gold/20 bg-[#050508]/95 shadow-[-16px_0_48px_rgba(0,0,0,0.55)] backdrop-blur-xl",
           "animate-fade-in",
         )}

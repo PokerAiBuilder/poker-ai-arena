@@ -54,10 +54,12 @@ export function SharedAgentBattleStatus({
         className="shrink-0 border-violet-400/50 bg-violet-950/40 text-[10px] font-semibold text-violet-100"
       >
         <span className="hidden min-[1280px]:inline">Shared Live Arena</span>
-        <span className="min-[1280px]:hidden">Shared Live</span>
+        <span className="hidden max-sm:inline min-[1280px]:hidden">Shared Live</span>
+        <span className="max-sm:inline sm:hidden">Shared</span>
       </Badge>
       <Badge variant="secondary" className="text-[10px] font-medium">
-        {phaseLabel}
+        <span className="max-sm:hidden">{phaseLabel}</span>
+        <span className="hidden max-sm:inline">{isPause ? "Result" : "Playing"}</span>
       </Badge>
       {isPause && secondsUntilNextHand != null ? (
         <Badge
@@ -65,7 +67,8 @@ export function SharedAgentBattleStatus({
           className="border-casino-gold/40 bg-casino-gold/10 text-[10px] font-medium text-casino-goldLight"
         >
           <span className="hidden min-[1280px]:inline">Next hand in {secondsUntilNextHand}s</span>
-          <span className="min-[1280px]:hidden">Next {secondsUntilNextHand}s</span>
+          <span className="hidden max-sm:inline min-[1280px]:hidden">Next {secondsUntilNextHand}s</span>
+          <span className="max-sm:inline sm:hidden">Next {secondsUntilNextHand}s</span>
         </Badge>
       ) : null}
     </div>

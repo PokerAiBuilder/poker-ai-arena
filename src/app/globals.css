@@ -98,7 +98,30 @@
     @apply flex min-w-0 flex-nowrap items-center justify-center gap-1.5 overflow-x-auto scrollbar-hide lg:justify-start;
   }
 
-  /* Human vs AI: two rows on narrow screens; one row on lg+ via display:contents */
+  .arena-controls-mobile {
+    @apply flex w-full max-w-full flex-col gap-2 sm:hidden;
+  }
+
+  .arena-controls-desktop-hvai {
+    @apply hidden w-full min-w-0 flex-col gap-2 sm:flex lg:flex-row lg:items-center lg:justify-between lg:gap-3;
+  }
+
+  .arena-controls-desktop-ab {
+    @apply hidden min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-hide sm:flex lg:flex-1 lg:justify-start;
+  }
+
+  @media (max-width: 639px) {
+    .arena-controls-mobile {
+      display: flex !important;
+    }
+
+    .arena-controls-desktop-hvai,
+    .arena-controls-desktop-ab {
+      display: none !important;
+    }
+  }
+
+  /* Human vs AI: two rows on tablet; one row on lg+ via display:contents */
   .arena-action-hvai-cluster .arena-action-row-mode,
   .arena-action-hvai-cluster .arena-action-row-poker {
     @apply max-lg:flex-wrap max-lg:justify-start max-lg:overflow-x-visible;
@@ -112,21 +135,34 @@
   }
 
   @media (max-width: 639px) {
-    .arena-action-shell {
-      @apply max-w-full overflow-x-visible px-2;
+    .arena-badge-strip {
+      @apply justify-start;
     }
 
-    .arena-action-row {
-      @apply w-full max-w-full flex-wrap justify-start overflow-x-visible;
+    .arena-action-shell {
+      @apply max-w-full overflow-x-visible px-2 pb-1;
     }
 
     .arena-action-btn {
       @apply min-w-0;
     }
 
+    .arena-action-btn-tap {
+      @apply h-11 min-h-[2.75rem] px-3 text-sm;
+    }
+
     .arena-action-flow-btn {
       margin-left: 0;
       min-width: 0;
+    }
+
+    .arena-action-mobile-mode,
+    .arena-action-mobile-poker-core {
+      @apply flex w-full max-w-full flex-wrap items-center justify-start gap-1.5;
+    }
+
+    .arena-action-mobile-raises {
+      @apply flex w-full max-w-full flex-nowrap items-center justify-start gap-1.5 overflow-x-auto scrollbar-hide;
     }
   }
 
