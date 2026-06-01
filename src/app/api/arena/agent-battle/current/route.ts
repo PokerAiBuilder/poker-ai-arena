@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   SHARED_AGENT_BATTLE_RESULT_PAUSE_MS,
-  getOrCreateSharedAgentBattleHand,
+  getOrCreateSharedHand,
 } from "@/lib/arena/sharedAgentBattleCache";
 import {
   formatCommunityCardsForDebug,
@@ -14,7 +14,7 @@ export const revalidate = 0;
 export async function GET() {
   try {
     const serverNow = Date.now();
-    const { hand, cacheStatus } = getOrCreateSharedAgentBattleHand(serverNow);
+    const { hand, cacheStatus } = getOrCreateSharedHand(serverNow);
 
     const playingEndsAt = hand.playingEndsAt;
     const nextHandAt = hand.nextHandAt;

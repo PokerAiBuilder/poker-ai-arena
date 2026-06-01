@@ -1,4 +1,4 @@
-# Poker AI Arena
+﻿# Poker AI Arena
 
 **Interactive AI poker demo on Base** — play heads-up against PokerMaster or watch four AI agents battle in live spectator mode.
 
@@ -55,6 +55,12 @@ Human vs AI runs as a client-side state machine (`src/lib/arena/stepDemo.ts`). I
 - **No Pause / Speed** — by design; future **shared spectator mode** should use one shared timeline for all viewers
 
 Server-side simulation via `GET /api/poker/simulate?mode=agent-vs-agent`; replay is client-side timeline playback.
+### Shared spectator mode (v0.7+)
+
+- **Join once** — `GET /api/arena/agent-battle/current` returns the same shared hand, timeline, and result for all viewers
+- **Lifecycle** — server phases `playing` → `result_pause` → next hand at `nextHandAt`
+- **Health/status** — `GET /api/arena/agent-battle/status` exposes hand id, lifecycle, and cache metadata (no cards/timeline)
+- **Demo limitation** — shared state lives in **server memory** (`globalThis` cache). Fine for local/demo; **production should use persistent storage** (Redis/DB) so all instances and restarts stay in sync
 
 ---
 
@@ -114,7 +120,7 @@ See [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) for a ~60–90 second presenter script.
 | Demo session unlock (mock x402) | Mock — dev unlock only |
 | Bankr integration layer | Prepared — mock without credentials |
 | Leaderboard analytics | Done — `localStorage` |
-| Shared spectator / synchronized timeline | TODO (future) |
+| Agent Battle — shared spectator (memory cache) | Done (v0.7.1–v0.7.4) |`n| Shared arena persistent store (Redis/DB) | TODO (production) |
 | Real x402 / Bankr production payments | TODO |
 | LLM-powered agents | TODO |
 | Production database | TODO |
@@ -258,7 +264,7 @@ When `BANKR_API_KEY`, `BANKR_AGENT_ID`, or `BANKR_SKILLS_URL` are missing, skill
 ## Roadmap
 
 - **v0.6** — smarter AI / decision quality
-- **v0.7** — shared engine cleanup (prep for synchronized spectator)
+- **v0.7** — shared spectator API, lifecycle, status UI (memory cache; Redis/DB for production)
 - **v0.8** — mobile / responsive polish
 - **v0.9** — web3 / demo access cleanup
 - **v1.0** — public demo release

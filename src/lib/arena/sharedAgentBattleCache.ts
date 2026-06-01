@@ -1,63 +1,54 @@
 import {
   buildAgentBattleReplayTimeline,
-  type AgentBattleReplayTimeline,
 } from "@/lib/arena/agentBattleReplay";
 import { createInitialAgentBattleStacks } from "@/lib/analytics/agentBattleStacks";
 import { simulateAgentBattle } from "@/lib/poker/engine";
-import type { SimulationResult } from "@/lib/poker/types";
+import {
+  SHARED_ARENA_MEMORY_CACHE_NOTE,
+  formatShortSharedHandId,
+  type CachedSharedAgentBattleHand,
+  type SharedAgentBattleCacheStatus,
+  type SharedAgentBattleLifecyclePhase,
+  type SharedAgentBattleStatusResponse,
+} from "@/lib/arena/sharedAgentBattleTypes";
+import { getSharedAgentBattleStore } from "@/lib/arena/sharedAgentBattleStore";
 
 /** Pause after result before the next shared hand is generated. */
 export const SHARED_AGENT_BATTLE_RESULT_PAUSE_MS = 7_000;
 
-export type CachedSharedAgentBattleHand = {
-  handId: string;
-  startedAt: number;
-  /** When the animated timeline finishes. */
-  playingEndsAt: number;
-  /** When the next shared hand will be generated. */
-  nextHandAt: number;
-  expiresAt: number;
-  generatedAt: number;
-  finalResult: SimulationResult;
-  timeline: AgentBattleReplayTimeline;
-};
+export type { CachedSharedAgentBattleHand };
 
 export type SharedAgentBattleCacheResult = {
   hand: CachedSharedAgentBattleHand;
-  cacheStatus: "hit" | "miss";
+  cacheStatus: SharedAgentBattleCacheStatus;
 };
 
-const GLOBAL_CACHE_KEY = "__POKER_AI_SHARED_AGENT_BATTLE_CACHE__";
-
-type GlobalSharedAgentBattleCacheStore = {
-  current: CachedSharedAgentBattleHand | null;
-};
-
-function getGlobalCacheStore(): GlobalSharedAgentBattleCacheStore {
-  const globalScope = globalThis as typeof globalThis & {
-    [GLOBAL_CACHE_KEY]?: GlobalSharedAgentBattleCacheStore;
-  };
-  if (!globalScope[GLOBAL_CACHE_KEY]) {
-    globalScope[GLOBAL_CACHE_KEY] = { current: null };
-  }
-  return globalScope[GLOBAL_CACHE_KEY];
+function deriveLifecyclePhase(
+  serverNow: number,
+  playingEndsAt: number,
+): SharedAgentBattleLifecyclePhase {
+  return serverNow < playingEndsAt ? "playing" : "result_pause";
 }
 
-export function getCachedSharedAgentBattleHand(
+/** Read the active shared hand without creating a new one. */
+export function getCurrentSharedHand(
   nowMs: number = Date.now(),
 ): CachedSharedAgentBattleHand | null {
-  const store = getGlobalCacheStore();
-  if (store.current != null && nowMs < store.current.expiresAt) {
-    return store.current;
+  const hand = getSharedAgentBattleStore().getCurrent();
+  if (hand != null && nowMs < hand.expiresAt) {
+    return hand;
   }
   return null;
 }
 
-export function getOrCreateSharedAgentBattleHand(
+/** @deprecated Prefer `getCurrentSharedHand` */
+export const getCachedSharedAgentBattleHand = getCurrentSharedHand;
+
+export function getOrCreateSharedHand(
   nowMs: number = Date.now(),
 ): SharedAgentBattleCacheResult {
-  const store = getGlobalCacheStore();
-  const cached = getCachedSharedAgentBattleHand(nowMs);
+  const store = getSharedAgentBattleStore();
+  const cached = getCurrentSharedHand(nowMs);
   if (cached) {
     if (process.env.NODE_ENV === "development") {
       console.debug("[shared-agent-battle/cache] hit", {
@@ -87,7 +78,7 @@ export function getOrCreateSharedAgentBattleHand(
     timeline,
   };
 
-  store.current = hand;
+  store.setCurrent(hand);
 
   if (process.env.NODE_ENV === "development") {
     console.debug("[shared-agent-battle/cache] miss — generated hand", {
@@ -102,7 +93,61 @@ export function getOrCreateSharedAgentBattleHand(
   return { hand, cacheStatus: "miss" };
 }
 
-/** Test helper — clears global cache. */
-export function resetSharedAgentBattleCacheForTests(): void {
-  getGlobalCacheStore().current = null;
+/** @deprecated Prefer `getOrCreateSharedHand` */
+export const getOrCreateSharedAgentBattleHand = getOrCreateSharedHand;
+
+/** Health/debug snapshot — does not create or mutate hands. */
+export function getSharedArenaStatus(
+  nowMs: number = Date.now(),
+): SharedAgentBattleStatusResponse {
+  const hand = getCurrentSharedHand(nowMs);
+  const serverNow = nowMs;
+
+  if (!hand) {
+    return {
+      ok: true,
+      mode: "memory-cache",
+      hasCurrentHand: false,
+      handId: null,
+      handIdShort: null,
+      lifecyclePhase: null,
+      startedAt: null,
+      playingEndsAt: null,
+      nextHandAt: null,
+      expiresAt: null,
+      serverNow,
+      msUntilNextHand: null,
+      resultPauseMs: SHARED_AGENT_BATTLE_RESULT_PAUSE_MS,
+      cacheStatus: "none",
+      note: SHARED_ARENA_MEMORY_CACHE_NOTE,
+    };
+  }
+
+  const msUntilNextHand = Math.max(0, hand.nextHandAt - serverNow);
+
+  return {
+    ok: true,
+    mode: "memory-cache",
+    hasCurrentHand: true,
+    handId: hand.handId,
+    handIdShort: formatShortSharedHandId(hand.handId),
+    lifecyclePhase: deriveLifecyclePhase(serverNow, hand.playingEndsAt),
+    startedAt: hand.startedAt,
+    playingEndsAt: hand.playingEndsAt,
+    nextHandAt: hand.nextHandAt,
+    expiresAt: hand.expiresAt,
+    serverNow,
+    msUntilNextHand,
+    resultPauseMs: SHARED_AGENT_BATTLE_RESULT_PAUSE_MS,
+    cacheStatus: "hit",
+    note: SHARED_ARENA_MEMORY_CACHE_NOTE,
+  };
 }
+
+/** Test helper — clears the in-memory shared hand. */
+export function clearSharedHandForDev(): void {
+  getSharedAgentBattleStore().clear();
+}
+
+/** @deprecated Prefer `clearSharedHandForDev` */
+export const resetSharedAgentBattleCacheForTests = clearSharedHandForDev;

@@ -1,6 +1,45 @@
 # Project status
 
-Last updated for **v0.6.4** — structured AI Decision Panel explanations.
+Last updated for **v0.7.4** — shared arena reliability layer and status endpoint.
+
+---
+
+## v0.7.4 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Shared arena status API | v0.7.4 | `GET /api/arena/agent-battle/status` — lifecycle/cache metadata only (no cards/timeline) |
+| Storage abstraction | v0.7.4 | `SharedAgentBattleStore` interface; default in-memory `globalThis` store |
+| Memory-cache limitation | v0.7.4 | Documented in API `note`, PROJECT_STATUS, README — production should use Redis/DB |
+
+**Unchanged:** Human vs AI, Agent Battle gameplay/decisions, shared lifecycle timing, payment/demo.
+
+---
+
+## v0.7.3 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Shared arena status UI | v0.7.3 | Compact top badges, bottom status pill, no debug in user UI |
+| Result-pause layout | v0.7.3 | Compact action bar; no page overflow at 1080p |
+
+---
+
+## v0.7.2 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Shared hand lifecycle | v0.7.2 | `playing` / `result_pause`, auto next hand at `nextHandAt` |
+| Watch mode | v0.7.2 | One Join — stay synced; countdown + auto-refresh |
+
+---
+
+## v0.7.1 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Shared Agent Battle API | v0.7.1 | `GET /api/arena/agent-battle/current` — shared timeline + `finalResult` |
+| Multi-window sync | v0.7.1 | Same `handId` / cards via server cache; local fallback on API failure |
 
 ---
 
@@ -167,7 +206,8 @@ Last updated for **v0.6.4** — structured AI Decision Panel explanations.
 | x402 mock flow | **Mock** | Demo session unlock only; no real USDC transfer |
 | Bankr layer | **Prepared** | Client, skills, status API; mock without credentials |
 | Leaderboard analytics | **Done** | Session stats + `localStorage` persistence |
-| Shared spectator timeline | **TODO** | v0.7+ — one timeline for all viewers |
+| Shared spectator timeline | **Done** | v0.7.1+ — server shared hand via `/api/arena/agent-battle/current` |
+| Shared arena durable storage | **TODO** | v0.7.4+ — Redis/DB for production; memory cache today |
 | Real x402 payments | **TODO** | Facilitator + on-chain settlement not implemented |
 | Real Bankr API | **TODO** | Requires official credentials and endpoints |
 | Stronger AI strategy | **TODO (v0.6)** | Rules-based only today |
@@ -189,7 +229,7 @@ Last updated for **v0.6.4** — structured AI Decision Panel explanations.
 | Replay | Timeline with `atMs` / `durationMs`; 200 ms tick; progressive UI |
 | Skip | **Skip animations** — local only; no Pause/Speed (shared timeline prep) |
 | Results | Showdown (best hand) or Win by fold; applied once to history |
-| Next | Shared spectator mode with synchronized timeline (v0.7+) |
+| Next | Persistent shared state (Redis/DB) for multi-instance production |
 
 ---
 
@@ -204,7 +244,7 @@ Last updated for **v0.6.4** — structured AI Decision Panel explanations.
 
 ## Known limitations
 
-- **No shared spectator yet** — replay timeline is local per browser; synchronized viewing is future work
+- **Shared hand cache is in-memory only** — fine for demo/dev; production needs Redis/DB (see `GET /api/arena/agent-battle/status`)
 - **No Pause / Speed in Agent Battle** — intentional; shared mode needs one authoritative timeline
 - **Skip animations is local only** — does not change the simulated hand outcome
 - **No real-money payments** — mock x402 demo unlock only; Bankr production not wired
@@ -220,7 +260,8 @@ Last updated for **v0.6.4** — structured AI Decision Panel explanations.
 | Version | Focus |
 | ------- | ----- |
 | **v0.6** | Smarter AI / decision quality |
-| **v0.7** | Shared engine cleanup — prep synchronized spectator timeline |
+| **v0.7** | Shared spectator API + lifecycle + status UI (done through v0.7.4) |
+| **v0.7.5+** | Persistent shared store (Redis/DB) for production |
 | **v0.8** | Mobile / responsive polish |
 | **v0.9** | Web3 / demo access cleanup |
 | **v1.0** | Public demo release |
@@ -254,7 +295,7 @@ Parallel track: real x402 / Bankr production wiring when credentials and endpoin
 | Agent Battle live spectator autoplay | Yes |
 | Agent Battle timeline replay + progressive Action Log | Yes |
 | Skip animations (local only during replay) | Yes |
-| Agent Battle shared synchronized spectator | **No** — local timeline only |
+| Agent Battle shared synchronized spectator | **Yes** — server memory cache (demo); durable store TODO |
 | Mock x402 unlocks arena | Yes |
 | Bankr layer prepared | Yes |
 | Live session leaderboard | Yes (localStorage) |

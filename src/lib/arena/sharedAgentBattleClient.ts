@@ -113,6 +113,21 @@ export function logSharedAgentBattleDebug(
   console.debug(`[arena/shared-agent-battle] ${source}`, info);
 }
 
+/** Optional dev health snapshot — not used for gameplay. */
+export async function logSharedArenaStatusForDebug(): Promise<void> {
+  if (process.env.NODE_ENV !== "development") return;
+  try {
+    const response = await fetch("/api/arena/agent-battle/status", {
+      cache: "no-store",
+    });
+    if (!response.ok) return;
+    const data: unknown = await response.json();
+    console.debug("[arena/shared-agent-battle/status]", data);
+  } catch {
+    // ignore debug-only failures
+  }
+}
+
 export async function fetchSharedAgentBattleCurrent(): Promise<
   | { ok: true; payload: SharedAgentBattleJoinPayload }
   | { ok: false; reason: SharedAgentBattleFetchFailureReason; detail?: string }
@@ -174,6 +189,7 @@ export async function fetchSharedAgentBattleCurrent(): Promise<
       communityCards: formatCommunityCardsForDebug(parsed.finalResult.communityCards),
       winner: parsed.finalResult.winner.name,
     });
+    void logSharedArenaStatusForDebug();
 
     return { ok: true, payload };
   } catch (error) {
