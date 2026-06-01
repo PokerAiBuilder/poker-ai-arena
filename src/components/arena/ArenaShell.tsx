@@ -1541,11 +1541,11 @@ export function ArenaShell() {
   ]);
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[#030305]">
+    <div className="arena-shell bg-[#030305]">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(13,92,54,0.12),transparent_50%)]" />
 
-      <header className="relative z-20 shrink-0 border-b border-white/5 bg-black/40 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-4">
+      <header className="arena-header-bar relative z-20 shrink-0 border-b border-white/5 bg-black/40 backdrop-blur-xl">
+        <div className="mx-auto flex h-full max-w-[1400px] items-center justify-between px-3 sm:px-4">
           <Button asChild variant="ghost" size="sm">
             <Link href="/">
               <ArrowLeft className="mr-1 h-4 w-4" />
@@ -1554,8 +1554,9 @@ export function ArenaShell() {
           </Button>
 
           <div className="text-center">
-            <p className="text-sm font-bold tracking-[0.2em] text-casino-goldLight">
-              POKER AI ARENA
+            <p className="text-xs font-bold tracking-[0.16em] text-casino-goldLight sm:text-sm sm:tracking-[0.2em]">
+              <span className="arena-title-short">ARENA</span>
+              <span className="arena-title-full">POKER AI ARENA</span>
             </p>
           </div>
 
@@ -1563,16 +1564,20 @@ export function ArenaShell() {
         </div>
       </header>
 
-      <div className="relative z-10 shrink-0 border-b border-white/5 bg-black/20 px-4 py-2">
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-2">
-          <Badge className="gap-1">
-            <Sparkles className="h-3 w-3" />
-            {isArenaUnlocked ? "Demo session active" : "Start demo to play"}
+      <div className="arena-badge-bar relative z-10 shrink-0 border-b border-white/5 bg-black/20 px-2 py-1.5 sm:px-3">
+        <div className="arena-badge-strip">
+          <Badge className="shrink-0 gap-1 text-[10px] sm:text-xs">
+            <Sparkles className="h-3 w-3 shrink-0" />
+            <span className="max-w-[7.5rem] truncate sm:max-w-none">
+              {isArenaUnlocked ? "Demo session active" : "Start demo to play"}
+            </span>
           </Badge>
           {result && !stepDemo.isActive && !agentBattleReplayActive ? (
-            <Badge variant="secondary">Hand #{result.handNumber}</Badge>
+            <Badge variant="secondary" className="shrink-0 text-[10px] sm:text-xs">
+              Hand #{result.handNumber}
+            </Badge>
           ) : agentBattleReplay?.finalResult ? (
-            <Badge variant="secondary">
+            <Badge variant="secondary" className="shrink-0 text-[10px] sm:text-xs">
               Hand #{agentBattleReplay.finalResult.handNumber}
             </Badge>
           ) : null}
@@ -1585,7 +1590,7 @@ export function ArenaShell() {
           <Badge
             variant="outline"
             className={cn(
-              "gap-1 border-casino-gold/30",
+              "shrink-0 gap-1 border-casino-gold/30 text-[10px] sm:text-xs",
               activeGameMode === "agent-vs-agent" && "border-violet-400/40",
             )}
           >
@@ -1597,22 +1602,27 @@ export function ArenaShell() {
             {gameModeLabel(activeGameMode)}
           </Badge>
           {analytics.sessionStats.totalGames > 0 ? (
-            <Badge variant="secondary">
-              {analytics.sessionStats.totalGames} games tracked
+            <Badge variant="secondary" className="shrink-0 text-[10px] sm:text-xs">
+              <span className="sm:hidden">{analytics.sessionStats.totalGames} games</span>
+              <span className="hidden sm:inline">
+                {analytics.sessionStats.totalGames} games tracked
+              </span>
             </Badge>
           ) : null}
           {!isArenaUnlocked ? (
-            <Badge variant="secondary">Demo access required</Badge>
+            <Badge variant="secondary" className="shrink-0 text-[10px] sm:text-xs">
+              Demo access required
+            </Badge>
           ) : null}
         </div>
       </div>
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-3 pt-2 sm:px-4 lg:pr-2 lg:pb-0">
-          <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col lg:min-h-0">
-            <div className="relative mx-auto min-h-[280px] w-full max-w-4xl flex-1 lg:min-h-0">
+      <div className="arena-main-grid">
+        <div className="flex min-h-0 min-w-0 flex-col overflow-hidden px-2 pt-1.5 sm:px-3 lg:pb-0 lg:pr-1.5">
+          <div className="arena-table-stage">
+            <div className="relative min-h-0 flex-1">
               <PokerTable
-                className="absolute inset-0 h-full w-full"
+                className="arena-table-surface"
                 roomLayout
                 onPayEntryFee={payEntryFee}
                 payingEntryFee={paying}
@@ -1652,8 +1662,8 @@ export function ArenaShell() {
           </div>
         </div>
 
-        <aside className="hidden min-h-0 w-[240px] shrink-0 flex-col overflow-hidden border-l border-white/5 bg-black/20 p-2 lg:flex">
-          <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain">
+        <aside className="arena-sidebar">
+          <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain">
             <div className="flex min-h-0 flex-col gap-1.5">
               <EntryFeePanel
                 compact
@@ -1690,7 +1700,8 @@ export function ArenaShell() {
           </div>
           <ArenaMenuTrigger
             onClick={() => setMenuOpen(true)}
-            className="mt-2 w-full shrink-0"
+            className="mt-1.5 w-full shrink-0"
+            compact
           />
         </aside>
       </div>

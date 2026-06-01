@@ -127,7 +127,7 @@ export function ArenaMenuDrawer({
 
       <aside
         className={cn(
-          "relative flex h-full w-full max-w-md flex-col",
+          "relative flex h-dvh max-h-dvh w-full max-w-[min(28rem,calc(100vw-0.5rem))] flex-col overflow-hidden",
           "border-l border-casino-gold/20 bg-[#050508]/95 shadow-[-16px_0_48px_rgba(0,0,0,0.55)] backdrop-blur-xl",
           "animate-fade-in",
         )}
@@ -176,7 +176,7 @@ export function ArenaMenuDrawer({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-3 sm:px-4 sm:py-4">
           {tab === "guide" ? (
             <div className="space-y-4">
               <DemoHelpPanel className="border-white/10 shadow-none" />

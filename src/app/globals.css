@@ -52,6 +52,128 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Arena shell — desktop/laptop viewport fit (v0.8.1) */
+  .arena-header-bar {
+    @apply h-14 shrink-0;
+  }
+
+  .arena-title-short {
+    @apply inline sm:hidden;
+  }
+
+  .arena-title-full {
+    @apply hidden sm:inline;
+  }
+
+  .arena-shell {
+    @apply flex h-full min-h-0 max-h-dvh flex-col overflow-x-hidden overflow-y-hidden;
+  }
+
+  .arena-badge-strip {
+    @apply mx-auto flex w-full min-w-0 max-w-[1400px] flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-hide;
+  }
+
+  .arena-main-grid {
+    @apply relative z-10 grid min-h-0 min-w-0 flex-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_clamp(11.25rem,18vw,15rem)];
+  }
+
+  .arena-table-stage {
+    @apply relative mx-auto flex min-h-0 w-full min-w-0 max-w-4xl flex-1 flex-col;
+  }
+
+  .arena-table-surface {
+    @apply absolute inset-0 h-full w-full min-h-0 max-h-full;
+  }
+
+  .arena-sidebar {
+    @apply hidden min-h-0 min-w-0 flex-col overflow-hidden border-l border-white/5 bg-black/20 p-1.5 lg:flex;
+  }
+
+  .arena-action-shell {
+    @apply mx-auto w-full min-w-0 max-w-[1400px] px-2 sm:px-3;
+  }
+
+  .arena-action-row {
+    @apply flex min-w-0 flex-nowrap items-center justify-center gap-1.5 overflow-x-auto scrollbar-hide lg:justify-start;
+  }
+
+  /* Human vs AI: two rows on narrow screens; one row on lg+ via display:contents */
+  .arena-action-hvai-cluster .arena-action-row-mode,
+  .arena-action-hvai-cluster .arena-action-row-poker {
+    @apply max-lg:flex-wrap max-lg:justify-start max-lg:overflow-x-visible;
+  }
+
+  @media (min-width: 1024px) {
+    .arena-action-hvai-cluster .arena-action-row-mode,
+    .arena-action-hvai-cluster .arena-action-row-poker {
+      display: contents;
+    }
+  }
+
+  @media (max-width: 639px) {
+    .arena-action-shell {
+      @apply max-w-full overflow-x-visible px-2;
+    }
+
+    .arena-action-row {
+      @apply w-full max-w-full flex-wrap justify-start overflow-x-visible;
+    }
+
+    .arena-action-btn {
+      @apply min-w-0;
+    }
+
+    .arena-action-flow-btn {
+      margin-left: 0;
+      min-width: 0;
+    }
+  }
+
+  .arena-action-btn {
+    @apply h-10 shrink-0 px-2.5 text-xs font-semibold xl:h-11 xl:px-4 xl:text-sm;
+  }
+
+  .arena-table-room {
+    @apply h-full min-h-0 max-h-full p-1.5 sm:p-2 lg:p-2.5;
+  }
+
+  @media (max-height: 820px) {
+    .arena-header-bar {
+      height: 3rem;
+    }
+
+    .arena-badge-bar {
+      @apply py-1;
+    }
+
+    .arena-table-room {
+      @apply p-1 sm:p-1.5;
+    }
+
+    .arena-room-hvai-zones .arena-zone-top {
+      height: 14%;
+      min-height: 3.25rem;
+      max-height: 4.75rem;
+    }
+
+    .arena-room-hvai-zones .arena-zone-board {
+      height: 26%;
+      max-height: 9rem;
+    }
+
+    .arena-room-hvai-zones .arena-zone-result {
+      max-height: 3.5rem;
+    }
+
+    .arena-room-hvai-zones .arena-zone-human-cards {
+      max-height: 4.25rem;
+    }
+
+    .arena-action-shell {
+      @apply py-1.5;
+    }
+  }
 }
 
 @keyframes card-deal {

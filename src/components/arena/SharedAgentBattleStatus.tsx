@@ -44,16 +44,17 @@ export function SharedAgentBattleStatus({
 
   return (
     <div
-      className={cn("flex flex-wrap items-center gap-1.5", className)}
+      className={cn("flex shrink-0 flex-nowrap items-center gap-1", className)}
       role="status"
       aria-live="polite"
       aria-label={`Shared Live Arena, ${phaseLabel}`}
     >
       <Badge
         variant="outline"
-        className="border-violet-400/50 bg-violet-950/40 text-[10px] font-semibold text-violet-100"
+        className="shrink-0 border-violet-400/50 bg-violet-950/40 text-[10px] font-semibold text-violet-100"
       >
-        Shared Live Arena
+        <span className="hidden min-[1280px]:inline">Shared Live Arena</span>
+        <span className="min-[1280px]:hidden">Shared Live</span>
       </Badge>
       <Badge variant="secondary" className="text-[10px] font-medium">
         {phaseLabel}
@@ -63,7 +64,8 @@ export function SharedAgentBattleStatus({
           variant="outline"
           className="border-casino-gold/40 bg-casino-gold/10 text-[10px] font-medium text-casino-goldLight"
         >
-          Next hand in {secondsUntilNextHand}s
+          <span className="hidden min-[1280px]:inline">Next hand in {secondsUntilNextHand}s</span>
+          <span className="min-[1280px]:hidden">Next {secondsUntilNextHand}s</span>
         </Badge>
       ) : null}
     </div>

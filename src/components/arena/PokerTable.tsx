@@ -741,9 +741,9 @@ function RoomHeadsUpTableLayout({
 
   return (
     <>
-      <div className="absolute inset-x-[5%] inset-y-[6%] z-10 flex flex-col items-stretch">
+      <div className="arena-room-hvai-zones absolute inset-x-[4%] inset-y-[5%] z-10 flex flex-col items-stretch sm:inset-x-[5%] sm:inset-y-[6%]">
         {/* Top opponent zone — fixed size, avatar + cards side-by-side */}
-        <div className="flex h-[16%] min-h-[4.25rem] max-h-[6rem] shrink-0 items-end justify-center px-1 pb-0.5">
+        <div className="arena-zone-top flex h-[16%] min-h-[4.25rem] max-h-[6rem] shrink-0 items-end justify-center px-1 pb-0.5">
           {topSeat ? (
             <div key={headsUpLayoutKey ?? topSeat.id}>
               <HeadsUpOpponentSeat seat={topSeat} />
@@ -754,7 +754,7 @@ function RoomHeadsUpTableLayout({
         </div>
 
         {/* Board zone — pot label above cards, separated from seat stacks */}
-        <div className="flex h-[28%] max-h-[10.5rem] shrink-0 flex-col items-center justify-center gap-1 pt-1">
+        <div className="arena-zone-board flex h-[28%] max-h-[10.5rem] shrink-0 flex-col items-center justify-center gap-1 pt-1">
           <div className="flex min-h-[1.125rem] shrink-0 items-center justify-center rounded-full border border-casino-gold/20 bg-black/35 px-3 py-0.5 shadow-sm">
             <ChipStack
               amount={pot ?? "\u2014"}
@@ -772,7 +772,7 @@ function RoomHeadsUpTableLayout({
         </div>
 
         {/* Result banner zone — reserved height, no layout shift */}
-        <div className="flex h-[10%] max-h-[4.25rem] shrink-0 items-center justify-center px-2">
+        <div className="arena-zone-result flex h-[10%] max-h-[4.25rem] shrink-0 items-center justify-center px-2">
           {winnerName ? (
             <WinnerBanner
               winnerName={winnerName}
@@ -787,7 +787,7 @@ function RoomHeadsUpTableLayout({
         </div>
 
         {/* Human hole cards zone — reserved height */}
-        <div className="flex h-[13%] max-h-[5rem] shrink-0 items-end justify-center">
+        <div className="arena-zone-human-cards flex h-[13%] max-h-[5rem] shrink-0 items-end justify-center">
           {bottomSeat ? (
             <div key={headsUpLayoutKey ?? bottomSeat.id}>
               <HeadsUpHumanCards seat={bottomSeat} />
@@ -1009,7 +1009,7 @@ export function PokerTable({
     <div
       className={cn(
         "relative overflow-hidden rounded-[2rem] border border-casino-gold/25 bg-[#050508] shadow-[0_32px_80px_rgba(0,0,0,0.8)]",
-        roomLayout ? "h-full min-h-0 p-2 sm:p-3" : "p-4",
+        roomLayout ? "arena-table-room" : "p-4",
         className,
       )}
     >
