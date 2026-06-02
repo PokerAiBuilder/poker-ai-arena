@@ -6,7 +6,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-white/5 bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <Link href="/" className="text-sm font-bold tracking-wider text-casino-goldLight">
-          POKER AI ARENA
+          Poker AI
         </Link>
         <nav className="flex items-center gap-4">
           <Link
@@ -14,6 +14,12 @@ export function SiteHeader() {
             className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline"
           >
             Arena
+          </Link>
+          <Link
+            href="#roadmap"
+            className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground md:inline"
+          >
+            Roadmap
           </Link>
           <ConnectWalletButton size="sm" />
         </nav>
