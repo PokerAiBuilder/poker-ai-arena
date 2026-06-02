@@ -790,18 +790,19 @@ export function ArenaShell() {
       const data = (await response.json()) as X402PaymentResult;
 
       if (!data.success) {
-        throw new Error(data.error ?? "Payment failed");
+        throw new Error(data.error ?? "Demo session unlock failed");
       }
 
       setPaymentResult(data);
       setSessionLog((prev) => [
         ...prev,
         createSessionLogEntry(
-          `Demo session started (${data.amount} USDC demo access).`,
+          "Demo session started — mock unlock, no real funds moved.",
         ),
       ]);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Payment failed";
+      const message =
+        err instanceof Error ? err.message : "Demo session unlock failed";
       setPaymentError(message);
       setSessionLog((prev) => [...prev, createErrorLogEntry(message)]);
     } finally {

@@ -10,11 +10,14 @@ import { cn } from "@/lib/utils";
 type ConnectWalletButtonProps = {
   className?: string;
   size?: "default" | "sm" | "lg";
+  /** Show optional-demo hint under the connect button */
+  showDemoHint?: boolean;
 };
 
 export function ConnectWalletButton({
   className,
   size = "default",
+  showDemoHint = true,
 }: ConnectWalletButtonProps) {
   const { address, isConnected, chain } = useAccount();
   const { connect, isPending, error: connectError } = useConnect();
@@ -66,13 +69,14 @@ export function ConnectWalletButton({
   }
 
   return (
-    <div className="flex flex-col items-stretch gap-1">
+    <div className="flex flex-col items-stretch gap-0.5">
       <Button
         type="button"
         variant="outline"
         size={size}
         className={cn(className)}
         disabled={isPending}
+        title="Optional — Base testnet Web3 preview. Demo gameplay works without a wallet."
         onClick={() => connect({ connector: injected() })}
       >
         {isPending ? (
@@ -82,6 +86,11 @@ export function ConnectWalletButton({
         )}
         Connect Wallet
       </Button>
+      {showDemoHint ? (
+        <p className="hidden text-center text-[9px] leading-snug text-muted-foreground lg:block">
+          Optional · Base testnet preview
+        </p>
+      ) : null}
       {connectError ? (
         <p className="text-center text-xs text-red-400">{connectError.message}</p>
       ) : null}

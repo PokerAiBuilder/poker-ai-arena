@@ -85,7 +85,7 @@ Payout and history for Agent Battle are applied **once** when the hand finishes 
 | Real payments | **Not live** — `{ "mode": "real" }` returns not implemented |
 | Bankr layer | Prepared (`src/lib/bankr/`) — mock without credentials |
 
-The entry fee is a **demo session access fee**, not wagering or settlement.
+The mock unlock displays a **USDC label for demo purposes only** — not wagering, settlement, or real funds moved.
 
 ---
 
@@ -256,7 +256,7 @@ When `BANKR_API_KEY`, `BANKR_AGENT_ID`, or `BANKR_SKILLS_URL` are missing, skill
 - **No real-money gambling** — demo arena only
 - **Mock x402** does not transfer USDC in development
 - **No private keys** stored or requested by this app
-- **Entry fee = demo access**, not wagering
+- **Mock unlock label = demo access**, not wagering
 - **Bankr production** not connected unless you configure env (still mock skill HTTP until implemented)
 - **Analytics in localStorage** — not authoritative on-chain data
 - Use **Base testnet** for wallet demos first

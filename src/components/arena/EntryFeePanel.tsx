@@ -11,6 +11,7 @@ import type {
 import {
   getPaymentModeUserLabel,
   getUserNetworkLabel,
+  formatDemoAccessAmountLabel,
 } from "@/lib/bankr/x402Client";
 import { cn } from "@/lib/utils";
 
@@ -120,18 +121,19 @@ export function EntryFeePanel({
               )}
             >
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Demo access
+                Mock x402-style session unlock
               </p>
               <p
                 className={cn(
                   "font-bold text-casino-goldLight",
-                  compact ? "mt-0.5 text-lg" : "mt-1 text-2xl",
+                  compact ? "mt-0.5 text-base" : "mt-1 text-xl",
                 )}
               >
-                {amount} USDC
+                {formatDemoAccessAmountLabel(amount)}
               </p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">
-                Network: {getUserNetworkLabel(network)}
+              <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
+                Base testnet demo · {getUserNetworkLabel(network)} · Connect
+                Wallet optional
               </p>
             </div>
 
@@ -159,8 +161,8 @@ export function EntryFeePanel({
               <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5">
                 <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
                 <p className="text-[10px] leading-relaxed text-amber-200/80">
-                  Demo only — no real funds moved. This is a simulated session
-                  unlock for the MVP demo.
+                  Mock demo unlock only — no real funds moved. Demo chips only;
+                  not real-money gambling.
                 </p>
               </div>
             )}
@@ -174,9 +176,9 @@ export function EntryFeePanel({
               )}
             >
               <div className="flex justify-between gap-2 text-[11px]">
-                <dt className="text-muted-foreground">Amount</dt>
+                <dt className="text-muted-foreground">Access</dt>
                 <dd className="min-w-0 truncate text-right font-semibold text-white">
-                  {amount} USDC demo access
+                  {formatDemoAccessAmountLabel(amount)}
                 </dd>
               </div>
               <div className="flex justify-between gap-2 text-[11px]">

@@ -57,8 +57,8 @@ export function BankrStatusPanel({ className, embedded = false }: BankrStatusPan
 
       <div className="min-w-0 space-y-3 p-3 text-xs sm:p-4">
         <p className="break-words leading-relaxed text-muted-foreground">
-          Optional Web3 integration layer for future arena payments and agent
-          skills. The poker demo runs fully without it.
+          Optional Web3 integration layer for future Bankr/x402 production
+          wiring and agent skills. The poker demo runs fully without it.
         </p>
 
         <dl className="min-w-0 space-y-2">
@@ -88,8 +88,9 @@ export function BankrStatusPanel({ className, embedded = false }: BankrStatusPan
         </p>
 
         <p className="rounded-lg border border-white/10 bg-black/30 p-2.5 text-[10px] leading-relaxed text-muted-foreground">
-          x402-style access flow is mocked in this MVP. Technical network: Base
-          Sepolia (Base testnet).
+          Mock x402-style session unlock in this MVP. Bankr/x402 production
+          wiring is prepared for future integration. Network: Base Sepolia (Base
+          testnet).
         </p>
 
         {status?.note ? (

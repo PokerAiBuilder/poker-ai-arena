@@ -22,8 +22,9 @@ The arena is **responsive** — the same demo flow works on **desktop/laptop** a
 
 ### 2. Wallet (optional, ~10 seconds)
 
-- Click **Connect Wallet** if you want to show Base testnet wallet scaffold.
-- **Say:** "Wallet connect is wired for Base testnet first; demo session unlock does not require real USDC in this MVP."
+- **Say:** "Wallet connection is optional for testnet demos — gameplay works without it."
+- Click **Connect Wallet** only if you want to show the Base testnet Web3 preview.
+- **Say:** "This is a Base testnet scaffold. Mock demo session unlock does not move real USDC."
 
 ### 3. Launch arena (`/arena`)
 

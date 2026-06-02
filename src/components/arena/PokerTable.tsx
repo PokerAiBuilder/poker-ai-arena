@@ -1186,14 +1186,15 @@ export function PokerTable({
                   {payingEntryFee ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Processing…
+                      Starting…
                     </>
                   ) : (
                     "Start Demo Session"
                   )}
                 </Button>
                 <p className="mt-3 text-[10px] leading-relaxed text-amber-200/80">
-                  Demo only — no real funds moved.
+                  Mock x402-style unlock · Demo chips only · No real funds
+                  moved · Connect Wallet optional
                 </p>
                 {paymentError ? (
                   <p className="mt-2 text-[10px] text-red-400">{paymentError}</p>

@@ -295,8 +295,8 @@ export function ArenaMenuDrawer({
                   watch the same AI hand. Skip animations is local only.
                 </p>
                 <p className="text-[10px] leading-relaxed text-white/40">
-                  Built with Next.js · Base-ready · Bankr/x402 integration layer
-                  (x402-style access flow mocked in this MVP).
+                  Built with Next.js · Base testnet demo · Bankr/x402 integration
+                  layer prepared — mock session unlock in this MVP.
                 </p>
               </div>
             ) : null}

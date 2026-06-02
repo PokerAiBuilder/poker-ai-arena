@@ -45,7 +45,12 @@ export function getTechnicalNetworkLabel(network: X402Network): string {
 }
 
 export function getPaymentModeUserLabel(mode: X402PaymentMode): string {
-  return mode === "mock" ? "Demo" : "Live";
+  return mode === "mock" ? "Mock demo unlock" : "Production (not live)";
+}
+
+/** User-facing demo access label — not a charge amount. */
+export function formatDemoAccessAmountLabel(amount: string): string {
+  return `${amount} mock label (not charged)`;
 }
 
 export function getEntryFeeConfig(): X402PaymentRequest {

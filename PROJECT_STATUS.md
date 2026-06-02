@@ -1,6 +1,28 @@
 # Project status
 
-Last updated for **v0.8.4** — responsive QA/status freeze.
+Last updated for **v0.9.2** — demo access / wallet UX wording cleanup.
+
+---
+
+## v0.9.2 completed (wording cleanup)
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Demo access panel copy | v0.9.2 | Mock x402-style unlock; USDC shown as mock label (not charged) |
+| Wallet UX copy | v0.9.2 | Connect Wallet optional · Base testnet preview hint |
+| Arena stats / overlays | v0.9.2 | TableStats mock unlock label; PokerTable locked overlay demo-safe |
+| Bankr / integration panel | v0.9.2 | Future production wiring wording — no live payments implied |
+| Docs alignment | v0.9.2 | README, DEPLOYMENT, DEMO_SCRIPT — mock vs production clarified |
+
+**Unchanged:** Human vs AI gameplay/timers, Agent Battle shared lifecycle/API, poker engine, payment implementation behavior (mock only).
+
+---
+
+## v0.9.1 completed (landing rewrite)
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Landing page rewrite | v0.9.1 | Live Human vs AI + shared Agent Battle; demo-safe hero/features/roadmap |
 
 ---
 

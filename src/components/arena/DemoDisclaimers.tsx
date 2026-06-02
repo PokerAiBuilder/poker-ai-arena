@@ -9,7 +9,9 @@ export function DemoDisclaimers({ className, compact = false }: DemoDisclaimersP
   const items = [
     "Demo chips only",
     "Demo session unlock",
+    "No real funds moved",
     "No real-money gambling",
+    "Not casino wagering",
   ] as const;
 
   return (

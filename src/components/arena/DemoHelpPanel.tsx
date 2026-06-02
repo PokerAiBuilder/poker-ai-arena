@@ -5,7 +5,7 @@ const DEMO_STEPS = [
   "Start Demo Session — demo chips only, no real funds moved",
   "Play vs PokerMaster — playable Human vs AI mode",
   "Choose Fold / Call / Check / Raise on your turn",
-  "Reveal Flop / Turn / River and show the result",
+  "Human vs AI streets auto-deal and results show automatically",
   "Try AI Agent Battle — full-board spectator simulation (watch only)",
   "Open Arena Menu for Action Log, stats, and full AI reasoning",
 ] as const;

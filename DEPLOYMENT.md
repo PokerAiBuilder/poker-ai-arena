@@ -43,7 +43,7 @@ Edit `.env.local`:
 |----------|------------|-------|
 | `NEXT_PUBLIC_CHAIN_ID` | `84532` | Base Sepolia |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | your ID | Optional |
-| `X402_ENTRY_FEE_USDC` | `0.01` | Display only in mock mode |
+| `X402_ENTRY_FEE_USDC` | `0.01` | Mock display label only — not charged in demo mode |
 | `BANKR_*` | empty | Mock Bankr responses |
 | `X402_FACILITATOR_URL` | empty | Real x402 TODO |
 
@@ -118,7 +118,7 @@ X402_ENTRY_FEE_USDC=0.5
 - [ ] Bankr API credentials + verified endpoints
 - [ ] Rate limiting on `/api/poker/simulate`
 - [ ] Server-side analytics / DB (replace localStorage)
-- [ ] Security review before mainnet entry fees
+- [ ] Security review before mainnet production payments
 - [ ] Monitoring (Vercel Analytics / Sentry)
 - [ ] Custom domain + HTTPS (Vercel default)
 

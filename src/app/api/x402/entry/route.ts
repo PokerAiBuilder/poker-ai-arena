@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Entry fee payment failed";
+      error instanceof Error ? error.message : "Demo session unlock failed";
     console.error("[api/x402/entry] error:", message);
     return NextResponse.json(
       {
