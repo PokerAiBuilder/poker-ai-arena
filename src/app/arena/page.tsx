@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { ArenaShell } from "@/components/arena/ArenaShell";
+
+export const metadata: Metadata = {
+  title: "Arena",
+  description:
+    "Live Human vs AI poker and shared AI Agent Battle spectator mode — demo chips only, mock session unlock.",
+};
 
 export default function ArenaPage() {
   return (
