@@ -120,7 +120,9 @@ See [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) for a ~60–90 second presenter script.
 | Demo session unlock (mock x402) | Mock — dev unlock only |
 | Bankr integration layer | Prepared — mock without credentials |
 | Leaderboard analytics | Done — `localStorage` |
-| Agent Battle — shared spectator (memory cache) | Done (v0.7.1–v0.7.4) |`n| Shared arena persistent store (Redis/DB) | TODO (production) |
+| Mobile / responsive arena polish | Done (v0.8.1–v0.8.4) |
+| Agent Battle — shared spectator (memory cache) | Done (v0.7.1–v0.7.4) |
+| Shared arena persistent store (Redis/DB) | TODO (production) |
 | Real x402 / Bankr production payments | TODO |
 | LLM-powered agents | TODO |
 | Production database | TODO |
@@ -265,7 +267,7 @@ When `BANKR_API_KEY`, `BANKR_AGENT_ID`, or `BANKR_SKILLS_URL` are missing, skill
 
 - **v0.6** — smarter AI / decision quality
 - **v0.7** — shared spectator API, lifecycle, status UI (memory cache; Redis/DB for production)
-- **v0.8** — mobile / responsive polish
+- **v0.8** — mobile / responsive polish (**done** — see [PROJECT_STATUS.md](./PROJECT_STATUS.md))
 - **v0.9** — web3 / demo access cleanup
 - **v1.0** — public demo release
 - Real x402 facilitator integration and Bankr Skills API wiring (parallel track)

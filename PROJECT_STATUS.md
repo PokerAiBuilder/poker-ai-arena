@@ -1,6 +1,57 @@
 # Project status
 
-Last updated for **v0.7.4** — shared arena reliability layer and status endpoint.
+Last updated for **v0.8.4** — responsive QA/status freeze.
+
+---
+
+## v0.8.4 completed (QA freeze)
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Responsive QA pass | v0.8.4 | Docs/status freeze before v0.9 — no further layout blockers from local QA |
+| Desktop / laptop arena | v0.8.4 | QA passed — table, sidebar, action bar, shared status badges |
+| Mobile layout (390px) | v0.8.4 | QA passed — iPhone 12 Pro class viewport; no known blocker overflow |
+| Human vs AI mobile controls | v0.8.4 | QA passed — poker actions, timer, Menu in action row |
+| Agent Battle shared mobile | v0.8.4 | QA passed — Join/watch, Skip during playing, hidden during result pause |
+| Arena Menu mobile | v0.8.4 | QA passed — Decision / Agents / Log / History readable in drawer |
+| Shared auto-next-hand | v0.8.4 | QA passed — result pause countdown → next shared hand without stuck at 0s |
+| Spectator board after fold | v0.8.4 | QA passed — full 5-card board on win-by-fold (display only) |
+
+**Unchanged:** Human vs AI gameplay, Agent Battle simulation/decisions, payment/demo, shared API contract.
+
+---
+
+## v0.8.3 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Mobile Arena Menu drawer | v0.8.3 | Full-width mobile drawer, scrollable tabs, internal panel scroll |
+| Decision tab | v0.8.3 | Mobile access to AI Decision panel (HvAI privacy guard preserved) |
+| Panel mobile readability | v0.8.3 | Agents, Log, History, Stats, Board, Integration — wrap, no horizontal clip |
+| Side seat layout | v0.8.3 | Mobile Agent Battle left/right seats lower — no board overlap |
+| Shared lifecycle fix | v0.8.3 | Robust refetch at `nextHandAt`; retry when same hand at rollover; Skip visible during playing only |
+
+---
+
+## v0.8.2 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Mobile action bar | v0.8.2 | Single mobile control row; Menu in action bar; no duplicate desktop blocks |
+| Human turn timer ring | v0.8.2 | Hidden on narrow viewports to save space |
+| Tap targets | v0.8.2 | Larger mobile action buttons (`.arena-action-btn-tap`) |
+
+---
+
+## v0.8.1 completed
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Responsive arena shell | v0.8.1 | `arena-shell` grid, badge strip, table stage, sidebar breakpoints |
+| Desktop / laptop fit | v0.8.1 | Arena fits viewport without page scroll on common laptop heights |
+| Mobile table stage | v0.8.1 | Sidebar hidden `<lg`; Menu becomes primary panel access |
+
+**Also shipped (pre–v0.8.3 menu):** spectator full-board display after Agent Battle fold win (`finalResult` 5 cards; honest action log).
 
 ---
 
@@ -213,7 +264,7 @@ Last updated for **v0.7.4** — shared arena reliability layer and status endpoi
 | Stronger AI strategy | **TODO (v0.6)** | Rules-based only today |
 | LLM agents | **TODO** | Not started |
 | Production database | **TODO** | Analytics client-only; `DATABASE_URL` unused |
-| Mobile polish | **TODO (v0.8)** | Responsive improvements ongoing |
+| Mobile / responsive arena | **Done** | v0.8.1–v0.8.4 — desktop + mobile layout, Menu, controls, shared lifecycle QA |
 
 ---
 
@@ -262,7 +313,7 @@ Last updated for **v0.7.4** — shared arena reliability layer and status endpoi
 | **v0.6** | Smarter AI / decision quality |
 | **v0.7** | Shared spectator API + lifecycle + status UI (done through v0.7.4) |
 | **v0.7.5+** | Persistent shared store (Redis/DB) for production |
-| **v0.8** | Mobile / responsive polish |
+| **v0.8** | Mobile / responsive polish (**done** through v0.8.4 QA freeze) |
 | **v0.9** | Web3 / demo access cleanup |
 | **v1.0** | Public demo release |
 
@@ -294,7 +345,7 @@ Parallel track: real x402 / Bankr production wiring when credentials and endpoin
 | Reset Demo Stacks when stack depleted | Yes |
 | Agent Battle live spectator autoplay | Yes |
 | Agent Battle timeline replay + progressive Action Log | Yes |
-| Skip animations (local only during replay) | Yes |
+| Skip animations (local only during replay; visible during shared playing) | Yes |
 | Agent Battle shared synchronized spectator | **Yes** — server memory cache (demo); durable store TODO |
 | Mock x402 unlocks arena | Yes |
 | Bankr layer prepared | Yes |

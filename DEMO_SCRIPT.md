@@ -2,6 +2,8 @@
 
 Use this script when presenting **Poker AI Arena** to the Bankr community, Base Batches judges, or hackathon audiences.
 
+The arena is **responsive** — the same demo flow works on **desktop/laptop** and **mobile** (e.g. iPhone 12 Pro / 390px). Use Menu on mobile for Decision, Log, and History.
+
 ---
 
 ## Pitch (15 seconds)
@@ -66,7 +68,7 @@ Use this script when presenting **Poker AI Arena** to the Bankr community, Base 
 
 ### 10. Close (~10 seconds)
 
-- **Say:** "Next steps: smarter AI (v0.6), shared spectator timeline (v0.7), mobile polish, real x402 payments, Bankr Skill wiring, and a production database."
+- **Say:** "Next steps: smarter AI (v0.6), shared spectator is live on memory cache (Redis/DB for production), mobile layout is polished (v0.8), real x402 payments, Bankr Skill wiring, and a production database."
 - Share repo / Vercel URL.
 
 ---
