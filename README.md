@@ -79,7 +79,7 @@ Payout and history for Agent Battle are applied **once** when the hand finishes 
 
 | Item | Status |
 | ---- | ------ |
-| Demo session unlock | **Start Demo Session** — no real USDC moved |
+| Demo session unlock | **Start Demo Session** — no real funds moved |
 | Chain | **Base testnet** (`84532`, Base Sepolia) for wallet scaffold |
 | x402-style flow | Mock in dev — `POST /api/x402/entry` with `{ "mode": "mock" }` |
 | Real payments | **Not live** — `{ "mode": "real" }` returns not implemented |
@@ -219,6 +219,7 @@ Copy `.env.example` → `.env.local`. Key variables:
 | Variable | Purpose |
 | -------- | ------- |
 | `NEXT_PUBLIC_APP_NAME` | App display name |
+| `NEXT_PUBLIC_SITE_URL` | Optional canonical origin for production metadata/Open Graph URLs |
 | `NEXT_PUBLIC_CHAIN_ID` | `84532` Sepolia (demo) → `8453` mainnet later |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect (optional for demo) |
 | `BANKR_*` | Bankr credentials — **server only**, mock if empty |

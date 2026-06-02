@@ -1,6 +1,61 @@
 # Project status
 
-Last updated for **v0.9.2** — demo access / wallet UX wording cleanup.
+Last updated for **v0.9.4** — production demo QA/readiness pass.
+
+---
+
+## v0.9.4 completed (production QA/readiness)
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Production QA checklist | v0.9.4 | Added final pre-v1.0 checklist for landing, arena, HvAI, Agent Battle, mobile, APIs, metadata |
+| Demo script alignment | v0.9.4 | Script wording aligned with current shared Agent Battle and demo-safe access claims |
+| Deployment/readme notes | v0.9.4 | Metadata URL env note aligned with v0.9.3 SEO metadata |
+
+**Unchanged:** Gameplay logic, Human vs AI timer/auto-flow, Agent Battle simulation/lifecycle/API, payment/demo behavior.
+
+### Production demo QA checklist
+
+- [x] Landing page (`/`) loads and reflects current live Human vs AI + shared Agent Battle positioning.
+- [x] Arena route (`/arena`) loads and remains demo-safe in copy.
+- [x] **Start Demo Session** works without wallet connection.
+- [x] **Connect Wallet** is optional and framed as Base testnet/Web3 preview.
+- [x] Demo-safe wording is visible: demo chips only, no real funds moved, not real-money gambling/casino wagering.
+
+#### Human vs AI
+
+- [x] **Play vs PokerMaster** launches playable heads-up flow.
+- [x] 15s player action timer is active.
+- [x] Timeout applies legal fallback (**auto-check / auto-fold**).
+- [x] Streets and result auto-advance (**flop / turn / river / result**).
+- [x] All-in triggers auto-runout.
+- [x] PokerMaster private hand metadata stays hidden before showdown.
+- [x] Result, New Hand, and Reset Demo Stacks flows behave as expected.
+
+#### Agent Battle (shared spectator)
+
+- [x] Join shared Agent Battle from arena.
+- [x] Two windows observe the same shared hand/timeline.
+- [x] Auto next-hand transition runs after result pause.
+- [x] Skip animations is local-only during playing/replay.
+- [x] Result pause state hides Skip control.
+- [x] Win-by-fold still renders full 5-card board.
+- [x] Action Log and History write once per completed hand.
+
+#### Mobile
+
+- [x] iPhone 12 Pro / 390px class layout remains usable.
+- [x] Human vs AI controls are accessible and readable.
+- [x] Agent Battle controls and shared status remain usable.
+- [x] Arena Menu tabs (**Decision / Agents / Log / History**) remain readable and scroll-safe.
+
+#### API / metadata
+
+- [x] `GET /api/arena/agent-battle/current` returns shared hand payload for spectators.
+- [x] `GET /api/arena/agent-battle/status` exposes lifecycle/cache metadata only.
+- [x] Status endpoint does **not** expose cards, timeline steps, or finalResult payload.
+- [x] Browser title/description metadata is updated to current product positioning.
+- [x] No broken `og:image` path is declared (no image path configured).
 
 ---
 

@@ -44,11 +44,13 @@ The arena is **responsive** — the same demo flow works on **desktop/laptop** a
 - Highlight the action timer, cards, pot, thinking state, and winner banner.
 - If stack hits zero: **Reset Demo Stacks** (no auto-refill).
 
-### 6. Run Agent Battle
+### 6. Run Agent Battle (shared in two tabs)
 
 - Click **Run Agent Battle** (or **Run Agent Battle Again** after a completed hand).
 - **Say:** "Spectator mode — four agents with different strategies. Agents act **one by one** street by street with an **active bot highlight**. The board and Action Log reveal progressively through a **timeline replay**. **Skip animations** is **local only** — it jumps to the final result on your device without changing the simulated hand. No pause or speed controls — that's intentional for future shared spectator mode."
 - Point out progressive board, Action Log, and final result.
+- Open the arena in a second tab/window.
+- **Say:** "Shared Agent Battle is synchronized across viewers — both tabs watch the same hand lifecycle from the server."
 
 ### 7. History and Action Log
 
@@ -79,7 +81,7 @@ The arena is **responsive** — the same demo flow works on **desktop/laptop** a
 - Do **not** say real x402 or USDC settlement is live.
 - Do **not** say Bankr production API is connected without env credentials.
 - Do **not** describe in-game chips as real money.
-- Do **not** claim shared synchronized spectator mode is live (timeline replay is local today).
+- Do **not** claim shared state is durable across server restarts or instances yet (memory cache only in this demo).
 
 ---
 
