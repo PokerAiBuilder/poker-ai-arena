@@ -98,10 +98,6 @@ export function parseSharedAgentBattleResponse(
     return null;
   }
 
-  if (body.serverNow >= body.expiresAt) {
-    return null;
-  }
-
   return body;
 }
 

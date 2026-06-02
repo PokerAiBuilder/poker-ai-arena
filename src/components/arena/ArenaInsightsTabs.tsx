@@ -26,6 +26,8 @@ type ArenaInsightsTabsProps = {
   className?: string;
   /** When set, hides the tab bar and renders a single panel (for menu drawer). */
   panel?: InsightsTab;
+  /** Drawer layout — parent scrolls, no nested max-height clipping */
+  embedded?: boolean;
 };
 
 const tabLabels: Record<InsightsTab, string> = {
@@ -46,6 +48,7 @@ export function ArenaInsightsTabs({
   onResetStats,
   className,
   panel,
+  embedded = false,
 }: ArenaInsightsTabsProps) {
   const [tab, setTab] = useState<InsightsTab>("log");
   const activeTab = panel ?? tab;
@@ -73,12 +76,16 @@ export function ArenaInsightsTabs({
       ) : null}
 
       {activeTab === "log" ? (
-        <ActionLog entries={actionLogEntries} agentBattleMode={agentBattleMode} />
+        <ActionLog
+          entries={actionLogEntries}
+          agentBattleMode={agentBattleMode}
+          embedded={embedded}
+        />
       ) : null}
 
       {activeTab === "leaderboard" ? (
-        <div className="space-y-2">
-          <Leaderboard entries={leaderboardEntries} highlightId={highlightId} />
+        <div className="min-w-0 space-y-2">
+          <Leaderboard entries={leaderboardEntries} highlightId={highlightId} embedded={embedded} />
           <Button
             type="button"
             variant="outline"

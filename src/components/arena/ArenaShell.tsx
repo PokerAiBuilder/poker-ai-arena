@@ -142,6 +142,12 @@ const POKERMASTER_THINKING_MIN_MS = 1200;
 const POKERMASTER_THINKING_MAX_MS = 5000;
 const POKERMASTER_THINKING_SAFETY_MS = 5500;
 const SHARED_NEXT_HAND_FETCH_FUDGE_MS = 120;
+const SHARED_SAME_HAND_RETRY_MS = 750;
+
+function logSharedLifecycleDebug(message: string, info?: Record<string, unknown>): void {
+  if (process.env.NODE_ENV !== "development") return;
+  console.debug(`[arena/shared-agent-battle/lifecycle] ${message}`, info ?? {});
+}
 
 type SharedAgentBattleLifecycleState = {
   handId: string;
@@ -249,6 +255,7 @@ export function ArenaShell() {
   const sharedNextHandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sharedNextHandScheduledTokenRef = useRef(0);
   const sharedAgentBattleRefreshingRef = useRef(false);
+  const sharedCountdownZeroHandledRef = useRef(false);
   const refreshSharedAgentBattleHandRef = useRef<(() => Promise<void>) | null>(
     null,
   );
@@ -452,13 +459,14 @@ export function ArenaShell() {
       clearTimeout(sharedNextHandTimerRef.current);
       sharedNextHandTimerRef.current = null;
     }
-    sharedNextHandScheduledTokenRef.current = 0;
   }, []);
 
   const clearSharedAgentBattleWatch = useCallback(() => {
     watchingSharedAgentBattleRef.current = false;
     setWatchingSharedAgentBattle(false);
     clearSharedNextHandTimer();
+    sharedNextHandScheduledTokenRef.current += 1;
+    sharedCountdownZeroHandledRef.current = false;
     setSharedLifecycle(null);
     setSharedNextHandCountdown(null);
     lastSharedTransitionHandIdRef.current = null;
@@ -500,24 +508,41 @@ export function ArenaShell() {
     );
   }, [stepDemo]);
 
-  const scheduleSharedNextHandRefresh = useCallback(
-    (lifecycle: SharedAgentBattleLifecycleState) => {
+  const scheduleSharedHandRefetch = useCallback(
+    (delayMs: number, reason: string) => {
+      if (!watchingSharedAgentBattleRef.current) return;
+
       clearSharedNextHandTimer();
       const token = ++sharedNextHandScheduledTokenRef.current;
-      const delayMs = Math.max(
-        0,
-        lifecycle.nextHandAt -
-          estimateServerNowMs(lifecycle.serverOffsetMs) +
-          SHARED_NEXT_HAND_FETCH_FUDGE_MS,
-      );
+      const delay = Math.max(0, delayMs);
+
+      logSharedLifecycleDebug("schedule refetch", { reason, delayMs: delay });
 
       sharedNextHandTimerRef.current = setTimeout(() => {
         if (sharedNextHandScheduledTokenRef.current !== token) return;
         if (!watchingSharedAgentBattleRef.current) return;
+        logSharedLifecycleDebug("refetch timer fired", { reason, token });
         void refreshSharedAgentBattleHandRef.current?.();
-      }, delayMs);
+      }, delay);
     },
     [clearSharedNextHandTimer],
+  );
+
+  const scheduleSharedNextHandRefresh = useCallback(
+    (lifecycle: SharedAgentBattleLifecycleState) => {
+      const remainingMs = Math.max(
+        0,
+        lifecycle.nextHandAt -
+          estimateServerNowMs(lifecycle.serverOffsetMs),
+      );
+      const delayMs =
+        remainingMs <= 0
+          ? SHARED_NEXT_HAND_FETCH_FUDGE_MS
+          : remainingMs + SHARED_NEXT_HAND_FETCH_FUDGE_MS;
+
+      scheduleSharedHandRefetch(delayMs, "next-hand-at");
+    },
+    [scheduleSharedHandRefetch],
   );
 
   const enterSharedAgentBattleResultPause = useCallback(
@@ -529,7 +554,14 @@ export function ArenaShell() {
       setResult(finalResult);
       commitSharedAgentBattleHistory(finalResult);
 
-      if (!lifecycle) return;
+      if (!lifecycle) {
+        logSharedLifecycleDebug("result pause without lifecycle — refetch soon");
+        scheduleSharedHandRefetch(
+          SHARED_NEXT_HAND_FETCH_FUDGE_MS,
+          "missing-lifecycle",
+        );
+        return;
+      }
 
       const remainingMs = Math.max(
         0,
@@ -544,7 +576,7 @@ export function ArenaShell() {
       setSharedNextHandCountdown(countdownSecondsFromMs(remainingMs));
       scheduleSharedNextHandRefresh(updatedLifecycle);
     },
-    [commitSharedAgentBattleHistory, scheduleSharedNextHandRefresh],
+    [commitSharedAgentBattleHistory, scheduleSharedNextHandRefresh, scheduleSharedHandRefetch],
   );
 
   const applySharedAgentBattlePayload = useCallback(
@@ -579,6 +611,7 @@ export function ArenaShell() {
 
       if (shared.handId !== lastSharedTransitionHandIdRef.current) {
         lastSharedTransitionHandIdRef.current = shared.handId;
+        sharedCountdownZeroHandledRef.current = false;
         setSessionLog((prev) => [
           ...prev,
           createSessionLogEntry(
@@ -624,6 +657,11 @@ export function ArenaShell() {
           reason: "refresh-failed",
           detail: sharedResult.reason,
         });
+        logSharedLifecycleDebug("refetch failed — retry scheduled", {
+          reason: sharedResult.reason,
+          detail: sharedResult.detail,
+        });
+        scheduleSharedHandRefetch(SHARED_SAME_HAND_RETRY_MS, "fetch-failed");
         return;
       }
 
@@ -634,34 +672,63 @@ export function ArenaShell() {
         sharedLifecycleRef.current?.handId ??
         null;
 
+      logSharedLifecycleDebug("refetch result", {
+        handId: shared.handId,
+        phase: shared.lifecyclePhase,
+        msUntilNextHand: shared.msUntilNextHand,
+        previousHandId,
+      });
+
+      const serverOffsetMs = shared.serverNow - Date.now();
+      const lifecycle: SharedAgentBattleLifecycleState = {
+        handId: shared.handId,
+        lifecyclePhase: shared.lifecyclePhase,
+        nextHandAt: shared.nextHandAt,
+        resultPauseMs: shared.resultPauseMs,
+        msUntilNextHand: shared.msUntilNextHand,
+        serverOffsetMs,
+      };
+
       if (
         shared.handId === previousHandId &&
         shared.lifecyclePhase === "result_pause"
       ) {
-        const serverOffsetMs = shared.serverNow - Date.now();
-        const lifecycle: SharedAgentBattleLifecycleState = {
-          handId: shared.handId,
-          lifecyclePhase: shared.lifecyclePhase,
-          nextHandAt: shared.nextHandAt,
-          resultPauseMs: shared.resultPauseMs,
-          msUntilNextHand: shared.msUntilNextHand,
-          serverOffsetMs,
-        };
         setSharedLifecycle(lifecycle);
         setSharedNextHandCountdown(countdownSecondsFromMs(shared.msUntilNextHand));
-        scheduleSharedNextHandRefresh(lifecycle);
+
+        if (shared.msUntilNextHand <= 0) {
+          logSharedLifecycleDebug("same hand still in result_pause — retry", {
+            handId: shared.handId,
+          });
+          scheduleSharedHandRefetch(
+            SHARED_SAME_HAND_RETRY_MS,
+            "same-hand-result-expired",
+          );
+        } else {
+          scheduleSharedNextHandRefresh(lifecycle);
+        }
         return;
       }
 
       if (shared.handId === previousHandId) {
+        logSharedLifecycleDebug("same hand still playing — reschedule", {
+          handId: shared.handId,
+        });
+        setSharedLifecycle(lifecycle);
+        scheduleSharedNextHandRefresh(lifecycle);
         return;
       }
 
+      sharedCountdownZeroHandledRef.current = false;
       applySharedAgentBattlePayload(shared);
     } finally {
       sharedAgentBattleRefreshingRef.current = false;
     }
-  }, [applySharedAgentBattlePayload, scheduleSharedNextHandRefresh]);
+  }, [
+    applySharedAgentBattlePayload,
+    scheduleSharedHandRefetch,
+    scheduleSharedNextHandRefresh,
+  ]);
 
   refreshSharedAgentBattleHandRef.current = refreshSharedAgentBattleHand;
 
@@ -681,7 +748,20 @@ export function ArenaShell() {
         sharedLifecycle.nextHandAt -
           estimateServerNowMs(sharedLifecycle.serverOffsetMs),
       );
-      setSharedNextHandCountdown(countdownSecondsFromMs(remainingMs));
+      const seconds = countdownSecondsFromMs(remainingMs);
+      setSharedNextHandCountdown(seconds);
+
+      if (
+        seconds === 0 &&
+        !sharedCountdownZeroHandledRef.current &&
+        !sharedAgentBattleRefreshingRef.current
+      ) {
+        sharedCountdownZeroHandledRef.current = true;
+        logSharedLifecycleDebug("countdown reached 0 — refetch now");
+        void refreshSharedAgentBattleHandRef.current?.();
+      } else if (seconds > 0) {
+        sharedCountdownZeroHandledRef.current = false;
+      }
     };
 
     tick();
@@ -1785,6 +1865,25 @@ export function ArenaShell() {
         onResetStats={handleResetStats}
         handHistoryEntries={handHistory}
         onClearHandHistory={handleClearHandHistory}
+        isArenaUnlocked={isArenaUnlocked}
+        latestAiDecision={latestAiDecision}
+        hidePrivateHandInfo={hidePrivatePokerMasterInfo}
+        aiThinking={pokerMasterThinking || agentBattleThinking}
+        aiThinkingLabel={agentBattleThinkingLabel}
+        spectatorMode={isAgentBattleSpectator}
+        guidedHand={stepDemo.isActive}
+        humanCallAmount={
+          stepDemo.isActive ? stepDemoHumanCallAmount : undefined
+        }
+        totalDecisions={
+          stepDemo.isActive
+            ? stepDemo.aiDecision
+              ? 1
+              : 0
+            : agentBattleReplayDisplay
+              ? agentBattleReplayDisplay.visibleDecisionCount
+              : aiDecisions.length
+        }
       />
     </div>
   );

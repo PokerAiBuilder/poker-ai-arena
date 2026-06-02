@@ -38,7 +38,7 @@ function ContextCell({
       <p className="text-[8px] font-medium uppercase tracking-wide text-white/40">
         {label}
       </p>
-      <p className="truncate text-[10px] leading-snug text-white/85">{value}</p>
+      <p className="break-words text-[10px] leading-snug text-white/85">{value}</p>
     </div>
   );
 }
@@ -235,7 +235,9 @@ export function AiDecisionPanel({
           <div
             className={cn(
               "grid gap-1.5 rounded-lg border border-white/5 bg-black/20 p-1.5",
-              displayDecision.handLabel != null ? "grid-cols-3" : "grid-cols-2",
+              displayDecision.handLabel != null
+                ? "grid-cols-1 min-[360px]:grid-cols-3"
+                : "grid-cols-1 min-[280px]:grid-cols-2",
             )}
           >
             {displayDecision.handLabel != null ? (
@@ -261,7 +263,7 @@ export function AiDecisionPanel({
 
         <p
           className={cn(
-            "leading-snug text-muted-foreground",
+            "break-words leading-snug text-muted-foreground",
             compact ? "line-clamp-2 text-[9px]" : "text-[11px]",
           )}
         >

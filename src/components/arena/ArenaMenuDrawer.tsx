@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Menu, X } from "lucide-react";
 import type { InsightsTab } from "@/components/arena/ArenaInsightsTabs";
 import { ArenaInsightsTabs } from "@/components/arena/ArenaInsightsTabs";
+import { AiDecisionPanel } from "@/components/arena/AiDecisionPanel";
 import { BankrStatusPanel } from "@/components/arena/BankrStatusPanel";
 import { DemoDisclaimers } from "@/components/arena/DemoDisclaimers";
 import { AgentProfilesPanel } from "@/components/arena/AgentProfilesPanel";
@@ -12,13 +13,14 @@ import { HandHistoryPanel } from "@/components/arena/HandHistoryPanel";
 import type { HandHistoryRecord } from "@/lib/arena/handHistory";
 import { Button } from "@/components/ui/button";
 import type { LeaderboardEntry, SessionStats } from "@/lib/analytics/types";
-import type { GameAction } from "@/lib/poker/types";
+import type { GameAction, SimulationAgentDecision } from "@/lib/poker/types";
 import type { X402PaymentMode } from "@/lib/bankr/x402Client";
 import { cn } from "@/lib/utils";
 
 type DrawerTab =
   | "guide"
   | "agents"
+  | "decision"
   | InsightsTab
   | "history"
   | "integration"
@@ -38,16 +40,26 @@ type ArenaMenuDrawerProps = {
   onResetStats: () => void;
   handHistoryEntries?: HandHistoryRecord[];
   onClearHandHistory?: () => void;
+  isArenaUnlocked?: boolean;
+  latestAiDecision?: SimulationAgentDecision;
+  hidePrivateHandInfo?: boolean;
+  aiThinking?: boolean;
+  aiThinkingLabel?: string;
+  spectatorMode?: boolean;
+  guidedHand?: boolean;
+  humanCallAmount?: number;
+  totalDecisions?: number;
 };
 
 const drawerTabs: { id: DrawerTab; label: string }[] = [
-  { id: "guide", label: "Demo Guide" },
+  { id: "guide", label: "Guide" },
   { id: "agents", label: "Agents" },
+  { id: "decision", label: "Decision" },
   { id: "log", label: "Log" },
   { id: "leaderboard", label: "Board" },
   { id: "stats", label: "Stats" },
   { id: "history", label: "History" },
-  { id: "integration", label: "Integration" },
+  { id: "integration", label: "Bankr" },
   { id: "disclaimers", label: "Info" },
 ];
 
@@ -104,8 +116,18 @@ export function ArenaMenuDrawer({
   onResetStats,
   handHistoryEntries = [],
   onClearHandHistory,
+  isArenaUnlocked = false,
+  latestAiDecision,
+  hidePrivateHandInfo = false,
+  aiThinking = false,
+  aiThinkingLabel,
+  spectatorMode = false,
+  guidedHand = false,
+  humanCallAmount,
+  totalDecisions = 0,
 }: ArenaMenuDrawerProps) {
   const [tab, setTab] = useState<DrawerTab>("guide");
+  const tabRefs = useRef<Map<DrawerTab, HTMLButtonElement>>(new Map());
 
   useEffect(() => {
     if (!open) return;
@@ -125,10 +147,20 @@ export function ArenaMenuDrawer({
     }
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const activeTab = tabRefs.current.get(tab);
+    activeTab?.scrollIntoView({
+      inline: "nearest",
+      block: "nearest",
+      behavior: "smooth",
+    });
+  }, [tab, open]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end">
+    <div className="fixed inset-0 z-[60] flex justify-end overflow-hidden">
       <button
         type="button"
         className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
@@ -137,29 +169,25 @@ export function ArenaMenuDrawer({
       />
 
       <aside
-        className={cn(
-          "relative flex h-dvh max-h-dvh w-full max-w-full flex-col overflow-hidden sm:max-w-[min(28rem,calc(100vw-0.5rem))]",
-          "border-l border-casino-gold/20 bg-[#050508]/95 shadow-[-16px_0_48px_rgba(0,0,0,0.55)] backdrop-blur-xl",
-          "animate-fade-in",
-        )}
+        className={cn("arena-menu-drawer animate-fade-in")}
         role="dialog"
         aria-modal="true"
         aria-label="Arena menu"
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-          <div>
+        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-3 py-3 sm:px-4">
+          <div className="min-w-0 pr-2">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-casino-goldLight/80">
               Arena Menu
             </p>
-            <p className="text-xs text-muted-foreground">
-              Demo guide, agent profiles, logs & stats
+            <p className="truncate text-xs text-muted-foreground">
+              Guide, decisions, logs & stats
             </p>
           </div>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="shrink-0 text-muted-foreground hover:text-white"
+            className="arena-action-btn-tap shrink-0 text-muted-foreground hover:text-white sm:h-9 sm:w-9"
             onClick={() => onOpenChange(false)}
             aria-label="Close menu"
           >
@@ -167,15 +195,21 @@ export function ArenaMenuDrawer({
           </Button>
         </div>
 
-        <div className="border-b border-white/10 px-3 py-2">
-          <div className="scrollbar-hide flex gap-1 overflow-x-auto pb-1">
+        <div className="shrink-0 border-b border-white/10 px-3 py-2">
+          <div className="arena-menu-tabs" role="tablist" aria-label="Arena menu sections">
             {drawerTabs.map(({ id, label }) => (
               <button
                 key={id}
+                ref={(node) => {
+                  if (node) tabRefs.current.set(id, node);
+                  else tabRefs.current.delete(id);
+                }}
                 type="button"
+                role="tab"
+                aria-selected={tab === id}
                 onClick={() => setTab(id)}
                 className={cn(
-                  "shrink-0 rounded-lg px-3 py-2 text-[10px] font-semibold uppercase tracking-wide transition-colors",
+                  "arena-menu-tab",
                   tab === id
                     ? "bg-emerald-950/60 text-emerald-100 ring-1 ring-emerald-500/30"
                     : "text-muted-foreground hover:bg-white/5 hover:text-white/80",
@@ -187,56 +221,86 @@ export function ArenaMenuDrawer({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-3 sm:px-4 sm:py-4">
-          {tab === "guide" ? (
-            <div className="space-y-4">
-              <DemoHelpPanel className="border-white/10 shadow-none" />
-            </div>
-          ) : null}
+        <div className="arena-menu-scroll">
+          <div className="arena-menu-panel">
+            {tab === "guide" ? (
+              <div className="space-y-4">
+                <DemoHelpPanel className="border-white/10 shadow-none" />
+              </div>
+            ) : null}
 
-          {tab === "agents" ? <AgentProfilesPanel /> : null}
+            {tab === "agents" ? <AgentProfilesPanel /> : null}
 
-          {insightsPanels.has(tab) ? (
-            <ArenaInsightsTabs
-              panel={tab as InsightsTab}
-              actionLogEntries={actionLogEntries}
-              agentBattleMode={agentBattleMode}
-              leaderboardEntries={leaderboardEntries}
-              highlightId={highlightId}
-              sessionStats={sessionStats}
-              sessionStatus={sessionStatus}
-              paymentMode={paymentMode}
-              entryFee={entryFee}
-              onResetStats={onResetStats}
-            />
-          ) : null}
+            {tab === "decision" ? (
+              isArenaUnlocked ? (
+                <AiDecisionPanel
+                  latest={latestAiDecision}
+                  guidedHand={guidedHand}
+                  hidePrivateHandInfo={hidePrivateHandInfo}
+                  thinking={aiThinking}
+                  thinkingLabel={aiThinkingLabel}
+                  spectatorMode={spectatorMode}
+                  humanCallAmount={humanCallAmount}
+                  totalDecisions={totalDecisions}
+                  className="shadow-none"
+                />
+              ) : (
+                <div className="rounded-xl border border-dashed border-white/15 bg-black/25 px-4 py-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Unlock the arena to see AI decisions.
+                  </p>
+                  <p className="mt-2 text-xs leading-relaxed text-white/45">
+                    Start a demo session from the action bar to enable Decision,
+                    Log, and History panels.
+                  </p>
+                </div>
+              )
+            ) : null}
 
-          {tab === "history" ? (
-            <HandHistoryPanel
-              entries={handHistoryEntries}
-              onClear={() => onClearHandHistory?.()}
-            />
-          ) : null}
+            {insightsPanels.has(tab) ? (
+              <ArenaInsightsTabs
+                panel={tab as InsightsTab}
+                actionLogEntries={actionLogEntries}
+                agentBattleMode={agentBattleMode}
+                leaderboardEntries={leaderboardEntries}
+                highlightId={highlightId}
+                sessionStats={sessionStats}
+                sessionStatus={sessionStatus}
+                paymentMode={paymentMode}
+                entryFee={entryFee}
+                onResetStats={onResetStats}
+                embedded
+              />
+            ) : null}
 
-          {tab === "integration" ? <BankrStatusPanel /> : null}
+            {tab === "history" ? (
+              <HandHistoryPanel
+                entries={handHistoryEntries}
+                onClear={() => onClearHandHistory?.()}
+                embedded
+              />
+            ) : null}
 
-          {tab === "disclaimers" ? (
-            <div className="space-y-4 rounded-2xl border border-white/10 bg-black/30 p-4">
-              <DemoDisclaimers className="justify-start" />
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Session analytics and demo stacks are stored in localStorage on
-                this device only.
-              </p>
-              <p className="text-xs leading-relaxed text-violet-200/70">
-                Agent Battle uses a shared server timeline. Multiple viewers can
-                watch the same AI hand. Skip animations is local only.
-              </p>
-              <p className="text-[10px] leading-relaxed text-white/40">
-                Built with Next.js · Base-ready · Bankr/x402 integration layer
-                (x402-style access flow mocked in this MVP).
-              </p>
-            </div>
-          ) : null}
+            {tab === "integration" ? <BankrStatusPanel embedded /> : null}
+
+            {tab === "disclaimers" ? (
+              <div className="space-y-4 rounded-2xl border border-white/10 bg-black/30 p-4">
+                <DemoDisclaimers className="justify-start" />
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Session analytics and demo stacks are stored in localStorage on
+                  this device only.
+                </p>
+                <p className="text-xs leading-relaxed text-violet-200/70">
+                  Agent Battle uses a shared server timeline. Multiple viewers can
+                  watch the same AI hand. Skip animations is local only.
+                </p>
+                <p className="text-[10px] leading-relaxed text-white/40">
+                  Built with Next.js · Base-ready · Bankr/x402 integration layer
+                  (x402-style access flow mocked in this MVP).
+                </p>
+              </div>
+            ) : null}
+          </div>
         </div>
       </aside>
     </div>

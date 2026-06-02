@@ -157,9 +157,7 @@ export function ArenaActionBar({
       (agentBattleLocalFallback && agentBattleStackDepleted) ||
       (stepDemoActive && !stepDemoHandComplete);
   const showSkipAgentBattleReplay =
-    agentBattleReplayActive &&
-    !agentBattleSharedResultPause &&
-    onSkipAgentBattleReplay != null;
+    agentBattleReplayActive && onSkipAgentBattleReplay != null;
   const showStackDepletedUi = useHeadsUpUi
     ? stepDemoUi.state === "stack_depleted"
     : headsUpStackDepleted && !agentBattleSpectator && !humanTurnActive;

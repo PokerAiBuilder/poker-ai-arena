@@ -54,10 +54,13 @@ export function getOrCreateSharedHand(
       console.debug("[shared-agent-battle/cache] hit", {
         handId: cached.handId,
         expiresAt: cached.expiresAt,
+        msUntilNextHand: Math.max(0, cached.nextHandAt - nowMs),
       });
     }
     return { hand: cached, cacheStatus: "hit" };
   }
+
+  const previousHandId = store.getCurrent()?.handId ?? null;
 
   const startingStacks = createInitialAgentBattleStacks();
   const finalResult = simulateAgentBattle(startingStacks);
@@ -82,6 +85,7 @@ export function getOrCreateSharedHand(
 
   if (process.env.NODE_ENV === "development") {
     console.debug("[shared-agent-battle/cache] miss — generated hand", {
+      previousHandId,
       handId: hand.handId,
       expiresAt: hand.expiresAt,
       timelineSteps: hand.timeline.steps.length,

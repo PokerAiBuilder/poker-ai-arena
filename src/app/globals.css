@@ -134,6 +134,37 @@
     }
   }
 
+  .arena-menu-drawer {
+    @apply relative flex h-dvh max-h-dvh w-[calc(100vw-0.5rem)] max-w-full flex-col overflow-hidden;
+    @apply border-l border-casino-gold/20 bg-[#050508]/95 shadow-[-16px_0_48px_rgba(0,0,0,0.55)] backdrop-blur-xl;
+  }
+
+  @media (min-width: 640px) {
+    .arena-menu-drawer {
+      @apply w-full max-w-[min(28rem,calc(100vw-0.5rem))];
+    }
+  }
+
+  .arena-menu-tabs {
+    @apply scrollbar-hide flex snap-x snap-mandatory gap-1.5 overflow-x-auto overscroll-x-contain;
+    scroll-padding-inline: 0.75rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .arena-menu-tab {
+    @apply shrink-0 snap-start rounded-lg px-3.5 py-2.5 text-[11px] font-semibold uppercase tracking-wide transition-colors;
+    @apply sm:px-3 sm:py-2 sm:text-[10px];
+  }
+
+  .arena-menu-scroll {
+    @apply min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain;
+    @apply px-3 py-3 sm:px-4 sm:py-4;
+  }
+
+  .arena-menu-panel {
+    @apply min-w-0 max-w-full break-words;
+  }
+
   @media (max-width: 639px) {
     .arena-badge-strip {
       @apply justify-start;

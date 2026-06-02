@@ -104,11 +104,11 @@ export function TableStats({
   ];
 
   return (
-    <div className={cn("grid grid-cols-2 gap-2", className)}>
+    <div className={cn("grid min-w-0 max-w-full grid-cols-2 gap-2", className)}>
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="glass-panel rounded-xl border border-white/10 p-3 transition-colors hover:border-casino-gold/20"
+          className="glass-panel min-w-0 rounded-xl border border-white/10 p-3 transition-colors hover:border-casino-gold/20"
         >
           <div className="mb-2 flex items-center justify-between">
             <stat.icon className="h-4 w-4 text-casino-gold/70" />
@@ -122,10 +122,10 @@ export function TableStats({
               </span>
             )}
           </div>
-          <p className="truncate text-sm font-bold tabular-nums text-white sm:text-base">
+          <p className="break-words text-sm font-bold tabular-nums text-white sm:text-base">
             {stat.value}
           </p>
-          <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+          <p className="break-words text-[10px] text-muted-foreground">{stat.label}</p>
         </div>
       ))}
     </div>

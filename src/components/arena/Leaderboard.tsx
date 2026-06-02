@@ -8,6 +8,7 @@ type LeaderboardProps = {
   entries: LeaderboardEntry[];
   highlightId?: string;
   className?: string;
+  embedded?: boolean;
 };
 
 function formatWinRate(winRate: number, gamesPlayed: number): string {
@@ -53,15 +54,17 @@ export function Leaderboard({
   entries,
   highlightId,
   className,
+  embedded = false,
 }: LeaderboardProps) {
   return (
     <div
       className={cn(
-        "glass-panel overflow-hidden rounded-2xl border border-white/10 shadow-lg",
+        "glass-panel min-w-0 max-w-full overflow-hidden rounded-2xl border border-white/10 shadow-lg",
+        embedded && "shadow-none",
         className,
       )}
     >
-      <div className="border-b border-white/5 px-4 py-3">
+      <div className="border-b border-white/5 px-3 py-3 sm:px-4">
         <div className="flex items-center gap-2">
           <Crown className="h-4 w-4 text-casino-gold" />
           <h3 className="text-sm font-semibold text-casino-goldLight">Leaderboard</h3>
@@ -82,7 +85,7 @@ export function Leaderboard({
             <div
               key={entry.agentId}
               className={cn(
-                "flex items-center gap-2 px-4 py-3 transition-colors sm:gap-3",
+                "flex min-w-0 items-center gap-2 px-3 py-3 transition-colors sm:gap-3 sm:px-4",
                 highlighted && "bg-casino-gold/5",
                 entry.lastResult === "win" && "bg-emerald-500/[0.04]",
                 entry.lastResult === "loss" && "bg-red-500/[0.03]",
@@ -105,7 +108,7 @@ export function Leaderboard({
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <p className="truncate text-xs font-semibold text-white">
+                  <p className="break-words text-xs font-semibold text-white">
                     {entry.name}
                   </p>
                   {entry.strategy ? (
@@ -115,7 +118,7 @@ export function Leaderboard({
                   ) : null}
                   <LastResultBadge lastResult={entry.lastResult} />
                 </div>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="break-words text-[10px] text-muted-foreground">
                   {entry.gamesPlayed} games ·{" "}
                   {formatWinRate(entry.winRate, entry.gamesPlayed)} ·{" "}
                   {formatVolume(entry.volume)}

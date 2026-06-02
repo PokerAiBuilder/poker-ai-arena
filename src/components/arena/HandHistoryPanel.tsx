@@ -14,6 +14,7 @@ type HandHistoryPanelProps = {
   entries: HandHistoryRecord[];
   onClear: () => void;
   className?: string;
+  embedded?: boolean;
 };
 
 function modeBadgeClass(mode: HandHistoryRecord["mode"]): string {
@@ -26,9 +27,10 @@ export function HandHistoryPanel({
   entries,
   onClear,
   className,
+  embedded = false,
 }: HandHistoryPanelProps) {
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn("min-w-0 max-w-full space-y-3", className)}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <History className="h-4 w-4 text-casino-goldLight/80" />
@@ -58,11 +60,16 @@ export function HandHistoryPanel({
           </p>
         </div>
       ) : (
-        <ul className="max-h-[min(52vh,420px)] space-y-2 overflow-y-auto pr-1">
+        <ul
+          className={cn(
+            "space-y-2 overflow-y-auto pr-1",
+            embedded ? "max-h-none" : "max-h-[min(52vh,420px)]",
+          )}
+        >
           {entries.map((entry) => (
             <li
               key={entry.id}
-              className="rounded-xl border border-white/10 bg-black/30 px-3 py-2.5"
+              className="min-w-0 max-w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5"
             >
               <div className="flex flex-wrap items-center gap-1.5">
                 <span
@@ -82,10 +89,10 @@ export function HandHistoryPanel({
                   </span>
                 ) : null}
               </div>
-              <p className="mt-1.5 text-sm font-medium text-casino-goldLight">
+              <p className="mt-1.5 break-words text-sm font-medium text-casino-goldLight">
                 {formatHandHistoryWinnerPot(entry.winnerName, entry.potWon)}
               </p>
-              <p className="text-xs text-emerald-200/80">
+              <p className="break-words text-xs text-emerald-200/80">
                 {formatHandHistoryHandLine(entry)}
                 {entry.actionCount > 0 ? (
                   <span className="text-white/35">
@@ -96,7 +103,7 @@ export function HandHistoryPanel({
               </p>
               {entry.actionPreview ? (
                 <p
-                  className="mt-1 max-h-[2.4rem] overflow-hidden text-[10px] leading-snug text-white/40 line-clamp-2"
+                  className="mt-1 break-words text-[10px] leading-snug text-white/40"
                   title={entry.actionPreview}
                 >
                   {entry.actionPreview}

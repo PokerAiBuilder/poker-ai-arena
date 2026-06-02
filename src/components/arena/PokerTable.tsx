@@ -609,11 +609,17 @@ function AgentBattleSeatRow({
   );
 }
 
-function AgentBattleSideSeat({ seat }: { seat: TableSeat }) {
+function AgentBattleSideSeat({
+  seat,
+  side,
+}: {
+  seat: TableSeat;
+  side?: "left" | "right";
+}) {
   const cardSize: CardSize = "sm";
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-1 max-sm:gap-1.5">
       <AgentBattleActiveHighlight seat={seat}>
         <AgentAvatar
           name={seat.name}
@@ -634,7 +640,13 @@ function AgentBattleSideSeat({ seat }: { seat: TableSeat }) {
           )}
         />
       </AgentBattleActiveHighlight>
-      <div className="flex scale-90 gap-0.5">
+      <div
+        className={cn(
+          "flex scale-90 gap-0.5 max-sm:mt-1 max-sm:translate-y-1",
+          side === "left" && "max-sm:-translate-x-1",
+          side === "right" && "max-sm:translate-x-1",
+        )}
+      >
         <SeatHoleCards seat={seat} cardSize={cardSize} softFold />
       </div>
     </div>
@@ -706,13 +718,13 @@ function RoomAgentBattleTableLayout({
       ) : null}
 
       {leftSeat ? (
-        <div className="absolute left-[0.5%] top-[36%] z-[8] -translate-y-1/2">
-          <AgentBattleSideSeat seat={leftSeat} />
+        <div className="absolute left-[0.5%] top-[36%] z-[8] -translate-y-1/2 max-sm:left-0 max-sm:top-[52%] max-sm:-translate-x-0.5">
+          <AgentBattleSideSeat seat={leftSeat} side="left" />
         </div>
       ) : null}
       {rightSeat ? (
-        <div className="absolute right-[0.5%] top-[36%] z-[8] -translate-y-1/2">
-          <AgentBattleSideSeat seat={rightSeat} />
+        <div className="absolute right-[0.5%] top-[36%] z-[8] -translate-y-1/2 max-sm:right-0 max-sm:top-[52%] max-sm:translate-x-0.5">
+          <AgentBattleSideSeat seat={rightSeat} side="right" />
         </div>
       ) : null}
     </>

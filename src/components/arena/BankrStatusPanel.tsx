@@ -16,9 +16,10 @@ type BankrStatusData = {
 
 type BankrStatusPanelProps = {
   className?: string;
+  embedded?: boolean;
 };
 
-export function BankrStatusPanel({ className }: BankrStatusPanelProps) {
+export function BankrStatusPanel({ className, embedded = false }: BankrStatusPanelProps) {
   const [status, setStatus] = useState<BankrStatusData | null>(null);
 
   useEffect(() => {
@@ -37,42 +38,45 @@ export function BankrStatusPanel({ className }: BankrStatusPanelProps) {
   return (
     <div
       className={cn(
-        "glass-panel overflow-hidden rounded-2xl border border-white/10 shadow-lg",
+        "glass-panel min-w-0 max-w-full overflow-hidden rounded-2xl border border-white/10 shadow-lg",
+        embedded && "shadow-none",
         className,
       )}
     >
-      <div className="border-b border-white/5 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Bot className="h-4 w-4 text-violet-400" />
+      <div className="border-b border-white/5 px-3 py-3 sm:px-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Bot className="h-4 w-4 shrink-0 text-violet-400" />
             <h3 className="text-sm font-semibold text-casino-goldLight">Bankr</h3>
           </div>
-          <Badge variant="secondary">Integration layer ready</Badge>
+          <Badge variant="secondary" className="max-w-full shrink text-[10px]">
+            Integration layer ready
+          </Badge>
         </div>
       </div>
 
-      <div className="space-y-3 p-4 text-xs">
-        <p className="leading-relaxed text-muted-foreground">
+      <div className="min-w-0 space-y-3 p-3 text-xs sm:p-4">
+        <p className="break-words leading-relaxed text-muted-foreground">
           Optional Web3 integration layer for future arena payments and agent
           skills. The poker demo runs fully without it.
         </p>
 
-        <dl className="space-y-2">
+        <dl className="min-w-0 space-y-2">
           <div className="flex justify-between gap-2">
-            <dt className="text-muted-foreground">Status</dt>
-            <dd className={isDemo ? "text-amber-400" : "text-emerald-400"}>
+            <dt className="shrink-0 text-muted-foreground">Status</dt>
+            <dd className={cn("break-words text-right", isDemo ? "text-amber-400" : "text-emerald-400")}>
               {isDemo ? "Demo" : "Configured"}
             </dd>
           </div>
           <div className="flex justify-between gap-2">
-            <dt className="text-muted-foreground">Agent ID</dt>
-            <dd className="font-mono text-white/80">
+            <dt className="shrink-0 text-muted-foreground">Agent ID</dt>
+            <dd className="break-all text-right font-mono text-white/80">
               {status?.agentId ?? "not configured"}
             </dd>
           </div>
           <div className="flex justify-between gap-2">
-            <dt className="text-muted-foreground">Skills URL</dt>
-            <dd className="text-white/80">
+            <dt className="shrink-0 text-muted-foreground">Skills URL</dt>
+            <dd className="break-words text-right text-white/80">
               {status?.skillsUrl === "configured" ? "configured" : "missing"}
             </dd>
           </div>

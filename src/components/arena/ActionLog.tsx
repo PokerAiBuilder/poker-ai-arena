@@ -16,6 +16,8 @@ type ActionLogProps = {
   entries: GameAction[];
   /** Uppercase street labels + violet accents for Agent Battle spectator logs */
   agentBattleMode?: boolean;
+  /** Drawer layout — parent scrolls instead of nested max-height panel */
+  embedded?: boolean;
   className?: string;
 };
 
@@ -77,7 +79,7 @@ function ShowdownResultRow({
           Pot won: {entry.potWon.toLocaleString()} chips
         </p>
       ) : null}
-      <p className="mt-1 text-[11px] leading-snug text-white/45">{entry.displayText}</p>
+      <p className="mt-1 text-[11px] leading-snug break-words text-white/45">{entry.displayText}</p>
     </div>
   );
 }
@@ -117,7 +119,7 @@ function ActionLogRow({
         </div>
         <p
           className={cn(
-            "mt-0.5 text-xs leading-snug",
+            "mt-0.5 text-xs leading-snug break-words",
             entry.isError ? "text-red-300" : "text-muted-foreground",
           )}
         >
@@ -144,7 +146,12 @@ function ActionLogRow({
   );
 }
 
-export function ActionLog({ entries, agentBattleMode = false, className }: ActionLogProps) {
+export function ActionLog({
+  entries,
+  agentBattleMode = false,
+  embedded = false,
+  className,
+}: ActionLogProps) {
   const [streetFilter, setStreetFilter] = useState<StreetFilter>("ALL");
 
   const normalized = useMemo(() => normalizeActionLogEntries(entries), [entries]);
@@ -156,11 +163,12 @@ export function ActionLog({ entries, agentBattleMode = false, className }: Actio
   return (
     <div
       className={cn(
-        "glass-panel flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 shadow-lg",
+        "glass-panel flex min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-2xl border border-white/10 shadow-lg",
+        embedded && "shadow-none",
         className,
       )}
     >
-      <div className="shrink-0 border-b border-white/5 px-4 py-3">
+      <div className="shrink-0 border-b border-white/5 px-3 py-3 sm:px-4">
         <h3 className="text-sm font-semibold text-casino-goldLight">Action Log</h3>
         <p className="text-[10px] text-muted-foreground">
           {agentBattleMode ? "Hand replay — Agent Battle" : "Hand replay — street by street"}
@@ -168,14 +176,14 @@ export function ActionLog({ entries, agentBattleMode = false, className }: Actio
       </div>
 
       <div className="shrink-0 border-b border-white/5 px-3 py-2">
-        <div className="scrollbar-hide flex flex-wrap gap-1">
+        <div className="scrollbar-hide flex gap-1 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-x-visible">
           {STREET_FILTER_OPTIONS.map(({ id, label }) => (
             <button
               key={id}
               type="button"
               onClick={() => setStreetFilter(id)}
               className={cn(
-                "shrink-0 rounded-md px-2 py-1 text-[9px] font-semibold uppercase tracking-wide transition-colors",
+                "shrink-0 rounded-md px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-wide transition-colors sm:px-2 sm:py-1",
                 streetFilter === id
                   ? agentBattleMode
                     ? "bg-violet-700/50 text-violet-100 ring-1 ring-violet-400/40"
@@ -189,7 +197,12 @@ export function ActionLog({ entries, agentBattleMode = false, className }: Actio
         </div>
       </div>
 
-      <div className="min-h-0 max-h-[min(52vh,320px)] flex-1 overflow-y-auto p-2">
+      <div
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto p-2",
+          embedded ? "max-h-none" : "max-h-[min(52vh,320px)]",
+        )}
+      >
         {entries.length === 0 ? (
           <p className="py-6 text-center text-xs text-muted-foreground">
             No activity yet. Unlock the arena and run a simulation.
