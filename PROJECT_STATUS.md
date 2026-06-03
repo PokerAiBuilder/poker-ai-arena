@@ -1,6 +1,22 @@
 # Project status
 
-Last updated for **v0.9.4** — production demo QA/readiness pass.
+Last updated for **v1.0.0-a** — premium Base-style visual foundation.
+
+---
+
+## v1.0.0-a completed (visual foundation)
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Arena v1 CSS tokens | v1.0.0-a | `--arena-*` variables: black/navy surfaces, electric blue, cyan glow, muted text |
+| Reusable v1 utilities | v1.0.0-a | `v1-panel`, `v1-card`, `v1-button-*`, `v1-badge`, `v1-glow-border`, `v1-gradient-bg`, etc. |
+| Global atmosphere | v1.0.0-a | Body background shifted toward deep navy + Base blue (legacy shadcn/casino tokens retained) |
+| Brand mark component | v1.0.0-a | `BrandMark` SVG/CSS chip + spade + neural accent — no embedded text; no `public/` logo asset yet |
+| Landing header mark | v1.0.0-a | Site header uses `BrandMark` + text label (minimal safe adoption) |
+
+**Unchanged:** Gameplay logic, Human vs AI timers/auto-flow, Agent Battle simulation/timeline/shared lifecycle/API, payment/demo behavior.
+
+**Next:** v1.0.0-b landing redesign, v1.0.0-c arena redesign (apply v1 utilities broadly).
 
 ---
 

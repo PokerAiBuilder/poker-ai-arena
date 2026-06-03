@@ -13,6 +13,21 @@ const config: Config = {
           goldLight: "#f0d060",
           chip: "#c41e3a",
         },
+        arena: {
+          bg: "var(--arena-bg)",
+          surface: "var(--arena-surface)",
+          "surface-2": "var(--arena-surface-2)",
+          blue: "var(--arena-blue)",
+          "blue-bright": "var(--arena-blue-bright)",
+          cyan: "var(--arena-cyan)",
+          border: "var(--arena-border)",
+          glow: "var(--arena-glow)",
+          text: "var(--arena-text)",
+          muted: "var(--arena-muted)",
+          danger: "var(--arena-danger)",
+          success: "var(--arena-success)",
+          "gold-accent": "var(--arena-gold-accent)",
+        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
@@ -37,6 +52,8 @@ const config: Config = {
       boxShadow: {
         glow: "0 0 40px rgba(212, 175, 55, 0.25)",
         "glow-green": "0 0 60px rgba(13, 92, 54, 0.5)",
+        "arena-blue": "0 0 32px var(--arena-glow), 0 0 64px rgba(0, 82, 255, 0.12)",
+        "arena-cyan": "0 0 24px rgba(34, 211, 238, 0.35)",
       },
       animation: {
         "fade-in": "fade-in 0.6s ease-out both",

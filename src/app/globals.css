@@ -14,6 +14,21 @@
     --muted-foreground: 215 20% 65%;
     --border: 217 25% 18%;
     --radius: 0.75rem;
+
+    /* v1.0 — premium Base-style arena foundation (additive; legacy tokens unchanged) */
+    --arena-bg: #030508;
+    --arena-surface: #0a0f1a;
+    --arena-surface-2: #0f1628;
+    --arena-blue: #0052ff;
+    --arena-blue-bright: #3b82f6;
+    --arena-cyan: #22d3ee;
+    --arena-border: rgba(59, 130, 246, 0.22);
+    --arena-glow: rgba(0, 82, 255, 0.45);
+    --arena-text: #f0f4ff;
+    --arena-muted: #8b9bb8;
+    --arena-danger: #f43f5e;
+    --arena-success: #22c55e;
+    --arena-gold-accent: #c9a227;
   }
 
   * {
@@ -22,9 +37,12 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    background-color: var(--arena-bg);
     background-image:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(13, 92, 54, 0.25), transparent),
-      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(212, 175, 55, 0.08), transparent);
+      radial-gradient(ellipse 85% 55% at 50% -15%, rgba(0, 82, 255, 0.18), transparent 55%),
+      radial-gradient(ellipse 50% 40% at 100% 0%, rgba(34, 211, 238, 0.06), transparent 50%),
+      radial-gradient(ellipse 45% 35% at 0% 100%, rgba(15, 22, 40, 0.9), transparent 55%),
+      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(201, 162, 39, 0.04), transparent);
     min-height: 100vh;
   }
 }
@@ -32,6 +50,59 @@
 @layer utilities {
   .glass-panel {
     @apply border border-white/10 bg-white/5 backdrop-blur-xl;
+  }
+
+  /* v1.0 — reusable premium Base-style utilities (landing + arena rollout in v1.0.0-b/c) */
+  .v1-gradient-bg {
+    background-color: var(--arena-bg);
+    background-image:
+      radial-gradient(ellipse 90% 60% at 50% -20%, rgba(0, 82, 255, 0.2), transparent 58%),
+      radial-gradient(ellipse 55% 45% at 100% 0%, rgba(34, 211, 238, 0.08), transparent 52%),
+      linear-gradient(180deg, var(--arena-surface) 0%, var(--arena-bg) 100%);
+  }
+
+  .v1-section {
+    @apply relative px-4 py-16 sm:px-6 sm:py-20;
+  }
+
+  .v1-panel {
+    @apply rounded-2xl border border-[var(--arena-border)] bg-[var(--arena-surface)]/90 shadow-arena-blue backdrop-blur-xl;
+  }
+
+  .v1-card {
+    @apply rounded-xl border border-[var(--arena-border)] bg-[var(--arena-surface-2)]/80 p-4 shadow-sm backdrop-blur-md;
+  }
+
+  .v1-glow-border {
+    border: 1px solid var(--arena-border);
+    box-shadow:
+      0 0 0 1px rgba(59, 130, 246, 0.08),
+      0 0 24px rgba(0, 82, 255, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .v1-blue-glow {
+    box-shadow:
+      0 0 32px var(--arena-glow),
+      0 0 64px rgba(0, 82, 255, 0.14);
+  }
+
+  .v1-badge {
+    @apply inline-flex items-center rounded-full border border-[var(--arena-border)] bg-[var(--arena-surface-2)]/90 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--arena-cyan)];
+  }
+
+  .v1-button-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--arena-blue-bright)]/40 bg-gradient-to-b from-[var(--arena-blue-bright)] to-[var(--arena-blue)] px-4 py-2 text-sm font-semibold text-white shadow-arena-blue transition-all;
+    @apply hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .v1-button-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--arena-border)] bg-[var(--arena-surface-2)]/80 px-4 py-2 text-sm font-semibold text-[var(--arena-text)] backdrop-blur-sm transition-all;
+    @apply hover:border-[var(--arena-cyan)]/40 hover:bg-[var(--arena-surface-2)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .text-gradient-arena {
+    @apply bg-gradient-to-r from-[var(--arena-text)] via-[var(--arena-cyan)] to-[var(--arena-blue-bright)] bg-clip-text text-transparent;
   }
 
   .text-gradient-gold {
