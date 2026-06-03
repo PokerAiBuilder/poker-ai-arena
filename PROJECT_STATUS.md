@@ -1,6 +1,23 @@
 # Project status
 
-Last updated for **v1.0.0-a** — premium Base-style visual foundation.
+Last updated for **v1.0.0-b** — premium landing page redesign.
+
+---
+
+## v1.0.0-b completed (landing redesign)
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Premium hero | v1.0.0-b | BrandMark, dual-column layout, trust badges, Enter Arena + demo CTAs |
+| Hero arena preview | v1.0.0-b | CSS/SVG mock — blue table, agent nodes, timeline rail (no image assets) |
+| Feature sections | v1.0.0-b | v1 cards: HvAI, shared Agent Battle, explainable AI, logs, Web3 access |
+| Agent profile cards | v1.0.0-b | PokerMaster, BluffBot, RiverMind, ChipHunter with v1 neon styling |
+| Roadmap v1.x | v1.0.0-b | v1.0–v1.3 milestones; Bankr/x402 future-facing only |
+| Landing chrome | v1.0.0-b | Header, footer, PoweredBy — black/blue Base-style; mobile responsive |
+
+**Unchanged:** `/arena` gameplay, Human vs AI timers/auto-flow, Agent Battle simulation/timeline/shared lifecycle/API, payment/demo behavior.
+
+**Next:** v1.0.0-c arena visual redesign (apply v1 utilities in `/arena`).
 
 ---
 

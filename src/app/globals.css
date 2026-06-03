@@ -66,11 +66,13 @@
   }
 
   .v1-panel {
-    @apply rounded-2xl border border-[var(--arena-border)] bg-[var(--arena-surface)]/90 shadow-arena-blue backdrop-blur-xl;
+    @apply rounded-2xl border border-[var(--arena-border)] shadow-arena-blue backdrop-blur-xl;
+    background-color: rgb(10 15 26 / 0.92);
   }
 
   .v1-card {
-    @apply rounded-xl border border-[var(--arena-border)] bg-[var(--arena-surface-2)]/80 p-4 shadow-sm backdrop-blur-md;
+    @apply rounded-xl border border-[var(--arena-border)] p-4 shadow-sm backdrop-blur-md;
+    background-color: rgb(15 22 40 / 0.85);
   }
 
   .v1-glow-border {
@@ -88,17 +90,30 @@
   }
 
   .v1-badge {
-    @apply inline-flex items-center rounded-full border border-[var(--arena-border)] bg-[var(--arena-surface-2)]/90 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--arena-cyan)];
+    @apply inline-flex items-center rounded-full border border-[var(--arena-border)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--arena-cyan)];
+    background-color: rgb(15 22 40 / 0.92);
   }
 
   .v1-button-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--arena-blue-bright)]/40 bg-gradient-to-b from-[var(--arena-blue-bright)] to-[var(--arena-blue)] px-4 py-2 text-sm font-semibold text-white shadow-arena-blue transition-all;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-arena-blue transition-all;
     @apply hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+    border: 1px solid rgb(59 130 246 / 0.4);
+    background-image: linear-gradient(
+      to bottom,
+      var(--arena-blue-bright),
+      var(--arena-blue)
+    );
   }
 
   .v1-button-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--arena-border)] bg-[var(--arena-surface-2)]/80 px-4 py-2 text-sm font-semibold text-[var(--arena-text)] backdrop-blur-sm transition-all;
-    @apply hover:border-[var(--arena-cyan)]/40 hover:bg-[var(--arena-surface-2)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--arena-border)] px-4 py-2 text-sm font-semibold text-[var(--arena-text)] backdrop-blur-sm transition-all;
+    @apply active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+    background-color: rgb(15 22 40 / 0.85);
+  }
+
+  .v1-button-secondary:hover {
+    border-color: rgb(34 211 238 / 0.4);
+    background-color: var(--arena-surface-2);
   }
 
   .text-gradient-arena {

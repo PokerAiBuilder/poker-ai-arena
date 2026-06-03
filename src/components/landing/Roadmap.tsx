@@ -1,77 +1,90 @@
 import { Map } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const milestones = [
   {
-    version: "v0.9",
-    label: "Production demo readiness",
+    version: "v1.0",
+    label: "Public demo polish",
     status: "current" as const,
     items: [
-      "Landing + docs aligned with live arena",
-      "Demo-safe messaging and public presenter flow",
+      "Premium Base-style landing and arena identity",
+      "Production QA checklist and demo-safe messaging",
+      "Shared spectator on demo infrastructure",
     ],
   },
   {
-    version: "v1.0",
-    label: "Public demo release",
+    version: "v1.1",
+    label: "x402 / Bankr access prototype",
     status: "next" as const,
     items: [
-      "Polished public demo for hackathons and Base showcases",
-      "Stable shared spectator experience on demo infrastructure",
+      "Real x402-style access prototype on testnet",
+      "Bankr/x402 layer wired for production access experiments",
+      "Still demo-first — no live mainnet settlement claims",
     ],
   },
   {
-    version: "Future",
-    label: "Beyond v1.0",
+    version: "v1.2",
+    label: "Real AI agent layer",
     status: "future" as const,
     items: [
-      "Persistent shared arena store (Redis / DB)",
-      "Richer AI strategy and decision quality",
-      "Replay sharing and enhanced leaderboard",
-      "Real x402 / Bankr production wiring when ready",
+      "LLM-powered agent decisions via Bankr skills",
+      "Richer reasoning and strategy profiles",
+    ],
+  },
+  {
+    version: "v1.3",
+    label: "Persistent shared arena",
+    status: "future" as const,
+    items: [
+      "Redis / DB backed shared hand store",
+      "Multi-instance sync and durable spectator state",
     ],
   },
 ] as const;
 
 const statusStyles = {
-  current: "border-emerald-400/40 bg-emerald-950/40 text-emerald-100",
-  next: "border-casino-gold/40 bg-casino-gold/10 text-casino-goldLight",
-  future: "border-white/15 bg-black/30 text-muted-foreground",
+  current:
+    "border-[var(--arena-cyan)]/50 bg-[var(--arena-blue)]/15 text-[var(--arena-cyan)]",
+  next: "border-[var(--arena-blue-bright)]/40 bg-[var(--arena-surface-2)] text-[var(--arena-text)]",
+  future: "border-[var(--arena-border)] bg-[var(--arena-bg)]/60 text-[var(--arena-muted)]",
 };
 
 export function Roadmap() {
   return (
-    <section id="roadmap" className="mx-auto max-w-5xl scroll-mt-24 px-4 pb-12 md:pb-16">
+    <section
+      id="roadmap"
+      className="v1-section mx-auto max-w-6xl scroll-mt-24 py-12 md:py-16"
+    >
       <div className="mb-8 text-center">
         <div className="mb-2 flex justify-center">
-          <Map className="h-5 w-5 text-casino-goldLight/80" />
+          <Map className="h-5 w-5 text-[var(--arena-cyan)]" />
         </div>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-casino-goldLight/80">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--arena-cyan)]">
           Roadmap
         </p>
-        <h2 className="mt-2 text-2xl font-bold text-white md:text-3xl">
-          From live demo to public release
+        <h2 className="mt-2 text-2xl font-bold text-[var(--arena-text)] md:text-3xl">
+          From public demo to production arena
         </h2>
+        <p className="mx-auto mt-3 max-w-xl text-sm text-[var(--arena-muted)]">
+          Bankr/x402 layer prepared for future production access — not live payments
+          in the current demo.
+        </p>
       </div>
 
-      <div className="grid min-w-0 gap-4 md:grid-cols-3">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {milestones.map(({ version, label, status, items }) => (
           <article
             key={version}
             className={cn(
-              "glass-panel rounded-2xl border p-5",
-              status === "current" && "border-emerald-500/25",
-              status === "next" && "border-casino-gold/25",
+              "v1-card v1-glow-border flex min-w-0 flex-col p-5",
+              status === "current" && "ring-1 ring-[var(--arena-cyan)]/30",
             )}
           >
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <Badge variant="secondary" className={statusStyles[status]}>
-                {version}
-              </Badge>
-              <span className="text-sm font-semibold text-white">{label}</span>
+              <span className={cn("v1-badge border", statusStyles[status])}>{version}</span>
+              <span className="text-sm font-semibold text-[var(--arena-text)]">{label}</span>
             </div>
-            <ul className="space-y-2 text-sm leading-relaxed text-muted-foreground">
+            <ul className="space-y-2 text-sm leading-relaxed text-[var(--arena-muted)]">
               {items.map((item) => (
                 <li key={item} className="break-words">
                   {item}
