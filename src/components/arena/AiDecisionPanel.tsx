@@ -64,14 +64,14 @@ export function AiDecisionPanel({
     return (
       <div
         className={cn(
-          "glass-panel shrink-0 rounded-xl border border-cyan-500/25 shadow-[0_0_24px_rgba(34,211,238,0.08)]",
+          "glass-panel-arena shrink-0 rounded-xl border border-cyan-500/25 shadow-[0_0_24px_rgba(34,211,238,0.08)]",
           compact ? "p-2" : "p-4",
           className,
         )}
       >
         <div className="flex items-center gap-1.5">
           <Brain className="h-3.5 w-3.5 animate-pulse text-cyan-400" />
-          <h3 className="text-xs font-semibold text-casino-goldLight">AI Decision</h3>
+          <h3 className="text-xs font-semibold text-[var(--arena-cyan)]">AI Decision</h3>
         </div>
         <div className="mt-2 flex items-center gap-2">
           <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-300" />
@@ -107,14 +107,14 @@ export function AiDecisionPanel({
     return (
       <div
         className={cn(
-          "glass-panel shrink-0 rounded-xl border border-white/10 shadow-lg",
+          "glass-panel-arena shrink-0 rounded-xl border border-white/10 shadow-lg",
           compact ? "p-2" : "p-4",
           className,
         )}
       >
         <div className="flex items-center gap-1.5">
           <Brain className="h-3.5 w-3.5 text-cyan-400" />
-          <h3 className="text-xs font-semibold text-casino-goldLight">AI Decision</h3>
+          <h3 className="text-xs font-semibold text-[var(--arena-cyan)]">AI Decision</h3>
         </div>
         <p
           className={cn(
@@ -159,7 +159,7 @@ export function AiDecisionPanel({
   return (
     <div
       className={cn(
-        "glass-panel shrink-0 rounded-xl border border-cyan-500/20 shadow-[0_0_24px_rgba(34,211,238,0.06)]",
+        "glass-panel-arena shrink-0 rounded-xl border border-cyan-500/20 shadow-[0_0_24px_rgba(34,211,238,0.06)]",
         className,
       )}
     >
@@ -172,7 +172,7 @@ export function AiDecisionPanel({
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1.5">
             <Brain className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
-            <h3 className="truncate text-xs font-semibold text-casino-goldLight">
+            <h3 className="truncate text-xs font-semibold text-[var(--arena-cyan)]">
               AI Decision
             </h3>
           </div>
@@ -192,7 +192,7 @@ export function AiDecisionPanel({
           {styleLabel ? (
             <Badge
               variant="secondary"
-              className="border-violet-400/25 bg-violet-500/10 text-[8px] text-violet-200"
+              className="border-[var(--arena-border)] bg-[var(--arena-blue)]/15 text-[8px] text-[var(--arena-muted)]"
             >
               {styleLabel}
             </Badge>
@@ -204,7 +204,7 @@ export function AiDecisionPanel({
             {actionLabel}
           </span>
           {displayDecision.amount != null ? (
-            <span className="text-[11px] text-casino-goldLight">
+            <span className="text-[11px] text-[var(--arena-cyan)]">
               {displayDecision.action === "raise" || displayDecision.action === "all-in"
                 ? `+${displayDecision.amount} chips`
                 : `${displayDecision.amount} chips`}
@@ -213,7 +213,7 @@ export function AiDecisionPanel({
         </div>
 
         {humanCallAmount != null && humanCallAmount > 0 && !spectatorMode ? (
-          <p className="text-[10px] font-medium leading-none text-amber-300/90">
+          <p className="text-[10px] font-medium leading-none text-[var(--arena-cyan)]">
             Your call: {humanCallAmount} chips
           </p>
         ) : null}
@@ -225,7 +225,7 @@ export function AiDecisionPanel({
           </div>
           <div className="h-1 overflow-hidden rounded-full bg-white/10">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-casino-gold transition-all"
+              className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-[var(--arena-blue-bright)] transition-all"
               style={{ width: `${confidencePct}%` }}
             />
           </div>
@@ -271,7 +271,7 @@ export function AiDecisionPanel({
         </p>
 
         {spectatorMode && totalDecisions > 1 ? (
-          <p className="text-[9px] leading-snug text-violet-300/55">
+          <p className="text-[9px] leading-snug text-[var(--arena-muted)]">
             Full agent sequence in Action Log.
           </p>
         ) : null}

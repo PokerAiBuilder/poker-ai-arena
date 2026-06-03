@@ -1,6 +1,21 @@
 # Project status
 
-Last updated for **v1.0.0-b** — premium landing page redesign.
+Last updated for **v1.0.0-c** — premium Base-style arena redesign.
+
+---
+
+## v1.0.0-c completed (arena redesign)
+
+| Item | Version | Notes |
+| ---- | ------- | ----- |
+| Arena shell / atmosphere | v1.0.0-c | Navy/black gradient, electric blue radial glow, v1 topbar with BrandMark |
+| Poker table visuals | v1.0.0-c | Navy felt, blue rim/cyan glow — less green casino felt |
+| Sidebar panels | v1.0.0-c | EntryFee + AI Decision use v1-panel / glass-panel-arena |
+| Action bar | v1.0.0-c | Blue/cyan primary actions, timer pill, Agent Battle controls |
+| Status badges | v1.0.0-c | Shared Live Arena, mode, demo session — compact v1 pills |
+| Arena Menu drawer | v1.0.0-c | Navy drawer, cyan active tabs |
+
+**Unchanged:** Gameplay logic, Human vs AI timers/auto-flow, Agent Battle simulation/timeline/shared lifecycle/API, payment/demo behavior, mobile control layout (no duplicate buttons).
 
 ---
 

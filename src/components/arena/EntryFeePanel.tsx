@@ -66,27 +66,27 @@ export function EntryFeePanel({
   return (
     <div
       className={cn(
-        "glass-panel shrink-0 overflow-hidden rounded-2xl border shadow-lg",
+        "v1-panel v1-glow-border shrink-0 overflow-hidden rounded-2xl shadow-lg",
         isUnlocked
-          ? "border-emerald-500/30 shadow-[0_0_32px_rgba(16,185,129,0.1)]"
-          : "border-casino-gold/30 shadow-glow",
+          ? "border-[var(--arena-cyan)]/40 shadow-arena-cyan"
+          : "border-[var(--arena-border)] shadow-arena-blue",
         className,
       )}
     >
       <div
         className={cn(
           "border-b border-white/5 px-3 py-2",
-          isUnlocked ? "bg-emerald-500/5" : "bg-casino-gold/5",
+          isUnlocked ? "bg-[var(--arena-blue)]/10" : "bg-[var(--arena-surface-2)]/50",
         )}
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1.5">
             {isUnlocked ? (
-              <Unlock className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+              <Unlock className="h-3.5 w-3.5 shrink-0 text-[var(--arena-cyan)]" />
             ) : (
-              <Lock className="h-3.5 w-3.5 shrink-0 text-casino-gold" />
+              <Lock className="h-3.5 w-3.5 shrink-0 text-[var(--arena-blue-bright)]" />
             )}
-            <h3 className="truncate text-xs font-semibold text-casino-goldLight">
+            <h3 className="truncate text-xs font-semibold text-[var(--arena-text)]">
               {isUnlocked ? "Arena Unlocked" : "Demo Access"}
             </h3>
           </div>
@@ -125,7 +125,7 @@ export function EntryFeePanel({
               </p>
               <p
                 className={cn(
-                  "font-bold text-casino-goldLight",
+                  "font-bold text-[var(--arena-cyan)]",
                   compact ? "mt-0.5 text-base" : "mt-1 text-xl",
                 )}
               >
@@ -140,7 +140,7 @@ export function EntryFeePanel({
             <Button
               onClick={onPayMock}
               disabled={paying}
-              className="w-full shadow-glow"
+              className="v1-button-primary w-full"
               size={compact ? "default" : "lg"}
             >
               {paying ? (
@@ -189,7 +189,7 @@ export function EntryFeePanel({
               </div>
               <div className="flex justify-between gap-2 text-[11px]">
                 <dt className="shrink-0 text-muted-foreground">Mode</dt>
-                <dd className="min-w-0 truncate text-right text-casino-goldLight">
+                <dd className="min-w-0 truncate text-right text-[var(--arena-cyan)]">
                   {getPaymentModeUserLabel(paymentResult.mode)}
                 </dd>
               </div>

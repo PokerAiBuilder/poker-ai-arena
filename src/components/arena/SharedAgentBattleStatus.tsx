@@ -30,7 +30,7 @@ export function SharedAgentBattleStatus({
       <Badge
         variant="outline"
         className={cn(
-          "border-amber-400/40 bg-amber-950/30 text-[10px] font-semibold text-amber-100",
+          "shrink-0 border-[var(--arena-border)] bg-[var(--arena-surface-2)]/90 text-[10px] font-semibold text-[var(--arena-muted)]",
           className,
         )}
       >
@@ -51,20 +51,23 @@ export function SharedAgentBattleStatus({
     >
       <Badge
         variant="outline"
-        className="shrink-0 border-violet-400/50 bg-violet-950/40 text-[10px] font-semibold text-violet-100"
+        className="shrink-0 border-[var(--arena-cyan)]/45 bg-[var(--arena-blue)]/20 text-[10px] font-semibold text-[var(--arena-cyan)]"
       >
         <span className="hidden min-[1280px]:inline">Shared Live Arena</span>
         <span className="hidden max-sm:inline min-[1280px]:hidden">Shared Live</span>
         <span className="max-sm:inline sm:hidden">Shared</span>
       </Badge>
-      <Badge variant="secondary" className="text-[10px] font-medium">
+      <Badge
+        variant="secondary"
+        className="border-[var(--arena-border)] bg-[var(--arena-surface-2)]/90 text-[10px] font-medium text-[var(--arena-text)]"
+      >
         <span className="max-sm:hidden">{phaseLabel}</span>
         <span className="hidden max-sm:inline">{isPause ? "Result" : "Playing"}</span>
       </Badge>
       {isPause && secondsUntilNextHand != null ? (
         <Badge
           variant="outline"
-          className="border-casino-gold/40 bg-casino-gold/10 text-[10px] font-medium text-casino-goldLight"
+          className="shrink-0 border-[var(--arena-blue-bright)]/40 bg-[var(--arena-blue)]/15 text-[10px] font-medium text-[var(--arena-cyan)]"
         >
           <span className="hidden min-[1280px]:inline">Next hand in {secondsUntilNextHand}s</span>
           <span className="hidden max-sm:inline min-[1280px]:hidden">Next {secondsUntilNextHand}s</span>

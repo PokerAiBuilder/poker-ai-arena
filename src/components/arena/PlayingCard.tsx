@@ -79,7 +79,7 @@ export function PlayingCard({
     return (
       <div
         className={cn(
-          "relative z-[1] overflow-hidden rounded-lg border-2 border-casino-gold/30 shadow-lg",
+          "relative z-[1] overflow-hidden rounded-lg border-2 border-[var(--arena-cyan)]/35 shadow-lg",
           sizeClasses[size],
           animate && "animate-card-deal",
           dimmed && "opacity-45 saturate-50",
@@ -92,10 +92,10 @@ export function PlayingCard({
           className="absolute inset-1 rounded-md border border-white/10"
           style={{
             backgroundImage:
-              "repeating-linear-gradient(45deg, rgba(212,175,55,0.15) 0, rgba(212,175,55,0.15) 2px, transparent 2px, transparent 8px)",
+              "repeating-linear-gradient(45deg, rgba(34,211,238,0.12) 0, rgba(34,211,238,0.12) 2px, transparent 2px, transparent 8px)",
           }}
         />
-        <div className="absolute inset-0 flex items-center justify-center text-casino-gold/40">
+        <div className="absolute inset-0 flex items-center justify-center text-[var(--arena-cyan)]/40">
           <span className={cn(size === "xs" ? "text-sm" : "text-lg")}>{"\u2660"}</span>
         </div>
       </div>

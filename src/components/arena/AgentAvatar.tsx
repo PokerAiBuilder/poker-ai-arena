@@ -52,29 +52,41 @@ export function AgentAvatar({
   const isFolded = status === "folded";
   const isIdle = status === "idle";
 
+  const statusLabel = isFolded
+    ? "Folded"
+    : isWinner
+      ? "Winner"
+      : isActive
+        ? "Active"
+        : null;
+
   return (
     <div
       title={hoverTitle}
       className={cn(
-        "relative z-[2] flex flex-col items-center gap-1 rounded-xl border border-white/10 bg-black/50 px-2 py-1.5 backdrop-blur-md transition-all",
-        isActive && "border-cyan-400/50 shadow-[0_0_20px_rgba(34,211,238,0.2)]",
+        "arena-seat-panel relative z-[2] flex flex-col items-center gap-0.5 rounded-xl border-2 bg-black/50 px-1.5 py-1 backdrop-blur-md transition-[border-color,box-shadow,opacity]",
+        compact && "h-[5.5rem] w-[4.75rem] min-w-[4.75rem] max-h-[5.5rem]",
+        !compact && "w-[6rem] min-w-[6rem] min-h-[5.5rem]",
+        isActive &&
+          "border-cyan-400/55 shadow-[0_0_18px_rgba(34,211,238,0.22)]",
         isWinner &&
-          "border-casino-gold shadow-[0_0_36px_rgba(212,175,55,0.55)] ring-2 ring-casino-gold/60",
-        isFolded &&
-          (readableFold
-            ? "scale-[0.96] border-white/10 bg-black/45 opacity-90"
-            : "scale-[0.92] border-white/5 bg-black/30 opacity-60"),
-        isIdle && !isWinner && "opacity-75",
-        compact ? "min-w-[76px]" : "min-w-[96px]",
+          "border-[var(--arena-gold-accent)]/80 shadow-[0_0_24px_rgba(212,175,55,0.35)]",
+        !isActive &&
+          !isWinner &&
+          (isFolded
+            ? readableFold
+              ? "border-white/15 opacity-90"
+              : "border-white/10 opacity-65"
+            : "border-white/10"),
+        isIdle && !isWinner && !isFolded && "opacity-80",
         className,
       )}
     >
       <div
         className={cn(
-          "flex items-center justify-center rounded-full border-2 bg-gradient-to-br from-slate-800 to-slate-950 font-bold transition-shadow",
-          compact ? "h-9 w-9 text-sm" : "h-11 w-11 text-base",
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 bg-gradient-to-br from-slate-800 to-slate-950 text-sm font-bold",
           isWinner &&
-            "border-casino-gold text-casino-goldLight shadow-[0_0_28px_rgba(212,175,55,0.75)] ring-2 ring-amber-300/50",
+            "border-[var(--arena-gold-accent)] text-[var(--arena-gold-accent)] shadow-[0_0_16px_rgba(212,175,55,0.4)]",
           !isWinner && isActive && "border-cyan-400/60",
           !isWinner && !isActive && "border-white/20",
           isFolded && (readableFold ? "grayscale-[0.35]" : "grayscale"),
@@ -86,7 +98,7 @@ export function AgentAvatar({
       <div className="text-center">
         <p
           className={cn(
-            "font-semibold leading-tight text-white",
+            "max-w-full truncate font-semibold leading-tight text-white",
             compact ? "text-[9px]" : "text-[11px]",
             isFolded && (readableFold ? "text-white/90" : "text-white/50"),
           )}
@@ -94,17 +106,19 @@ export function AgentAvatar({
           {name}
         </p>
         {strategyLine && !isFolded ? (
-          <p className="text-[8px] uppercase tracking-wider text-casino-gold/70">
+          <p className="max-w-full truncate text-[8px] uppercase tracking-wider text-[var(--arena-muted)]">
             {strategyLine}
           </p>
-        ) : null}
+        ) : (
+          <span className="block h-[10px]" aria-hidden />
+        )}
       </div>
 
       {stackTextOnly ? (
         <p
           className={cn(
-            "text-[9px] font-semibold tabular-nums leading-none text-casino-goldLight",
-            isFolded && readableFold && "text-casino-goldLight/90",
+            "text-[9px] font-semibold tabular-nums leading-none text-[var(--arena-cyan)]",
+            isFolded && readableFold && "text-[var(--arena-cyan)]/75",
           )}
         >
           {stack.toLocaleString()}
@@ -113,23 +127,23 @@ export function AgentAvatar({
         <ChipStack amount={stack} size="sm" />
       )}
 
-      {isFolded ? (
-        <span className="rounded border border-red-400/40 bg-red-950/60 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-red-300">
-          Folded
-        </span>
-      ) : null}
-
-      {isWinner ? (
-        <span className="rounded border border-casino-gold/50 bg-casino-gold/15 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-casino-goldLight">
-          Winner
-        </span>
-      ) : null}
-
-      {isActive && !isWinner ? (
-        <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-cyan-300">
-          Active
-        </span>
-      ) : null}
+      <div className="flex min-h-[1.125rem] w-full items-center justify-center">
+        {statusLabel === "Folded" ? (
+          <span className="rounded border border-red-400/40 bg-red-950/60 px-1 py-0.5 text-[7px] font-bold uppercase tracking-widest text-red-300">
+            Folded
+          </span>
+        ) : statusLabel === "Winner" ? (
+          <span className="rounded border border-[var(--arena-gold-accent)]/50 bg-[var(--arena-gold-accent)]/15 px-1 py-0.5 text-[7px] font-bold uppercase tracking-widest text-[var(--arena-gold-accent)]">
+            Winner
+          </span>
+        ) : statusLabel === "Active" ? (
+          <span className="rounded bg-cyan-500/15 px-1 py-0.5 text-[7px] font-semibold uppercase tracking-wider text-cyan-300">
+            Active
+          </span>
+        ) : (
+          <span className="h-[1.125rem]" aria-hidden />
+        )}
+      </div>
     </div>
   );
 }

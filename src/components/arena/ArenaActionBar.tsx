@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Loader2, Play, RotateCcw, Swords } from "lucide-react";
+import { ChevronRight, Loader2, Play, RotateCcw, Swords, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type {
   StepDemoGameplayGuidance,
@@ -9,6 +9,7 @@ import type {
 } from "@/lib/arena/stepDemo";
 import type { StepDemoUiControls } from "@/lib/arena/stepDemoUiState";
 import { stepDemoUiBannerPhase } from "@/lib/arena/stepDemoUiState";
+import { pokerActionButtonClass } from "@/lib/arena/pokerActionButtonStyles";
 import { cn } from "@/lib/utils";
 
 type ArenaActionBarProps = {
@@ -68,7 +69,7 @@ const bannerStyles: Record<
   string
 > = {
   "start-hand":
-    "border-casino-gold/40 bg-casino-gold/10 text-casino-goldLight",
+    "border-[var(--arena-border)] bg-[var(--arena-blue)]/15 text-[var(--arena-cyan)]",
   "your-turn":
     "border-emerald-400/50 bg-emerald-950/80 text-emerald-300 shadow-[0_0_16px_rgba(16,185,129,0.25)] animate-pulse",
   waiting:
@@ -76,7 +77,7 @@ const bannerStyles: Record<
   "advance-street":
     "border-emerald-400/50 bg-emerald-950/70 text-emerald-200 shadow-[0_0_16px_rgba(16,185,129,0.2)]",
   "hand-complete":
-    "border-casino-gold/50 bg-casino-gold/15 text-casino-goldLight",
+    "border-[var(--arena-cyan)]/45 bg-[var(--arena-blue)]/20 text-[var(--arena-cyan)]",
   "all-in":
     "border-red-400/45 bg-red-950/65 text-red-200 shadow-[0_0_14px_rgba(239,68,68,0.18)]",
 };
@@ -253,7 +254,7 @@ export function ArenaActionBar({
         };
 
   const spectatorBannerClass =
-    "border-violet-400/45 bg-violet-950/70 text-violet-100 shadow-[0_0_12px_rgba(139,92,246,0.15)]";
+    "border-[var(--arena-cyan)]/45 bg-[var(--arena-blue)]/20 text-[var(--arena-cyan)] shadow-arena-blue";
 
   const showGuidanceBanner =
     guidance && (!humanTurnActive || guidance.phase !== "your-turn");
@@ -285,6 +286,22 @@ export function ArenaActionBar({
     ? stepDemoUi.resetStacksEnabled
     : showStackDepletedUi;
 
+  const showHvaiPlayButton =
+    Boolean(onPlayStepDemo) &&
+    !agentBattleSpectator &&
+    (useHeadsUpUi
+      ? stepDemoUi.state === "ready_to_start"
+      : !stepDemoActive);
+
+  const showHvaiModePill =
+    !agentBattleSpectator &&
+    (useHeadsUpUi
+      ? stepDemoActive &&
+        stepDemoUi.state !== "ready_to_start" &&
+        stepDemoUi.state !== "hand_complete" &&
+        stepDemoUi.state !== "stack_depleted"
+      : stepDemoActive && !stepDemoHandComplete);
+
   const controlsDisabled = disabled || loading || stepDemoActive || agentBattleReplayActive;
 
   function handleNextStep() {
@@ -312,6 +329,52 @@ export function ArenaActionBar({
 
   const mobileTap = "max-sm:arena-action-btn-tap";
 
+  const renderHvaiModeControl = (compact = false) => {
+    if (agentBattleSpectator) return null;
+    if (showHvaiPlayButton && onPlayStepDemo) {
+      return (
+        <Button
+          onClick={onPlayStepDemo}
+          disabled={playStepDemoDisabled}
+          size={compact ? "default" : "lg"}
+          variant="default"
+          className={cn(
+            "arena-action-btn shadow-arena-blue",
+            compact && mobileTap,
+            compact
+              ? "min-w-0 flex-1 border border-emerald-400/50 bg-emerald-600 text-white"
+              : "min-w-[9.5rem] border border-emerald-400/50 bg-emerald-600 text-white hover:bg-emerald-500 xl:min-w-[200px]",
+            !compact &&
+              !disabled &&
+              guidance?.phase === "start-hand" &&
+              "ring-2 ring-[var(--arena-cyan)]/30",
+          )}
+        >
+          <Play className="h-4 w-4 shrink-0" />
+          <span className="truncate">
+            {compact ? "Play vs PM" : "Play vs PokerMaster"}
+          </span>
+        </Button>
+      );
+    }
+    if (showHvaiModePill) {
+      return (
+        <span
+          className={cn(
+            "arena-action-mode-pill",
+            compact && "min-w-[4.5rem] flex-1 justify-center max-sm:min-w-0",
+            !compact && "min-w-[7.5rem] xl:min-w-[8.5rem]",
+          )}
+          title="Human vs AI hand in progress"
+        >
+          <Users className="h-3.5 w-3.5 shrink-0 opacity-90" />
+          <span className="truncate">Human vs AI</span>
+        </span>
+      );
+    }
+    return null;
+  };
+
   const renderRaiseOptionButtons = (options?: StepDemoHumanActions["raiseOptions"]) => {
     if (!options?.length) return null;
     return options.map((option) => (
@@ -323,9 +386,11 @@ export function ArenaActionBar({
           "arena-action-btn",
           mobileTap,
           option.size === 10 ? "min-w-[4.25rem] xl:min-w-[5.5rem]" : "min-w-[2.75rem] px-2",
-          humanTurnActive &&
-            option.enabled &&
-            "border-casino-gold/40 bg-casino-gold/15 text-casino-goldLight hover:bg-casino-gold/25",
+          pokerActionButtonClass(
+            !!option.enabled,
+            humanTurnActive,
+            "call",
+          ),
         )}
         disabled={!humanTurnActive || !humanActions?.canRaise || !option.enabled}
         title={
@@ -349,7 +414,7 @@ export function ArenaActionBar({
         className={cn(
           "arena-action-btn",
           mobileTap,
-          "min-w-[3.75rem] shrink-0 border-casino-gold/30 text-casino-goldLight",
+          "min-w-[3.75rem] shrink-0 border-[var(--arena-border)] text-[var(--arena-cyan)]",
         )}
         onClick={onOpenMenu}
       >
@@ -368,12 +433,12 @@ export function ArenaActionBar({
         mobileTap,
         "min-w-0 flex-1",
         compact
-          ? "border-violet-400/35 text-violet-100 hover:bg-violet-950/40"
+          ? "border-[var(--arena-cyan)]/35 text-[var(--arena-text)] hover:bg-[var(--arena-blue)]/30"
           : cn(
-              "border-2 border-violet-400/50 text-white shadow-glow hover:bg-violet-600",
+              "border-2 border-[var(--arena-cyan)]/50 text-white shadow-arena-blue hover:brightness-110",
               agentBattleReplayActive
-                ? "border-violet-400/25 bg-violet-900/40 opacity-70"
-                : "bg-violet-700",
+                ? "border-[var(--arena-border)] bg-[var(--arena-surface-2)]/90 opacity-70"
+                : "bg-[var(--arena-blue)]",
             ),
       )}
       title={
@@ -411,22 +476,20 @@ export function ArenaActionBar({
   return (
     <div
       className={cn(
-        "shrink-0 border-t bg-[#050508]/95 backdrop-blur-xl",
-        "shadow-[0_-8px_32px_rgba(0,0,0,0.45)]",
-        agentBattleSpectator
-          ? "border-violet-500/25"
-          : "border-emerald-500/20",
+        "shrink-0 border-t border-[var(--arena-border)] bg-[var(--arena-surface)]/95 backdrop-blur-xl",
+        "shadow-[0_-8px_32px_rgba(0,82,255,0.08)]",
+        agentBattleSpectator && "border-[var(--arena-cyan)]/20",
         className,
       )}
     >
       <div
         className={cn(
           "arena-action-shell",
-          compactSharedSpectatorBar ? "py-1.5" : "py-2 sm:py-2.5",
+          compactSharedSpectatorBar ? "py-1" : "py-1.5 sm:py-2",
         )}
       >
         {humanTurnActive ? (
-          <div className="mb-2 flex justify-center">
+          <div className="mb-1.5 flex justify-center">
             <span
               className={cn(
                 "rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]",
@@ -492,7 +555,7 @@ export function ArenaActionBar({
                       className={cn(
                         "arena-action-btn",
                         mobileTap,
-                        "min-w-0 flex-1 border-2 border-violet-400/50 bg-violet-700 text-white",
+                        "min-w-0 flex-1 border-2 border-[var(--arena-cyan)]/50 bg-[var(--arena-blue)] text-white",
                       )}
                       onClick={onResetAgentBattleStacks}
                     >
@@ -509,7 +572,7 @@ export function ArenaActionBar({
                       className={cn(
                         "arena-action-btn",
                         mobileTap,
-                        "min-w-0 shrink-0 border-2 border-violet-300/70 bg-violet-600 px-2.5 text-white",
+                        "min-w-0 shrink-0 border-2 border-[var(--arena-cyan)]/40 bg-[var(--arena-blue-bright)] px-2.5 text-white",
                       )}
                       title="Skip local animations — shows final result on this device only"
                       onClick={onSkipAgentBattleReplay}
@@ -544,8 +607,8 @@ export function ArenaActionBar({
                     type="button"
                     size="lg"
                     className={cn(
-                      "h-11 min-w-[240px] border-2 border-violet-400/50 bg-violet-700 font-semibold text-white",
-                      "shadow-glow hover:bg-violet-600",
+                      "h-11 min-w-[240px] border-2 border-[var(--arena-cyan)]/50 bg-[var(--arena-blue)] font-semibold text-white",
+                      "shadow-arena-blue hover:brightness-110",
                     )}
                     onClick={onResetAgentBattleStacks}
                   >
@@ -559,13 +622,13 @@ export function ArenaActionBar({
                       disabled={agentBattleDisabled}
                       size={compactSharedSpectatorBar ? "default" : "lg"}
                       className={cn(
-                        "arena-action-btn border-2 border-violet-400/50 text-white",
+                        "arena-action-btn border-2 border-[var(--arena-cyan)]/50 text-white",
                         compactSharedSpectatorBar
                           ? "min-w-[10rem]"
                           : "min-w-[11rem] xl:min-w-[220px]",
                         agentBattleReplayActive
-                          ? "cursor-not-allowed border-violet-400/25 bg-violet-900/40 opacity-70"
-                          : "bg-violet-700 shadow-glow hover:bg-violet-600",
+                          ? "cursor-not-allowed border-[var(--arena-border)] bg-[var(--arena-surface-2)]/90 opacity-70"
+                          : "bg-[var(--arena-blue)] shadow-arena-blue hover:brightness-110",
                       )}
                       title={
                         agentBattleReplayActive
@@ -601,8 +664,8 @@ export function ArenaActionBar({
                         type="button"
                         size="lg"
                         className={cn(
-                          "arena-action-btn min-w-[7.5rem] border-2 border-violet-300/70 bg-violet-600 text-white xl:min-w-[160px]",
-                          "shadow-[0_0_16px_rgba(139,92,246,0.35)] hover:bg-violet-500",
+                          "arena-action-btn min-w-[7.5rem] border-2 border-[var(--arena-cyan)]/40 bg-[var(--arena-blue-bright)] text-white xl:min-w-[160px]",
+                          "shadow-arena-blue hover:brightness-110",
                         )}
                         title="Skip local animations — shows final result on this device only"
                         onClick={onSkipAgentBattleReplay}
@@ -617,7 +680,7 @@ export function ArenaActionBar({
                     type="button"
                     size="lg"
                     variant="outline"
-                    className="h-11 min-w-[11rem] border-casino-gold/40 text-casino-goldLight hover:bg-casino-gold/15"
+                    className="h-11 min-w-[11rem] border-[var(--arena-cyan)]/40 text-[var(--arena-cyan)] hover:bg-[var(--arena-blue)]/15"
                     onClick={onResetDemoStacks}
                   >
                     <RotateCcw className="mr-1.5 h-4 w-4" />
@@ -629,7 +692,7 @@ export function ArenaActionBar({
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-9 border-casino-gold/30 text-xs lg:hidden"
+                    className="h-9 border-[var(--arena-border)] text-[var(--arena-cyan)] text-xs lg:hidden"
                     onClick={onOpenMenu}
                   >
                     Menu
@@ -641,28 +704,7 @@ export function ArenaActionBar({
             <>
               <div className="arena-controls-mobile">
                 <div className="arena-action-mobile-mode">
-                  {onPlayStepDemo ? (
-                    <Button
-                      onClick={onPlayStepDemo}
-                      disabled={playStepDemoDisabled}
-                      size="default"
-                      variant={stepDemoActive ? "outline" : "default"}
-                      className={cn(
-                        "arena-action-btn",
-                        mobileTap,
-                        "shrink-0",
-                        stepDemoActive
-                          ? "min-w-[4.25rem] border-emerald-400/35 px-2 text-emerald-100"
-                          : "min-w-0 flex-1 border border-emerald-400/50 bg-emerald-600 text-white shadow-glow",
-                        stepDemoActive && "ring-1 ring-emerald-400/30",
-                      )}
-                    >
-                      <Play className="h-4 w-4 shrink-0" />
-                      <span className="truncate">
-                        {stepDemoActive ? "Play" : "Play vs PM"}
-                      </span>
-                    </Button>
-                  ) : null}
+                  {renderHvaiModeControl(true)}
                   {renderMobileAgentBattleButton(true)}
                   {renderMobileMenuButton()}
                 </div>
@@ -692,7 +734,7 @@ export function ArenaActionBar({
                         className={cn(
                           "arena-action-flow-btn arena-action-btn",
                           mobileTap,
-                          "min-w-0 flex-1 border-2 border-casino-gold bg-casino-gold/25 font-bold text-casino-goldLight",
+                          "min-w-0 flex-1 border-2 border-[var(--arena-cyan)]/50 bg-[var(--arena-blue)]/25 font-bold text-[var(--arena-cyan)]",
                         )}
                         onClick={onStepDemoReset}
                       >
@@ -707,7 +749,7 @@ export function ArenaActionBar({
                         className={cn(
                           "arena-action-flow-btn arena-action-btn",
                           mobileTap,
-                          "min-w-0 flex-1 border-2 border-casino-gold bg-casino-gold/25 font-bold text-casino-goldLight",
+                          "min-w-0 flex-1 border-2 border-[var(--arena-cyan)]/50 bg-[var(--arena-blue)]/25 font-bold text-[var(--arena-cyan)]",
                         )}
                         onClick={onResetDemoStacks}
                       >
@@ -719,13 +761,17 @@ export function ArenaActionBar({
                 ) : null}
                 <div className="arena-action-mobile-poker-core">
                   <Button
-                    variant={humanTurnActive ? "default" : "secondary"}
+                    variant="outline"
                     size="lg"
                     className={cn(
                       "arena-action-btn",
                       mobileTap,
                       "min-w-[3.75rem] flex-1",
-                      humanTurnActive && humanActions?.canFold && "bg-red-900/80 hover:bg-red-800",
+                      pokerActionButtonClass(
+                        !!humanActions?.canFold,
+                        humanTurnActive,
+                        "fold",
+                      ),
                     )}
                     disabled={!humanTurnActive || !humanActions?.canFold}
                     title={humanActions?.disabledHint ?? actionHint ?? undefined}
@@ -734,9 +780,18 @@ export function ArenaActionBar({
                     Fold
                   </Button>
                   <Button
-                    variant="secondary"
+                    variant="outline"
                     size="lg"
-                    className={cn("arena-action-btn", mobileTap, "min-w-[3.75rem] flex-1")}
+                    className={cn(
+                      "arena-action-btn",
+                      mobileTap,
+                      "min-w-[3.75rem] flex-1",
+                      pokerActionButtonClass(
+                        !!humanActions?.canCheck,
+                        humanTurnActive,
+                        "call",
+                      ),
+                    )}
                     disabled={!humanTurnActive || !humanActions?.canCheck}
                     title={humanActions?.disabledHint ?? actionHint ?? undefined}
                     onClick={onHumanCheck}
@@ -744,9 +799,18 @@ export function ArenaActionBar({
                     Check
                   </Button>
                   <Button
-                    variant="secondary"
+                    variant="outline"
                     size="lg"
-                    className={cn("arena-action-btn", mobileTap, "min-w-[3.75rem] flex-1")}
+                    className={cn(
+                      "arena-action-btn",
+                      mobileTap,
+                      "min-w-[3.75rem] flex-1",
+                      pokerActionButtonClass(
+                        !!humanActions?.canCall,
+                        humanTurnActive,
+                        "call",
+                      ),
+                    )}
                     disabled={!humanTurnActive || !humanActions?.canCall}
                     title={humanActions?.disabledHint ?? actionHint ?? undefined}
                     onClick={onHumanCall}
@@ -757,25 +821,30 @@ export function ArenaActionBar({
                   </Button>
                   {!humanActions?.raiseOptions?.length ? (
                     <Button
-                      variant="secondary"
+                      variant="outline"
                       size="lg"
-                      className={cn("arena-action-btn", mobileTap, "min-w-[3.75rem] flex-1")}
+                      className={cn(
+                        "arena-action-btn arena-poker-btn--disabled",
+                        mobileTap,
+                        "min-w-[3.75rem] flex-1",
+                      )}
                       disabled
                     >
                       Raise
                     </Button>
                   ) : null}
                   <Button
-                    variant="destructive"
+                    variant="outline"
                     size="lg"
                     className={cn(
                       "arena-action-btn",
                       mobileTap,
                       "min-w-[3.75rem] flex-1",
-                      humanTurnActive &&
-                        humanActions?.canAllIn &&
-                        "border-red-400/50 bg-red-700 opacity-100 hover:bg-red-600",
-                      !humanActions?.canAllIn && "opacity-40",
+                      pokerActionButtonClass(
+                        !!humanActions?.canAllIn,
+                        humanTurnActive,
+                        "allin",
+                      ),
                     )}
                     disabled={!humanTurnActive || !humanActions?.canAllIn}
                     title={
@@ -798,26 +867,7 @@ export function ArenaActionBar({
               <div className="arena-controls-desktop-hvai">
               <div className="arena-action-hvai-cluster flex min-w-0 max-w-full flex-1 flex-col gap-2 lg:flex-row lg:flex-nowrap lg:items-center lg:gap-1.5 lg:overflow-x-auto">
                 <div className="arena-action-row arena-action-row-mode min-w-0 max-w-full">
-            {onPlayStepDemo ? (
-              <Button
-                onClick={onPlayStepDemo}
-                disabled={playStepDemoDisabled}
-                size="lg"
-                className={cn(
-                  "arena-action-btn min-w-[9.5rem] shadow-glow xl:min-w-[200px]",
-                  "border border-emerald-400/50 bg-emerald-600 text-white hover:bg-emerald-500",
-                  stepDemoActive && "ring-2 ring-emerald-400/40",
-                  !stepDemoActive &&
-                    !disabled &&
-                    !agentBattleSpectator &&
-                    guidance?.phase === "start-hand" &&
-                    "ring-2 ring-casino-gold/30",
-                )}
-              >
-                <Play className="h-4 w-4" />
-                Play vs PokerMaster
-              </Button>
-            ) : null}
+            {renderHvaiModeControl()}
 
             <div className="hidden flex-wrap items-center gap-1.5 sm:flex lg:hidden">
               <Button
@@ -825,7 +875,7 @@ export function ArenaActionBar({
                 disabled={agentBattleDisabled}
                 size="lg"
                 variant="outline"
-                className="arena-action-btn min-w-[9rem] border-violet-400/35 text-violet-100 hover:bg-violet-950/40"
+                className="arena-action-btn min-w-[9rem] border-[var(--arena-border)] text-[var(--arena-text)] hover:bg-[var(--arena-blue)]/20"
                 title={
                   agentBattleReplayActive
                     ? "Replay in progress — wait for the hand to finish."
@@ -856,8 +906,8 @@ export function ArenaActionBar({
                   type="button"
                   size="lg"
                   className={cn(
-                    "arena-action-btn min-w-[9rem] border-2 border-violet-300/70 bg-violet-600 text-white",
-                    "shadow-[0_0_16px_rgba(139,92,246,0.35)] hover:bg-violet-500",
+                    "arena-action-btn min-w-[9rem] border-2 border-[var(--arena-cyan)]/40 bg-[var(--arena-blue-bright)] text-white",
+                    "shadow-arena-blue hover:brightness-110",
                   )}
                   title="Skip local animations — shows final result on this device only"
                   onClick={onSkipAgentBattleReplay}
@@ -870,7 +920,7 @@ export function ArenaActionBar({
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="arena-action-btn h-9 border-casino-gold/30 text-xs"
+                  className="arena-action-btn h-9 border-[var(--arena-border)] text-[var(--arena-cyan)] text-xs"
                   onClick={onOpenMenu}
                 >
                   Menu
@@ -884,7 +934,7 @@ export function ArenaActionBar({
                 size="lg"
                 className={cn(
                   "arena-action-flow-btn arena-action-btn min-w-0 max-sm:min-w-[8.5rem] sm:min-w-[9.5rem] border-2 border-emerald-400/60 bg-emerald-600 font-bold text-white",
-                  "shadow-glow hover:bg-emerald-500",
+                  "shadow-arena-blue hover:bg-emerald-500",
                 )}
                 onClick={handleNextStep}
               >
@@ -898,8 +948,8 @@ export function ArenaActionBar({
                 type="button"
                 size="lg"
                 className={cn(
-                  "arena-action-flow-btn arena-action-btn min-w-0 max-sm:min-w-[7.5rem] sm:min-w-[9rem] border-2 border-casino-gold bg-casino-gold/25 font-bold text-casino-goldLight",
-                  "shadow-glow hover:bg-casino-gold/40",
+                  "arena-action-flow-btn arena-action-btn min-w-0 max-sm:min-w-[7.5rem] sm:min-w-[9rem] border-2 border-[var(--arena-cyan)]/50 bg-[var(--arena-blue)]/25 font-bold text-[var(--arena-cyan)]",
+                  "shadow-arena-blue hover:bg-[var(--arena-blue)]/40",
                 )}
                 onClick={onStepDemoReset}
               >
@@ -913,8 +963,8 @@ export function ArenaActionBar({
                 type="button"
                 size="lg"
                 className={cn(
-                  "arena-action-flow-btn arena-action-btn min-w-0 max-sm:min-w-[8.5rem] sm:min-w-[11rem] border-2 border-casino-gold bg-casino-gold/25 font-bold text-casino-goldLight",
-                  "shadow-glow hover:bg-casino-gold/40",
+                  "arena-action-flow-btn arena-action-btn min-w-0 max-sm:min-w-[8.5rem] sm:min-w-[11rem] border-2 border-[var(--arena-cyan)]/50 bg-[var(--arena-blue)]/25 font-bold text-[var(--arena-cyan)]",
+                  "shadow-arena-blue hover:bg-[var(--arena-blue)]/40",
                 )}
                 onClick={onResetDemoStacks}
               >
@@ -926,11 +976,15 @@ export function ArenaActionBar({
 
                 <div className="arena-action-row arena-action-row-poker min-w-0 max-w-full">
             <Button
-              variant={humanTurnActive ? "default" : "secondary"}
+              variant="outline"
               size="lg"
               className={cn(
                 "arena-action-btn min-w-[3.5rem] xl:min-w-[4.5rem]",
-                humanTurnActive && humanActions?.canFold && "bg-red-900/80 hover:bg-red-800",
+                pokerActionButtonClass(
+                  !!humanActions?.canFold,
+                  humanTurnActive,
+                  "fold",
+                ),
               )}
               disabled={!humanTurnActive || !humanActions?.canFold}
               title={humanActions?.disabledHint ?? actionHint ?? undefined}
@@ -939,9 +993,16 @@ export function ArenaActionBar({
               Fold
             </Button>
             <Button
-              variant="secondary"
+              variant="outline"
               size="lg"
-              className="arena-action-btn min-w-[3.5rem] xl:min-w-[4.5rem]"
+              className={cn(
+                "arena-action-btn min-w-[3.5rem] xl:min-w-[4.5rem]",
+                pokerActionButtonClass(
+                  !!humanActions?.canCheck,
+                  humanTurnActive,
+                  "call",
+                ),
+              )}
               disabled={!humanTurnActive || !humanActions?.canCheck}
               title={humanActions?.disabledHint ?? actionHint ?? undefined}
               onClick={onHumanCheck}
@@ -949,9 +1010,16 @@ export function ArenaActionBar({
               Check
             </Button>
             <Button
-              variant="secondary"
+              variant="outline"
               size="lg"
-              className="arena-action-btn min-w-[3.5rem] xl:min-w-[4.5rem]"
+              className={cn(
+                "arena-action-btn min-w-[3.5rem] xl:min-w-[4.5rem]",
+                pokerActionButtonClass(
+                  !!humanActions?.canCall,
+                  humanTurnActive,
+                  "call",
+                ),
+              )}
               disabled={!humanTurnActive || !humanActions?.canCall}
               title={humanActions?.disabledHint ?? actionHint ?? undefined}
               onClick={onHumanCall}
@@ -962,9 +1030,9 @@ export function ArenaActionBar({
             </Button>
             {showStackDepletedUi ? (
               <Button
-                variant="secondary"
+                variant="outline"
                 size="lg"
-                className="arena-action-btn min-w-[3.5rem] xl:min-w-[4.5rem]"
+                className="arena-action-btn arena-poker-btn--disabled min-w-[3.5rem] xl:min-w-[4.5rem]"
                 disabled
               >
                 Raise
@@ -973,23 +1041,24 @@ export function ArenaActionBar({
               renderRaiseOptionButtons(humanActions.raiseOptions)
             ) : (
               <Button
-                variant="secondary"
+                variant="outline"
                 size="lg"
-                className="arena-action-btn min-w-[3.5rem] xl:min-w-[4.5rem]"
+                className="arena-action-btn arena-poker-btn--disabled min-w-[3.5rem] xl:min-w-[4.5rem]"
                 disabled
               >
                 Raise
               </Button>
             )}
             <Button
-              variant="destructive"
+              variant="outline"
               size="lg"
               className={cn(
                 "arena-action-btn min-w-[3.5rem] xl:min-w-[4.5rem]",
-                humanTurnActive &&
-                  humanActions?.canAllIn &&
-                  "border-red-400/50 bg-red-700 opacity-100 hover:bg-red-600",
-                !humanActions?.canAllIn && "opacity-40",
+                pokerActionButtonClass(
+                  !!humanActions?.canAllIn,
+                  humanTurnActive,
+                  "allin",
+                ),
               )}
               disabled={!humanTurnActive || !humanActions?.canAllIn}
               title={
@@ -1015,7 +1084,7 @@ export function ArenaActionBar({
               disabled={agentBattleDisabled}
               size="lg"
               variant="outline"
-              className="arena-action-btn min-w-[160px] border-violet-400/35 text-sm font-semibold text-violet-100 hover:bg-violet-950/40"
+              className="arena-action-btn min-w-[160px] border-[var(--arena-border)] text-sm font-semibold text-[var(--arena-text)] hover:bg-[var(--arena-blue)]/20"
               title={
                 agentBattleReplayActive
                   ? "Replay in progress — wait for the hand to finish."
@@ -1046,8 +1115,8 @@ export function ArenaActionBar({
                 type="button"
                 size="lg"
                 className={cn(
-                  "arena-action-btn min-w-[160px] border-2 border-violet-300/70 bg-violet-600 text-sm font-semibold text-white",
-                  "shadow-[0_0_16px_rgba(139,92,246,0.35)] hover:bg-violet-500",
+                  "arena-action-btn min-w-[160px] border-2 border-[var(--arena-cyan)]/40 bg-[var(--arena-blue-bright)] text-sm font-semibold text-white",
+                  "shadow-arena-blue hover:brightness-110",
                 )}
                 title="Skip local animations — shows final result on this device only"
                 onClick={onSkipAgentBattleReplay}
@@ -1062,7 +1131,7 @@ export function ArenaActionBar({
         </div>
 
         {disabled && disabledReason ? (
-          <p className="mt-2 text-center text-xs font-medium text-amber-300/90">
+          <p className="mt-2 text-center text-xs font-medium text-[var(--arena-muted)]">
             {disabledReason}
           </p>
         ) : null}
@@ -1084,9 +1153,9 @@ export function ArenaActionBar({
               humanTurnActive
                 ? "text-emerald-300/90"
                 : agentBattleSpectator
-                  ? "text-violet-200/85"
+                  ? "text-[var(--arena-cyan)]/85"
                   : showStackDepletedUi
-                    ? "text-casino-goldLight/90"
+                    ? "text-[var(--arena-cyan)]/90"
                     : nextStepEnabled
                     ? "font-medium text-emerald-200/90"
                     : "text-muted-foreground",

@@ -126,8 +126,76 @@
 
   .arena-table-glow {
     box-shadow:
-      0 0 32px rgba(212, 175, 55, 0.45),
-      0 0 64px rgba(212, 175, 55, 0.15);
+      0 0 32px rgba(0, 82, 255, 0.35),
+      0 0 64px rgba(34, 211, 238, 0.12);
+  }
+
+  .arena-table-glow-blue {
+    box-shadow:
+      0 0 16px rgba(0, 82, 255, 0.22),
+      0 0 32px rgba(34, 211, 238, 0.1);
+  }
+
+  .arena-table-inner {
+    @apply relative mx-auto h-full w-full min-h-0 max-h-full min-w-0;
+    max-width: min(100%, 68rem);
+  }
+
+  .arena-poker-btn--disabled {
+    @apply border border-white/10 bg-slate-950/75 text-white/35 opacity-45 shadow-none;
+  }
+
+  .arena-poker-btn--fold-active {
+    border: 2px solid rgb(248 113 113 / 0.9);
+    background: linear-gradient(180deg, rgb(220 38 38), rgb(153 27 27));
+    color: white;
+    box-shadow: 0 0 18px rgba(239, 68, 68, 0.45);
+  }
+
+  .arena-poker-btn--fold-active:hover {
+    filter: brightness(1.08);
+  }
+
+  .arena-poker-btn--allin-active {
+    border: 2px solid rgb(251 146 60 / 0.85);
+    background: linear-gradient(180deg, rgb(234 88 12), rgb(185 28 28));
+    color: white;
+    box-shadow: 0 0 16px rgba(249, 115, 22, 0.4);
+  }
+
+  .arena-poker-btn--call-active {
+    border: 2px solid rgb(34 211 238 / 0.55);
+    background: rgb(0 82 255 / 0.22);
+    color: var(--arena-cyan);
+  }
+
+  .arena-poker-btn--call-active:hover {
+    background: rgb(0 82 255 / 0.32);
+  }
+
+  .arena-v1-atmosphere {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 85% 55% at 50% -8%, rgba(0, 82, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 45% 35% at 100% 100%, rgba(34, 211, 238, 0.05), transparent 50%);
+  }
+
+  .glass-panel-arena {
+    @apply rounded-xl border border-[var(--arena-border)] backdrop-blur-xl;
+    background-color: rgb(15 22 40 / 0.88);
+  }
+
+  .arena-action-primary-glow {
+    box-shadow: 0 0 24px rgba(0, 82, 255, 0.35);
+  }
+
+  .arena-menu-tab-active {
+    background-color: rgb(0 82 255 / 0.22);
+    color: var(--arena-cyan);
+    box-shadow: inset 0 0 0 1px rgb(34 211 238 / 0.25);
   }
 
   .scrollbar-hide {
@@ -156,24 +224,133 @@
     @apply flex h-full min-h-0 max-h-dvh flex-col overflow-x-hidden overflow-y-hidden;
   }
 
+  .arena-shell-v1 {
+    background-color: var(--arena-bg);
+    color: var(--arena-text);
+  }
+
   .arena-badge-strip {
     @apply mx-auto flex w-full min-w-0 max-w-[1400px] flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-hide;
   }
 
   .arena-main-grid {
-    @apply relative z-10 grid min-h-0 min-w-0 flex-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_clamp(11.25rem,18vw,15rem)];
+    @apply relative z-10 grid min-h-0 min-w-0 flex-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_clamp(10.5rem,15vw,13.5rem)];
+  }
+
+  @media (min-width: 640px) {
+    .arena-main-grid {
+      flex: 1 1 0%;
+      min-height: 0;
+    }
+  }
+
+  /* Shared felt inset — HvAI + Agent Battle use identical outer frame */
+  .arena-table-column {
+    @apply flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-1 pt-0.5 sm:px-2 lg:pr-1;
+    height: 100%;
   }
 
   .arena-table-stage {
-    @apply relative mx-auto flex min-h-0 w-full min-w-0 max-w-4xl flex-1 flex-col;
+    @apply relative mx-auto flex h-full min-h-0 w-full min-w-0 flex-1 flex-col;
+    max-width: min(100%, 72rem);
+  }
+
+  .arena-table-stage-inner {
+    @apply relative h-full min-h-0 w-full flex-1;
   }
 
   .arena-table-surface {
     @apply absolute inset-0 h-full w-full min-h-0 max-h-full;
   }
 
+  /* Mobile — absolute table surface needs a sized parent; flex-fill + min floor */
+  @media (max-width: 639px) {
+    .arena-badge-bar {
+      @apply py-1;
+    }
+
+    .arena-main-grid {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 0%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .arena-table-column {
+      flex: 1 1 0%;
+      width: 100%;
+      height: auto;
+      min-height: clamp(380px, calc(100dvh - 14rem), 520px);
+    }
+
+    .arena-table-stage {
+      flex: 1 1 0%;
+      height: 100%;
+      min-height: clamp(380px, calc(100dvh - 14rem), 520px);
+    }
+
+    .arena-table-stage-inner {
+      position: relative;
+      flex: 1 1 0%;
+      height: 100%;
+      min-height: 100%;
+    }
+  }
+
+  .arena-room-felt-zones {
+    @apply absolute inset-x-[4%] inset-y-[7%] z-10 flex flex-col items-stretch sm:inset-x-[5%] sm:inset-y-[8%];
+  }
+
+  .arena-room-agent-battle-zones {
+    @apply pointer-events-none;
+  }
+
+  .arena-room-agent-battle-zones > * {
+    pointer-events: auto;
+  }
+
+  /* Human vs AI — zone heights are set on elements; desktop tuning below */
+  @media (min-width: 1024px) {
+    .arena-room-hvai-zones .arena-zone-top {
+      min-height: 4.5rem;
+      max-height: 6.25rem;
+    }
+
+    .arena-room-hvai-zones .arena-zone-board {
+      max-height: 11rem;
+    }
+
+    .arena-room-hvai-zones .arena-zone-result {
+      min-height: 2.5rem;
+    }
+
+    .arena-room-hvai-zones .arena-zone-human-cards {
+      min-height: 4rem;
+      max-height: 5.25rem;
+    }
+
+    .arena-room-hvai-zones .arena-zone-avatar {
+      min-height: 4rem;
+    }
+
+    .arena-table-stage {
+      min-height: min(520px, calc(100dvh - 12.5rem));
+    }
+  }
+
+  .arena-seat-row {
+    @apply mx-auto flex w-[12rem] max-w-full flex-row items-center justify-center gap-1.5 sm:gap-2;
+  }
+
+  .arena-seat-panel-slot {
+    @apply flex w-[4.75rem] shrink-0 items-center justify-center;
+  }
+
   .arena-sidebar {
-    @apply hidden min-h-0 min-w-0 flex-col overflow-hidden border-l border-white/5 bg-black/20 p-1.5 lg:flex;
+    @apply hidden min-h-0 min-w-0 flex-col overflow-hidden border-l p-1.5 lg:flex;
+    border-color: var(--arena-border);
+    background-color: rgb(10 15 26 / 0.78);
   }
 
   .arena-action-shell {
@@ -221,8 +398,10 @@
   }
 
   .arena-menu-drawer {
-    @apply relative flex h-dvh max-h-dvh w-[calc(100vw-0.5rem)] max-w-full flex-col overflow-hidden;
-    @apply border-l border-casino-gold/20 bg-[#050508]/95 shadow-[-16px_0_48px_rgba(0,0,0,0.55)] backdrop-blur-xl;
+    @apply relative flex h-dvh max-h-dvh w-[calc(100vw-0.5rem)] max-w-full flex-col overflow-hidden backdrop-blur-xl;
+    border-left: 1px solid var(--arena-border);
+    background-color: rgb(10 15 26 / 0.97);
+    box-shadow: -16px 0 48px rgba(0, 82, 255, 0.1);
   }
 
   @media (min-width: 640px) {
@@ -257,7 +436,7 @@
     }
 
     .arena-action-shell {
-      @apply max-w-full overflow-x-visible px-2 pb-1;
+      @apply max-w-full overflow-x-visible px-2 py-1;
     }
 
     .arena-action-btn {
@@ -288,7 +467,18 @@
   }
 
   .arena-table-room {
-    @apply h-full min-h-0 max-h-full p-1.5 sm:p-2 lg:p-2.5;
+    @apply h-full min-h-0 max-h-full p-0.5 sm:p-1 lg:p-1.5;
+  }
+
+  .arena-action-mode-pill {
+    @apply inline-flex h-10 shrink-0 cursor-default items-center gap-1.5 rounded-lg border border-[var(--arena-border)] px-2.5 text-xs font-semibold uppercase tracking-wide text-[var(--arena-cyan)] xl:h-11 xl:px-3;
+    background-color: rgb(15 22 40 / 0.88);
+  }
+
+  @media (max-width: 639px) {
+    .arena-action-mode-pill {
+      @apply h-11 min-h-[2.75rem] px-3;
+    }
   }
 
   @media (max-height: 820px) {
@@ -305,22 +495,20 @@
     }
 
     .arena-room-hvai-zones .arena-zone-top {
-      height: 14%;
-      min-height: 3.25rem;
-      max-height: 4.75rem;
+      min-height: 4rem;
+      max-height: 5rem;
     }
 
     .arena-room-hvai-zones .arena-zone-board {
-      height: 26%;
       max-height: 9rem;
     }
 
-    .arena-room-hvai-zones .arena-zone-result {
-      max-height: 3.5rem;
+    .arena-room-hvai-zones .arena-zone-human-cards {
+      max-height: 4.5rem;
     }
 
-    .arena-room-hvai-zones .arena-zone-human-cards {
-      max-height: 4.25rem;
+    .arena-room-hvai-zones .arena-zone-avatar {
+      min-height: 3.25rem;
     }
 
     .arena-action-shell {

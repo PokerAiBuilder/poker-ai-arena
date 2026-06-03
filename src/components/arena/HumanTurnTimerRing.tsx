@@ -39,7 +39,7 @@ export function HumanTurnTimerRing({
           cy="50%"
           r={normalizedRadius}
           fill="none"
-          stroke="rgba(52,211,153,0.85)"
+          stroke="rgba(34,211,238,0.9)"
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circumference}
@@ -48,7 +48,7 @@ export function HumanTurnTimerRing({
         />
       </svg>
       {children}
-      <span className="absolute -right-1 -top-1 z-[3] hidden min-w-[1.75rem] rounded-full border border-emerald-400/40 bg-emerald-950/90 px-1 py-0.5 text-center text-[9px] font-bold tabular-nums text-emerald-200 shadow-sm sm:block">
+      <span className="absolute -right-1 -top-1 z-[3] hidden min-w-[1.75rem] rounded-full border border-[var(--arena-cyan)]/40 bg-[var(--arena-surface-2)]/95 px-1 py-0.5 text-center text-[9px] font-bold tabular-nums text-[var(--arena-cyan)] shadow-sm sm:block">
         {String(Math.max(0, secondsLeft)).padStart(2, "0")}s
       </span>
     </div>

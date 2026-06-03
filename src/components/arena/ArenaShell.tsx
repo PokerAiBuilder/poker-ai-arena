@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Sparkles, Swords, Users } from "lucide-react";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { ArenaActionBar } from "@/components/arena/ArenaActionBar";
 import { ArenaMenuDrawer, ArenaMenuTrigger } from "@/components/arena/ArenaMenuDrawer";
 import { AiDecisionPanel } from "@/components/arena/AiDecisionPanel";
@@ -1622,32 +1623,48 @@ export function ArenaShell() {
   ]);
 
   return (
-    <div className="arena-shell bg-[#030305]">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(13,92,54,0.12),transparent_50%)]" />
+    <div className="arena-shell arena-shell-v1 relative bg-[var(--arena-bg)]">
+      <div className="arena-v1-atmosphere" aria-hidden />
 
-      <header className="arena-header-bar relative z-20 shrink-0 border-b border-white/5 bg-black/40 backdrop-blur-xl">
-        <div className="mx-auto flex h-full max-w-[1400px] items-center justify-between px-3 sm:px-4">
-          <Button asChild variant="ghost" size="sm">
+      <header className="arena-header-bar relative z-20 shrink-0 border-b border-[var(--arena-border)] bg-[var(--arena-surface)]/90 backdrop-blur-xl">
+        <div className="mx-auto flex h-full max-w-[1400px] items-center justify-between gap-2 px-3 sm:px-4">
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="text-[var(--arena-muted)] hover:bg-[var(--arena-surface-2)] hover:text-[var(--arena-text)]"
+          >
             <Link href="/">
               <ArrowLeft className="mr-1 h-4 w-4" />
               Lobby
             </Link>
           </Button>
 
-          <div className="text-center">
-            <p className="text-xs font-bold tracking-[0.16em] text-casino-goldLight sm:text-sm sm:tracking-[0.2em]">
-              <span className="arena-title-short">ARENA</span>
-              <span className="arena-title-full">POKER AI ARENA</span>
+          <Link
+            href="/"
+            className="flex min-w-0 items-center gap-2 transition-opacity hover:opacity-90"
+          >
+            <BrandMark size={28} />
+            <p className="text-center">
+              <span className="arena-title-short text-[10px] font-bold uppercase tracking-[0.2em] text-gradient-arena">
+                Arena
+              </span>
+              <span className="arena-title-full hidden text-xs font-bold uppercase tracking-[0.18em] text-gradient-arena sm:inline">
+                Poker AI Arena
+              </span>
             </p>
-          </div>
+          </Link>
 
-          <ConnectWalletButton size="sm" />
+          <ConnectWalletButton size="sm" showDemoHint={false} className="v1-button-secondary !h-9 !px-3 !text-xs" />
         </div>
       </header>
 
-      <div className="arena-badge-bar relative z-10 shrink-0 border-b border-white/5 bg-black/20 px-2 py-1.5 sm:px-3">
+      <div className="arena-badge-bar relative z-10 shrink-0 border-b border-[var(--arena-border)] bg-[var(--arena-surface)]/60 px-2 py-1.5 sm:px-3">
         <div className="arena-badge-strip">
-          <Badge className="shrink-0 gap-1 text-[10px] sm:text-xs">
+          <Badge
+            variant="outline"
+            className="shrink-0 gap-1 border-[var(--arena-border)] bg-[var(--arena-surface-2)]/90 text-[10px] text-[var(--arena-cyan)] sm:text-xs"
+          >
             <Sparkles className="h-3 w-3 shrink-0" />
             <span className="max-w-[7.5rem] truncate sm:max-w-none">
               {isArenaUnlocked ? (
@@ -1681,8 +1698,8 @@ export function ArenaShell() {
           <Badge
             variant="outline"
             className={cn(
-              "shrink-0 gap-1 border-casino-gold/30 text-[10px] sm:text-xs",
-              activeGameMode === "agent-vs-agent" && "border-violet-400/40",
+              "shrink-0 gap-1 border-[var(--arena-border)] bg-[var(--arena-surface-2)]/80 text-[10px] text-[var(--arena-text)] sm:text-xs",
+              activeGameMode === "agent-vs-agent" && "border-[var(--arena-cyan)]/40 text-[var(--arena-cyan)]",
             )}
           >
             {activeGameMode === "agent-vs-agent" ? (
@@ -1712,9 +1729,9 @@ export function ArenaShell() {
       </div>
 
       <div className="arena-main-grid">
-        <div className="flex min-h-0 min-w-0 flex-col overflow-hidden px-2 pt-1.5 sm:px-3 lg:pb-0 lg:pr-1.5">
+        <div className="flex min-h-0 min-w-0 flex-col overflow-hidden arena-table-column">
           <div className="arena-table-stage">
-            <div className="relative min-h-0 flex-1">
+            <div className="arena-table-stage-inner">
               <PokerTable
                 className="arena-table-surface"
                 roomLayout

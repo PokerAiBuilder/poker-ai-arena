@@ -9,7 +9,7 @@ type ChipStackProps = {
   className?: string;
 };
 
-const chipColors = ["bg-red-600", "bg-blue-600", "bg-casino-gold", "bg-emerald-600"];
+const chipColors = ["bg-red-600", "bg-blue-600", "bg-[var(--arena-blue-bright)]", "bg-emerald-600"];
 
 export function ChipStack({
   amount,
@@ -51,7 +51,7 @@ export function ChipStack({
           ))}
         </div>
       ) : null}
-      <div className={cn("font-semibold tabular-nums text-casino-goldLight", textSize)}>
+      <div className={cn("font-semibold tabular-nums text-[var(--arena-cyan)]", textSize)}>
         {label ? (
           <span className="mr-1 text-[9px] uppercase tracking-wider text-white/50">
             {label}

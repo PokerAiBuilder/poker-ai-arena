@@ -95,9 +95,9 @@ function resolveSeatLayoutMode(
 }
 
 function resolveBoardCardSize(layoutMode: SeatLayoutMode): CardSize {
-  if (layoutMode === "compact") return "xs";
-  if (layoutMode === "roomHeadsUp") return "sm";
-  return "sm";
+  if (layoutMode === "compact") return "sm";
+  if (layoutMode === "roomHeadsUp") return "md";
+  return "md";
 }
 
 function holeCardSize(
@@ -105,11 +105,11 @@ function holeCardSize(
   layoutMode: SeatLayoutMode,
   topSideByAvatar = false,
 ): CardSize {
-  if (layoutMode === "compact") return "xs";
+  if (layoutMode === "compact") return "sm";
   if (layoutMode === "roomHeadsUp") {
-    if (seat.position === "bottom") return "sm";
-    if (seat.position === "top") return topSideByAvatar ? "xs" : "xs";
-    return "xs";
+    if (seat.position === "bottom") return "md";
+    if (seat.position === "top") return topSideByAvatar ? "sm" : "sm";
+    return "sm";
   }
   if (seat.status === "folded") return "xs";
   return seat.position === "bottom" ? "md" : "sm";
@@ -167,7 +167,6 @@ function CommunityBoard({
 function SpectatorCommunityBoard({
   communityCards,
   cardSize,
-  winByFold = false,
 }: {
   communityCards: Card[];
   cardSize: CardSize;
@@ -175,14 +174,8 @@ function SpectatorCommunityBoard({
 }) {
   const isFullBoard = communityCards.length >= 5;
 
-  const caption = isFullBoard
-    ? winByFold
-      ? "Agent Battle — win by fold"
-      : "Agent Battle: full-board spectator simulation"
-    : "Spectator board completing…";
-
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div className="flex flex-col items-center">
       <div className="flex items-center justify-center gap-1.5 sm:gap-2">
         {isFullBoard ? (
           communityCards.slice(0, 5).map((card, i) => (
@@ -206,15 +199,8 @@ function SpectatorCommunityBoard({
               className="relative z-[2]"
             />
           ))
-        ) : (
-          <p className="text-[8px] uppercase tracking-wider text-white/35">
-            Board not run out
-          </p>
-        )}
+        ) : null}
       </div>
-      <p className="text-center text-[7px] font-medium uppercase tracking-wider text-violet-200/70">
-        {caption}
-      </p>
     </div>
   );
 }
@@ -303,15 +289,6 @@ function StepDemoCommunityBoard({
           />
         ))}
       </div>
-      {roomLayout ? (
-        <p className="text-[7px] uppercase tracking-wider text-white/40">
-          Human vs AI: Preflop → Flop → Turn → River
-        </p>
-      ) : (
-        <p className="text-[8px] uppercase tracking-wider text-white/45">
-          Human vs AI: Preflop → Flop → Turn → River
-        </p>
-      )}
     </div>
   );
 }
@@ -339,35 +316,29 @@ function WinnerBanner({
     return (
       <div
         className={cn(
-          "relative z-[30] w-full max-w-[min(100%,15rem)] rounded-md border",
-          spectator
-            ? "border-violet-400/45 bg-violet-950/92"
-            : "border-casino-gold/60 bg-black/85",
-          "arena-table-glow px-2 py-1 text-center backdrop-blur-md animate-fade-in",
+          "relative z-[30] w-full max-w-[min(100%,14rem)] rounded-md border",
+          "border-[var(--arena-cyan)]/55 bg-[var(--arena-surface)]/95",
+          "shadow-[0_0_20px_rgba(34,211,238,0.15)] px-2 py-1 text-center backdrop-blur-md animate-fade-in",
         )}
       >
         <p
           className={cn(
-            "text-[7px] font-semibold uppercase tracking-[0.16em]",
-            spectator ? "text-violet-200/85" : "text-casino-gold/80",
+            "text-[7px] font-semibold uppercase leading-none tracking-[0.14em]",
+            spectator ? "text-[var(--arena-cyan)]" : "text-[var(--arena-muted)]",
           )}
         >
-          {spectator ? "AI Agent Battle Result" : "Hand result"}
+          {spectator ? "Agent Battle" : "Result"}
         </p>
-        <p className="text-xs font-bold leading-tight text-gradient-gold">
+        <p className="mt-0.5 text-[11px] font-bold leading-tight text-[var(--arena-gold-accent)]">
           {winnerName}
         </p>
-        <p className="text-[9px] leading-tight text-white/75">
+        <p className="text-[8px] leading-tight text-white/75">
           {isFoldWin ? "Win by fold" : "Showdown"}
+          {!isFoldWin && winningHand ? ` · ${winningHand}` : ""}
         </p>
-        {!isFoldWin && winningHand ? (
-          <p className="text-[9px] leading-tight text-violet-200/80">
-            {winningHand}
-          </p>
-        ) : null}
         {pot != null ? (
-          <p className="text-[9px] font-semibold leading-tight text-casino-goldLight">
-            Pot won: {pot.toLocaleString()} chips
+          <p className="text-[8px] font-semibold leading-tight text-[var(--arena-cyan)]">
+            Pot {pot.toLocaleString()}
           </p>
         ) : null}
       </div>
@@ -377,16 +348,16 @@ function WinnerBanner({
   return (
     <div
       className={cn(
-        "relative z-[30] w-full max-w-[min(100%,18rem)] rounded-xl border-2 border-casino-gold/70",
-        "arena-table-glow bg-gradient-to-b from-black/90 to-black/75 text-center backdrop-blur-md animate-fade-in",
+        "relative z-[30] w-full max-w-[min(100%,18rem)] rounded-xl border-2 border-[var(--arena-cyan)]/50",
+        "bg-gradient-to-b from-[var(--arena-surface)]/95 to-black/80 text-center shadow-[0_0_24px_rgba(34,211,238,0.12)] backdrop-blur-md animate-fade-in",
         compact ? "px-2.5 py-2" : "mt-2 px-3 py-3 sm:px-4",
       )}
     >
-      <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-casino-gold/90">
+      <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[var(--arena-muted)]">
         Hand result
       </p>
       <p className="mt-1 text-[10px] uppercase tracking-wider text-white/60">Winner</p>
-      <p className="text-base font-bold leading-tight text-gradient-gold sm:text-lg">
+      <p className="text-base font-bold leading-tight text-[var(--arena-gold-accent)] sm:text-lg">
         {winnerName}
       </p>
       <p className="mt-1.5 text-[10px] uppercase tracking-wider text-white/50">
@@ -396,7 +367,7 @@ function WinnerBanner({
         {isFoldWin ? "Win by fold" : "Showdown"}
       </p>
       {!isFoldWin && winningHand ? (
-        <p className="mt-1 text-xs font-medium leading-snug text-casino-goldLight sm:text-sm">
+        <p className="mt-1 text-xs font-medium leading-snug text-[var(--arena-text)] sm:text-sm">
           {winningHand}
         </p>
       ) : null}
@@ -406,7 +377,7 @@ function WinnerBanner({
         </p>
       ) : null}
       {pot != null ? (
-        <p className="mt-1.5 text-xs font-semibold text-casino-goldLight">
+        <p className="mt-1.5 text-xs font-semibold text-[var(--arena-cyan)]">
           Pot won: {pot.toLocaleString()} chips
         </p>
       ) : null}
@@ -461,19 +432,19 @@ function SeatHoleCards({
 }
 
 function HeadsUpOpponentSeat({ seat }: { seat: TableSeat }) {
-  const cardSize: CardSize = "xs";
+  const cardSize: CardSize = "sm";
   const isFolded = seat.status === "folded";
   const isSpectator = seat.status === "idle" && !seat.revealCards;
 
   return (
     <div
       className={cn(
-        "mx-auto flex w-[11.75rem] max-w-full flex-row items-center justify-center gap-1.5 sm:gap-2",
+        "arena-seat-row",
         isFolded && "opacity-80",
         isSpectator && "opacity-90",
       )}
     >
-      <div className="flex w-[3.5rem] shrink-0 items-center justify-center">
+      <div className="arena-seat-panel-slot">
         <AgentAvatar
           name={seat.name}
           avatar={seat.avatar}
@@ -482,14 +453,13 @@ function HeadsUpOpponentSeat({ seat }: { seat: TableSeat }) {
           status={seat.status}
           compact
           stackTextOnly
-          className={cn(isSpectator && "opacity-90")}
         />
       </div>
       <div
-        className="flex h-[3rem] w-[4.1rem] shrink-0 items-center justify-center"
+        className="flex h-[3.25rem] w-[4.35rem] shrink-0 items-center justify-center"
         aria-label="Opponent hole cards"
       >
-        <div className="flex scale-90 gap-0.5">
+        <div className="flex gap-0.5">
           <SeatHoleCards seat={seat} cardSize={cardSize} />
         </div>
       </div>
@@ -504,7 +474,7 @@ function HeadsUpHumanCards({ seat }: { seat: TableSeat }) {
   return (
     <div
       className={cn(
-        "flex h-[4.25rem] w-[5.75rem] items-end justify-center",
+        "flex w-[6.5rem] shrink-0 items-end justify-center",
         isFolded && "opacity-80",
       )}
       aria-label="Your hole cards"
@@ -535,7 +505,7 @@ function AgentBattleActiveHighlight({
           seat.activeHighlight === "thinking" &&
             "animate-pulse border-cyan-400/90 shadow-[0_0_22px_rgba(34,211,238,0.45)]",
           seat.activeHighlight === "acting" &&
-            "border-amber-400/90 shadow-[0_0_20px_rgba(251,191,36,0.4)]",
+            "border-[var(--arena-blue-bright)]/90 shadow-[0_0_20px_rgba(0,82,255,0.4)]",
         )}
         aria-hidden
       />
@@ -544,7 +514,7 @@ function AgentBattleActiveHighlight({
           "absolute -top-2.5 left-1/2 z-[4] -translate-x-1/2 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-[0.14em]",
           seat.activeHighlight === "thinking"
             ? "border-cyan-400/50 bg-cyan-950/95 text-cyan-200"
-            : "border-amber-400/50 bg-amber-950/95 text-amber-100",
+            : "border-[var(--arena-blue-bright)]/50 bg-[var(--arena-blue)]/25 text-[var(--arena-cyan)]",
         )}
       >
         {label}
@@ -567,7 +537,7 @@ function AgentBattleSeatRow({
   return (
     <div
       className={cn(
-        "mx-auto flex w-[11rem] max-w-full flex-row items-center justify-center gap-1.5 sm:gap-2",
+        "arena-seat-row",
         isSpectator && "opacity-90",
       )}
     >
@@ -584,12 +554,11 @@ function AgentBattleSeatRow({
             stackTextOnly
             readableFold
             className={cn(
-              "scale-90",
               isSpectator && "opacity-90",
               seat.activeHighlight === "thinking" &&
                 "border-cyan-400/70 shadow-[0_0_18px_rgba(34,211,238,0.35)]",
               seat.activeHighlight === "acting" &&
-                "border-amber-400/70 shadow-[0_0_16px_rgba(251,191,36,0.35)]",
+                "border-[var(--arena-blue-bright)]/70 shadow-[0_0_16px_rgba(0,82,255,0.35)]",
             )}
           />
         </AgentBattleActiveHighlight>
@@ -619,7 +588,7 @@ function AgentBattleSideSeat({
   const cardSize: CardSize = "sm";
 
   return (
-    <div className="flex flex-col items-center gap-1 max-sm:gap-1.5">
+    <div className="flex flex-col items-center gap-1">
       <AgentBattleActiveHighlight seat={seat}>
         <AgentAvatar
           name={seat.name}
@@ -636,15 +605,15 @@ function AgentBattleSideSeat({
             seat.activeHighlight === "thinking" &&
               "border-cyan-400/70 shadow-[0_0_18px_rgba(34,211,238,0.35)]",
             seat.activeHighlight === "acting" &&
-              "border-amber-400/70 shadow-[0_0_16px_rgba(251,191,36,0.35)]",
+              "border-[var(--arena-blue-bright)]/70 shadow-[0_0_16px_rgba(0,82,255,0.35)]",
           )}
         />
       </AgentBattleActiveHighlight>
       <div
         className={cn(
-          "flex scale-90 gap-0.5 max-sm:mt-1 max-sm:translate-y-1",
-          side === "left" && "max-sm:-translate-x-1",
-          side === "right" && "max-sm:translate-x-1",
+          "flex scale-90 gap-0.5",
+          side === "left" && "-translate-x-0.5",
+          side === "right" && "translate-x-0.5",
         )}
       >
         <SeatHoleCards seat={seat} cardSize={cardSize} softFold />
@@ -668,7 +637,6 @@ function RoomAgentBattleTableLayout({
   winningHand?: string;
   resultType: HandResultDisplayType;
 }) {
-  /** Match Human vs AI room board readability — not `compact` xs from fourPlayerLayout */
   const agentBattleBoardCardSize: CardSize = "sm";
   const topSeat = seats.find((s) => s.position === "top");
   const bottomSeat = seats.find((s) => s.position === "bottom");
@@ -676,58 +644,59 @@ function RoomAgentBattleTableLayout({
   const rightSeat = seats.find((s) => s.position === "right");
 
   return (
-    <>
-      <div className="absolute left-1/2 top-[3%] z-10 flex -translate-x-[calc(50%-0.5rem)] items-start justify-center overflow-visible px-2 pt-0.5">
-        {topSeat ? <AgentBattleSeatRow seat={topSeat} edgeInset /> : null}
-      </div>
+    <div className="arena-room-felt-zones arena-room-agent-battle-zones">
+      <div className="relative min-h-0 flex-1">
+        <div className="absolute left-1/2 top-[3%] z-10 flex -translate-x-[calc(50%-0.5rem)] items-start justify-center overflow-visible px-2 pt-0.5">
+          {topSeat ? <AgentBattleSeatRow seat={topSeat} edgeInset /> : null}
+        </div>
 
-      <div className="absolute left-1/2 top-[43%] z-[12] flex w-[min(96%,22rem)] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1">
-        <div className="flex min-h-[1.125rem] shrink-0 items-center justify-center rounded-full border border-violet-400/20 bg-black/35 px-3 py-0.5 shadow-sm">
-          <ChipStack
-            amount={pot ?? "\u2014"}
-            size="sm"
-            label="Pot"
-            showIcons={false}
-            className="justify-center"
+        <div className="absolute left-1/2 top-[43%] z-[12] flex w-[min(96%,22rem)] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1">
+          <div className="flex min-h-[1.125rem] shrink-0 items-center justify-center rounded-full border border-[var(--arena-border)] bg-[var(--arena-surface)]/85 px-3 py-0.5 shadow-sm">
+            <ChipStack
+              amount={pot ?? "\u2014"}
+              size="sm"
+              label="Pot"
+              showIcons={false}
+              className="justify-center"
+            />
+          </div>
+          <SpectatorCommunityBoard
+            communityCards={communityCards}
+            cardSize={agentBattleBoardCardSize}
           />
         </div>
-        <SpectatorCommunityBoard
-          communityCards={communityCards}
-          cardSize={agentBattleBoardCardSize}
-          winByFold={resultType === "fold"}
-        />
+
+        {winnerName ? (
+          <div className="absolute left-1/2 top-[59%] z-[15] w-[min(92%,15rem)] -translate-x-1/2 px-2">
+            <WinnerBanner
+              winnerName={winnerName}
+              resultType={resultType}
+              winningHand={winningHand}
+              pot={pot}
+              ultraCompact
+              spectator
+            />
+          </div>
+        ) : null}
+
+        {bottomSeat ? (
+          <div className="absolute bottom-[2.5%] left-1/2 z-[9] -translate-x-[calc(50%-0.5rem)] overflow-visible px-2">
+            <AgentBattleSeatRow seat={bottomSeat} edgeInset />
+          </div>
+        ) : null}
+
+        {leftSeat ? (
+          <div className="absolute left-[2%] top-[36%] z-[8] -translate-y-1/2">
+            <AgentBattleSideSeat seat={leftSeat} side="left" />
+          </div>
+        ) : null}
+        {rightSeat ? (
+          <div className="absolute right-[2%] top-[36%] z-[8] -translate-y-1/2">
+            <AgentBattleSideSeat seat={rightSeat} side="right" />
+          </div>
+        ) : null}
       </div>
-
-      {winnerName ? (
-        <div className="absolute left-1/2 top-[59%] z-[15] w-[min(92%,15rem)] -translate-x-1/2 px-2">
-          <WinnerBanner
-            winnerName={winnerName}
-            resultType={resultType}
-            winningHand={winningHand}
-            pot={pot}
-            ultraCompact
-            spectator
-          />
-        </div>
-      ) : null}
-
-      {bottomSeat ? (
-        <div className="absolute bottom-[2.5%] left-1/2 z-[9] -translate-x-[calc(50%-0.5rem)] overflow-visible px-2">
-          <AgentBattleSeatRow seat={bottomSeat} edgeInset />
-        </div>
-      ) : null}
-
-      {leftSeat ? (
-        <div className="absolute left-[0.5%] top-[36%] z-[8] -translate-y-1/2 max-sm:left-0 max-sm:top-[52%] max-sm:-translate-x-0.5">
-          <AgentBattleSideSeat seat={leftSeat} side="left" />
-        </div>
-      ) : null}
-      {rightSeat ? (
-        <div className="absolute right-[0.5%] top-[36%] z-[8] -translate-y-1/2 max-sm:right-0 max-sm:top-[52%] max-sm:translate-x-0.5">
-          <AgentBattleSideSeat seat={rightSeat} side="right" />
-        </div>
-      ) : null}
-    </>
+    </div>
   );
 }
 
@@ -760,9 +729,8 @@ function RoomHeadsUpTableLayout({
 
   return (
     <>
-      <div className="arena-room-hvai-zones absolute inset-x-[4%] inset-y-[5%] z-10 flex flex-col items-stretch sm:inset-x-[5%] sm:inset-y-[6%]">
-        {/* Top opponent zone — fixed size, avatar + cards side-by-side */}
-        <div className="arena-zone-top flex h-[16%] min-h-[4.25rem] max-h-[6rem] shrink-0 items-end justify-center px-1 pb-0.5">
+      <div className="arena-room-felt-zones arena-room-hvai-zones">
+        <div className="arena-zone-top flex h-[16%] min-h-[4.25rem] max-h-[6rem] shrink-0 items-end justify-center px-1 pb-0.5 pt-0.5">
           {topSeat ? (
             <div key={headsUpLayoutKey ?? topSeat.id}>
               <HeadsUpOpponentSeat seat={topSeat} />
@@ -772,9 +740,8 @@ function RoomHeadsUpTableLayout({
           )}
         </div>
 
-        {/* Board zone — pot label above cards, separated from seat stacks */}
         <div className="arena-zone-board flex h-[28%] max-h-[10.5rem] shrink-0 flex-col items-center justify-center gap-1 pt-1">
-          <div className="flex min-h-[1.125rem] shrink-0 items-center justify-center rounded-full border border-casino-gold/20 bg-black/35 px-3 py-0.5 shadow-sm">
+          <div className="flex min-h-[1.125rem] shrink-0 items-center justify-center rounded-full border border-[var(--arena-border)] bg-[var(--arena-surface)]/80 px-3 py-0.5 shadow-sm">
             <ChipStack
               amount={pot ?? "\u2014"}
               size="sm"
@@ -790,7 +757,6 @@ function RoomHeadsUpTableLayout({
           />
         </div>
 
-        {/* Result banner zone — reserved height, no layout shift */}
         <div className="arena-zone-result flex h-[10%] max-h-[4.25rem] shrink-0 items-center justify-center px-2">
           {winnerName ? (
             <WinnerBanner
@@ -805,10 +771,9 @@ function RoomHeadsUpTableLayout({
           )}
         </div>
 
-        {/* Human hole cards zone — reserved height */}
         <div className="arena-zone-human-cards flex h-[13%] max-h-[5rem] shrink-0 items-end justify-center">
           {bottomSeat ? (
-            <div key={headsUpLayoutKey ?? bottomSeat.id}>
+            <div key={`${headsUpLayoutKey ?? bottomSeat.id}-cards`}>
               <HeadsUpHumanCards seat={bottomSeat} />
             </div>
           ) : (
@@ -816,8 +781,7 @@ function RoomHeadsUpTableLayout({
           )}
         </div>
 
-        {/* Human avatar zone */}
-        <div className="flex min-h-[3.5rem] flex-1 items-start justify-center pt-0.5">
+        <div className="arena-zone-avatar flex min-h-[3.75rem] flex-1 items-start justify-center pb-0.5 pt-0.5">
           {bottomSeat ? (
             <TableSeatCluster
               seat={bottomSeat}
@@ -888,7 +852,7 @@ function TableSeatCluster({
         seat.position === "right"
       }
       stackTextOnly={layoutMode === "roomHeadsUp"}
-      className={cn(isSpectator && "scale-90 opacity-70")}
+      className={cn(isSpectator && "opacity-70")}
     />
   );
 
@@ -912,7 +876,7 @@ function TableSeatCluster({
           className={cn(
             "flex max-w-full flex-row items-center justify-center gap-1 sm:gap-1.5",
             isFolded && "opacity-80",
-            isSpectator && "scale-[0.88] opacity-70",
+            isSpectator && "opacity-70",
           )}
         >
           {avatar}
@@ -927,7 +891,7 @@ function TableSeatCluster({
           "flex flex-col items-center",
           topRoomGap ? "gap-0.5" : "gap-1",
           isFolded && "opacity-80",
-          isSpectator && "scale-[0.88] opacity-70",
+          isSpectator && "opacity-70",
         )}
       >
         {avatar}
@@ -942,7 +906,7 @@ function TableSeatCluster({
         className={cn(
           "flex items-center justify-center",
           isFolded && "opacity-80",
-          isSpectator && "scale-[0.88] opacity-70",
+          isSpectator && "opacity-70",
         )}
       >
         {part === "cards" ? cards : avatar}
@@ -956,7 +920,7 @@ function TableSeatCluster({
         "absolute z-20",
         positionClass,
         isFolded && "z-[18]",
-        isSpectator && "z-[16] scale-[0.88]",
+        isSpectator && "z-[16] opacity-70",
       )}
     >
       {seat.position === "bottom" ? (
@@ -1027,7 +991,7 @@ export function PokerTable({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-[2rem] border border-casino-gold/25 bg-[#050508] shadow-[0_32px_80px_rgba(0,0,0,0.8)]",
+        "relative overflow-hidden rounded-[2rem] border border-[var(--arena-border)] bg-[var(--arena-bg)] shadow-[0_12px_40px_rgba(0,0,0,0.55)]",
         roomLayout ? "arena-table-room" : "p-4",
         className,
       )}
@@ -1035,7 +999,7 @@ export function PokerTable({
       {showHumanVsAiBadge ? (
         <Badge
           variant="secondary"
-          className="absolute left-5 top-5 z-[35] max-w-[220px] border-emerald-400/40 bg-emerald-950/80 text-center text-[9px] font-medium leading-snug text-emerald-100"
+          className="absolute left-5 top-5 z-[35] max-w-[220px] border-[var(--arena-cyan)]/40 bg-[var(--arena-surface-2)]/95 text-center text-[9px] font-medium leading-snug text-[var(--arena-cyan)]"
         >
           Human vs AI — current hand
         </Badge>
@@ -1044,17 +1008,17 @@ export function PokerTable({
       {spectatorMode ? (
         <Badge
           variant="secondary"
-          className="absolute right-3 top-3 z-[35] max-w-[11.5rem] border-violet-400/40 bg-violet-950/85 text-center text-[8px] font-medium leading-snug text-violet-100 sm:right-5 sm:top-5 sm:max-w-[13rem] sm:text-[9px]"
+          className="absolute right-3 top-3 z-[35] max-w-[11.5rem] border-[var(--arena-blue-bright)]/40 bg-[var(--arena-surface-2)]/95 text-center text-[8px] font-medium leading-snug text-[var(--arena-text)] sm:right-5 sm:top-5 sm:max-w-[13rem] sm:text-[9px]"
         >
           Spectator Mode — all agent cards visible
         </Badge>
       ) : null}
 
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(212,175,55,0.06),transparent_60%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,82,255,0.08),transparent_60%)]" />
 
       <div
         className={cn(
-          "relative mx-auto h-full w-full max-w-4xl",
+          "arena-table-inner relative mx-auto h-full w-full",
           !roomLayout &&
             (fourPlayerLayout
               ? "aspect-[16/10] min-h-[320px]"
@@ -1063,14 +1027,14 @@ export function PokerTable({
       >
         <div className="absolute inset-0">
         {/* Outer rail */}
-        <div className="absolute inset-[2%] rounded-[50%] border-4 border-[#3d2817] bg-gradient-to-b from-[#5c3d1e] to-[#2a1a0e] shadow-inner" />
+        <div className="absolute inset-[2%] rounded-[50%] border-4 border-slate-700/80 bg-gradient-to-b from-slate-800 to-slate-950 shadow-inner" />
 
-        {/* Felt */}
+        {/* Felt — premium AI arena (navy / electric blue) */}
         <div
-          className="absolute inset-[5%] overflow-hidden rounded-[50%] border-2 border-casino-gold/40 shadow-glow-green"
+          className="absolute inset-[5%] overflow-hidden rounded-[50%] border-2 border-[var(--arena-cyan)]/35 arena-table-glow-blue"
           style={{
             background:
-              "radial-gradient(ellipse 75% 60% at 50% 42%, #1fa864 0%, #0d5c36 42%, #063d24 100%)",
+              "radial-gradient(ellipse 75% 60% at 50% 42%, rgba(0, 82, 255, 0.48) 0%, #0c1a30 42%, #050a12 100%)",
           }}
         >
           <div
@@ -1169,8 +1133,8 @@ export function PokerTable({
 
       {locked ? (
         <div className="absolute inset-0 z-40 flex items-center justify-center rounded-[2rem] bg-black/60 backdrop-blur-[3px]">
-          <div className="mx-4 max-w-sm rounded-2xl border border-casino-gold/40 bg-black/75 px-6 py-5 text-center backdrop-blur-md">
-            <p className="text-sm font-semibold text-casino-goldLight">Arena Locked</p>
+          <div className="mx-4 max-w-sm rounded-2xl v1-panel v1-glow-border px-6 py-5 text-center backdrop-blur-md">
+            <p className="text-sm font-semibold text-[var(--arena-cyan)]">Arena Locked</p>
             <p className="mt-1 text-xs text-muted-foreground">
               Start demo session to play Human vs AI or watch AI Agent Battle.
             </p>
@@ -1179,7 +1143,7 @@ export function PokerTable({
                 <Button
                   type="button"
                   size="lg"
-                  className="mt-4 w-full shadow-glow"
+                  className="v1-button-primary mt-4 w-full"
                   disabled={payingEntryFee}
                   onClick={onPayEntryFee}
                 >
@@ -1192,7 +1156,7 @@ export function PokerTable({
                     "Start Demo Session"
                   )}
                 </Button>
-                <p className="mt-3 text-[10px] leading-relaxed text-amber-200/80">
+                <p className="mt-3 text-[10px] leading-relaxed text-[var(--arena-muted)]">
                   Mock x402-style unlock · Demo chips only · No real funds
                   moved · Connect Wallet optional
                 </p>

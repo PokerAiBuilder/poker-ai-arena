@@ -84,7 +84,7 @@ export function ArenaMenuTrigger({
       variant="outline"
       size={iconOnly ? "icon" : compact ? "sm" : "default"}
       className={cn(
-        "border-casino-gold/30 bg-black/40 text-casino-goldLight hover:bg-casino-gold/10",
+        "border-[var(--arena-border)] bg-[var(--arena-surface-2)]/90 text-[var(--arena-cyan)] hover:bg-[var(--arena-blue)]/15",
         className,
       )}
       onClick={onClick}
@@ -174,12 +174,12 @@ export function ArenaMenuDrawer({
         aria-modal="true"
         aria-label="Arena menu"
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-3 py-3 sm:px-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--arena-border)] px-3 py-3 sm:px-4">
           <div className="min-w-0 pr-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-casino-goldLight/80">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--arena-cyan)]">
               Arena Menu
             </p>
-            <p className="truncate text-xs text-muted-foreground">
+            <p className="truncate text-xs text-[var(--arena-muted)]">
               Guide, decisions, logs & stats
             </p>
           </div>
@@ -195,7 +195,7 @@ export function ArenaMenuDrawer({
           </Button>
         </div>
 
-        <div className="shrink-0 border-b border-white/10 px-3 py-2">
+        <div className="shrink-0 border-b border-[var(--arena-border)] px-3 py-2">
           <div className="arena-menu-tabs" role="tablist" aria-label="Arena menu sections">
             {drawerTabs.map(({ id, label }) => (
               <button
@@ -211,8 +211,8 @@ export function ArenaMenuDrawer({
                 className={cn(
                   "arena-menu-tab",
                   tab === id
-                    ? "bg-emerald-950/60 text-emerald-100 ring-1 ring-emerald-500/30"
-                    : "text-muted-foreground hover:bg-white/5 hover:text-white/80",
+                    ? "arena-menu-tab-active"
+                    : "text-[var(--arena-muted)] hover:bg-[var(--arena-surface-2)]/80 hover:text-[var(--arena-text)]",
                 )}
               >
                 {label}
@@ -245,8 +245,8 @@ export function ArenaMenuDrawer({
                   className="shadow-none"
                 />
               ) : (
-                <div className="rounded-xl border border-dashed border-white/15 bg-black/25 px-4 py-6 text-center">
-                  <p className="text-sm text-muted-foreground">
+                <div className="v1-card rounded-xl border-dashed px-4 py-6 text-center">
+                  <p className="text-sm text-[var(--arena-muted)]">
                     Unlock the arena to see AI decisions.
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-white/45">
