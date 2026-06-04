@@ -1,6 +1,37 @@
 # Project status
 
-Last updated for **v1.0.0-c** — premium Base-style arena redesign.
+Last updated for **v1.0.0-d** — final public demo release polish.
+
+---
+
+## v1.0.0-d — final QA checklist (v1.0 public demo)
+
+| Area | Check |
+| ---- | ----- |
+| **Landing page** | `/` loads; v1 navy/blue hero; BrandMark + wordmark; Enter Arena; demo-safe footer |
+| **Arena desktop** | Table fits frame; v1 felt; sidebar readable; action bar does not compress table |
+| **Human vs AI — active hand** | Play vs PokerMaster; 15s timer; cards above avatar; board centered; compact mode pill |
+| **Human vs AI — result** | Result between board and player cards; no overlap with board or avatar |
+| **Agent Battle — playing** | Desktop ellipse layout; four seats; board readable; Skip during playing only |
+| **Agent Battle — result** | Result below board; no seat/card overlap |
+| **Mobile baseline** | Usable at ~390px; controls reachable; Agent Battle mobile polish **deferred** |
+| **Wallet** | Optional; Base testnet scaffold |
+| **Demo-safe wording** | Demo chips; no real funds moved; not real-money gambling |
+| **Payments** | Start Demo Session mock only; no live x402/Bankr settlement |
+| **Build** | `npm run build` passes |
+
+### Metadata / assets (v1.0.0-d)
+
+| Item | Status |
+| ---- | ------ |
+| Favicon / app icon | `public/brand/poker-ai-arena-mark.png` → root `metadata.icons` |
+| Open Graph / Twitter | Same path via `openGraph.images` / `twitter.images` when `metadataBase` is set |
+| Dedicated 1200×630 social card | **TODO** — landscape OG asset later (square mark OK for demo) |
+| Small optimized `.ico` | **TODO** — optional later; PNG works for v1.0 release |
+
+Set **`NEXT_PUBLIC_SITE_URL`** in production for absolute social URLs — see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+**Unchanged:** Gameplay logic, Human vs AI timers/auto-flow, Agent Battle simulation/timeline/shared lifecycle/API, payment/demo behavior.
 
 ---
 
@@ -11,7 +42,9 @@ Last updated for **v1.0.0-c** — premium Base-style arena redesign.
 | Arena shell / atmosphere | v1.0.0-c | Navy/black gradient, electric blue radial glow, v1 topbar with BrandMark |
 | Poker table visuals | v1.0.0-c | Navy felt, blue rim/cyan glow — less green casino felt |
 | Sidebar panels | v1.0.0-c | EntryFee + AI Decision use v1-panel / glass-panel-arena |
-| Action bar | v1.0.0-c | Blue/cyan primary actions, timer pill, Agent Battle controls |
+| Action bar | v1.0.0-c | Blue/cyan primary actions; Fold/Call/All-in v1 states; HvAI compact mode pill |
+| Human vs AI geometry | v1.0.0-c | Five-zone felt layout — cards, result, avatar as separate bands |
+| Agent Battle desktop | v1.0.0-c | Stable ellipse layout restored; mobile broadcast **not** shipped |
 | Status badges | v1.0.0-c | Shared Live Arena, mode, demo session — compact v1 pills |
 | Arena Menu drawer | v1.0.0-c | Navy drawer, cyan active tabs |
 
@@ -43,7 +76,8 @@ Last updated for **v1.0.0-c** — premium Base-style arena redesign.
 | Arena v1 CSS tokens | v1.0.0-a | `--arena-*` variables: black/navy surfaces, electric blue, cyan glow, muted text |
 | Reusable v1 utilities | v1.0.0-a | `v1-panel`, `v1-card`, `v1-button-*`, `v1-badge`, `v1-glow-border`, `v1-gradient-bg`, etc. |
 | Global atmosphere | v1.0.0-a | Body background shifted toward deep navy + Base blue (legacy shadcn/casino tokens retained) |
-| Brand mark component | v1.0.0-a | `BrandMark` SVG/CSS chip + spade + neural accent — no embedded text; no `public/` logo asset yet |
+| Brand mark component | v1.0.0-a | `BrandMark` SVG/CSS chip + spade + neural accent — no embedded text in asset |
+| Brand PNG | v1.0.0-d | `public/brand/poker-ai-arena-mark.png` for favicon / OG metadata |
 | Landing header mark | v1.0.0-a | Site header uses `BrandMark` + text label (minimal safe adoption) |
 
 **Unchanged:** Gameplay logic, Human vs AI timers/auto-flow, Agent Battle simulation/timeline/shared lifecycle/API, payment/demo behavior.
@@ -103,7 +137,7 @@ Last updated for **v1.0.0-c** — premium Base-style arena redesign.
 - [x] `GET /api/arena/agent-battle/status` exposes lifecycle/cache metadata only.
 - [x] Status endpoint does **not** expose cards, timeline steps, or finalResult payload.
 - [x] Browser title/description metadata is updated to current product positioning.
-- [x] No broken `og:image` path is declared (no image path configured).
+- [x] Favicon / `og:image` use `public/brand/poker-ai-arena-mark.png` (v1.0.0-d); dedicated 1200×630 card TODO.
 
 ---
 
@@ -440,7 +474,7 @@ Last updated for **v1.0.0-c** — premium Base-style arena redesign.
 | **v0.7.5+** | Persistent shared store (Redis/DB) for production |
 | **v0.8** | Mobile / responsive polish (**done** through v0.8.4 QA freeze) |
 | **v0.9** | Web3 / demo access cleanup |
-| **v1.0** | Public demo release |
+| **v1.0** | Public demo release (**v1.0.0-a–d** visual + docs polish) |
 
 Parallel track: real x402 / Bankr production wiring when credentials and endpoints are ready.
 

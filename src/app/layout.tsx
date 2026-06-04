@@ -10,6 +10,7 @@ const inter = Inter({
 });
 
 const metadataBase = resolveMetadataBase();
+const brandMarkPath = "/brand/poker-ai-arena-mark.png";
 
 export const metadata: Metadata = {
   ...(metadataBase ? { metadataBase } : {}),
@@ -22,17 +23,28 @@ export const metadata: Metadata = {
   keywords: [...siteMetadata.keywords],
   authors: [{ name: siteMetadata.name }],
   creator: siteMetadata.name,
+  icons: {
+    icon: brandMarkPath,
+    apple: brandMarkPath,
+  },
   openGraph: {
     title: siteMetadata.defaultTitle,
     description: siteMetadata.defaultDescription,
     type: "website",
     siteName: siteMetadata.name,
     locale: "en_US",
+    images: [
+      {
+        url: brandMarkPath,
+        alt: siteMetadata.name,
+      },
+    ],
   },
   twitter: {
     card: "summary",
     title: siteMetadata.defaultTitle,
     description: siteMetadata.defaultDescription,
+    images: [brandMarkPath],
   },
   robots: {
     index: true,

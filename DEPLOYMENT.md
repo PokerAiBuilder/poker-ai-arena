@@ -43,6 +43,7 @@ Edit `.env.local`:
 |----------|------------|-------|
 | `NEXT_PUBLIC_CHAIN_ID` | `84532` | Base Sepolia |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | your ID | Optional |
+| `NEXT_PUBLIC_SITE_URL` | `https://…` | Production canonical URL for metadata / OG (recommended) |
 | `X402_ENTRY_FEE_USDC` | `0.01` | Mock display label only — not charged in demo mode |
 | `BANKR_*` | empty | Mock Bankr responses |
 | `X402_FACILITATOR_URL` | empty | Real x402 TODO |
@@ -86,12 +87,16 @@ Fix any TypeScript or ESLint errors before deploying.
 
 ```
 NEXT_PUBLIC_APP_NAME=Poker AI Arena
+NEXT_PUBLIC_SITE_URL=https://your-deployment.vercel.app
 NEXT_PUBLIC_CHAIN_ID=84532
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<optional>
 X402_ENTRY_FEE_USDC=0.01
 ```
 
-Leave `BANKR_*` and `X402_FACILITATOR_URL` empty for mock demo mode.
+- **`NEXT_PUBLIC_SITE_URL`** — set to your production origin so favicon, Open Graph, and Twitter preview URLs resolve correctly (uses `public/brand/poker-ai-arena-mark.png`). Vercel also sets `VERCEL_URL` as a fallback.
+- **No real payment env vars** are required for the public demo — mock **Start Demo Session** only.
+- Leave `BANKR_*` and `X402_FACILITATOR_URL` empty for mock demo mode.
+- **Wallet** is optional; Base Sepolia (`84532`) for connect preview only.
 
 ### Production preview (later)
 

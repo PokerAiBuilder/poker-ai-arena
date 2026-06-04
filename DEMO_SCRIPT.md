@@ -1,92 +1,80 @@
-# Demo script (60-90 seconds)
+# Demo script (60–90 seconds)
 
-Use this script when presenting **Poker AI Arena** to the Bankr community, Base Batches judges, or hackathon audiences.
+Use this script for **Poker AI Arena v1.0** — Bankr community, Base Batches, or hackathon audiences.
 
-The arena is **responsive** — the same demo flow works on **desktop/laptop** and **mobile** (e.g. iPhone 12 Pro / 390px). Use Menu on mobile for Decision, Log, and History.
+The arena is responsive on desktop and mobile (~390px). On mobile, use **Menu** for Decision, Log, and History.
 
 ---
 
 ## Pitch (15 seconds)
 
-> Poker AI Arena is an autonomous AI poker demo on Base where agents compete, explain decisions, and generate live arena stats. The MVP uses Bankr-ready integration layers and a demo session unlock (x402-style flow mocked in this MVP).
+> Poker AI Arena v1 is a premium Base-style AI poker demo: play heads-up against PokerMaster or watch a **shared live Agent Battle** with explainable decisions. Demo session unlock only — **no real funds move**. Bankr/x402 layers are prepared for production later, not live today.
 
 ---
 
 ## Live demo steps
 
-### 1. Landing page (`/`)
+### 1. Landing page (`/`) — v1 redesign
 
 - Open the app.
-- **Say:** "This is Poker AI Arena — AI agents playing poker on Base, built for demo and hackathon showcases."
-- Point to footer: **demo chips only**, **demo session unlock**, **no real-money gambling**.
+- **Say:** "This is the v1 landing — navy and electric blue, built for Base. Enter Arena takes you to the poker room."
+- Point to trust line: **demo chips**, **no real funds moved**, **not real-money gambling**.
 
 ### 2. Wallet (optional, ~10 seconds)
 
-- **Say:** "Wallet connection is optional for testnet demos — gameplay works without it."
-- Click **Connect Wallet** only if you want to show the Base testnet Web3 preview.
-- **Say:** "This is a Base testnet scaffold. Mock demo session unlock does not move real USDC."
+- **Say:** "Wallet is optional — the full demo works with **Start Demo Session** only."
+- If you connect: **Base testnet preview** — mock unlock does not move real USDC.
 
 ### 3. Launch arena (`/arena`)
 
-- Navigate to **Arena**.
-- **Say:** "The arena starts locked — start a demo session to play."
+- Click **Enter Arena** or go to `/arena`.
+- **Say:** "Premium v1 arena — locked until demo session starts."
 
 ### 4. Demo session unlock
 
-- Click **Start Demo Session**.
-- **Say:** "This is a **demo** session unlock — no real funds move. The x402-style access flow is mocked in this MVP."
-- Show receipt (demo tx / demo receipt) and **Demo Mode** badge.
+- Click **Start Demo Session** (sidebar or locked overlay).
+- **Say:** "Mock x402-style demo access — **no real funds moved**. USDC label is display-only."
 
-### 5. Play vs PokerMaster (recommended)
+### 5. Human vs AI (recommended)
 
-- Click **Play vs PokerMaster**.
-- **Say:** "Live poker-room flow — you only make poker decisions. Fold, Call, Check, Raise with sizing (+10/+25/+50/Pot), or go all-in. You have **15 seconds** per action; timeout auto-checks or auto-folds. Flop, turn, and river **auto-deal**; the result **auto-shows**. All-in triggers an **auto-runout**. Start **New Hand** when you're ready for the next deal."
-- Highlight the action timer, cards, pot, thinking state, and winner banner.
-- If stack hits zero: **Reset Demo Stacks** (no auto-refill).
+- Tap **Play vs PokerMaster** (compact **Human vs AI** pill while a hand is active).
+- **Say:** "Live poker-room flow — Fold, Call, Check, Raise, All-in. **15 seconds** per action. Streets and result auto-advance. Your cards sit **above your avatar** as one bottom seat. Result banner appears **between the board and your cards** — not on top of the felt clutter."
+- Show timer, pot, AI Decision in Menu if helpful.
 
-### 6. Run Agent Battle (shared in two tabs)
+### 6. Shared live Agent Battle
 
-- Click **Run Agent Battle** (or **Run Agent Battle Again** after a completed hand).
-- **Say:** "Spectator mode — four agents with different strategies. Agents act **one by one** street by street with an **active bot highlight**. The board and Action Log reveal progressively through a **timeline replay**. **Skip animations** is **local only** — it jumps to the final result on your device without changing the simulated hand. No pause or speed controls — that's intentional for future shared spectator mode."
-- Point out progressive board, Action Log, and final result.
-- Open the arena in a second tab/window.
-- **Say:** "Shared Agent Battle is synchronized across viewers — both tabs watch the same hand lifecycle from the server."
+- Tap **Join Agent Battle** (then **Watching Shared** when synced).
+- **Say:** "Four demo strategy agents on the v1 navy table. Everyone watching gets the **same shared hand** from the server. **Skip animations** is local only. Open a second tab to prove sync."
+- **Do not claim** durable Redis/DB yet — memory cache in this demo.
 
-### 7. History and Action Log
+### 7. Explainable AI
 
-- Open **Menu** → **Action Log** and **History**.
-- **Say:** "Action Log is the **current hand** replay. History is the **recent archive** of completed hands. Every AI action includes reasoning — tight, bluff, aggressive, balanced."
-- Optional: **Menu** → **AI Decision** for the latest agent reasoning panel.
+- **Menu → AI Decision** — latest reasoning, hand/board context, style tags.
+- **Menu → Action Log** (current hand) and **History** (last 10 hands).
 
-### 8. Live leaderboard and analytics
+### 8. Stats & integration
 
-- Open **Menu** → **Leaderboard** and **Table Stats**.
-- **Say:** "Stats update live per session and persist in localStorage — no backend DB in MVP."
-- Optional: click **Reset Stats** to show clean slate.
+- **Menu → Leaderboard / Table Stats** — session stats in localStorage.
+- **Menu → Integration** — Bankr layer **prepared**, production wiring **TODO**.
 
-### 9. Bankr integration panel
+### 9. Close (~10 seconds)
 
-- Open **Menu** → **Integration** (Bankr status).
-- **Say:** "Bankr integration layer is **prepared** — mock without credentials. Production skill wiring is on the roadmap."
-
-### 10. Close (~10 seconds)
-
-- **Say:** "Next steps: smarter AI (v0.6), shared spectator is live on memory cache (Redis/DB for production), mobile layout is polished (v0.8), real x402 payments, Bankr Skill wiring, and a production database."
-- Share repo / Vercel URL.
+> v1.0 ships the premium demo today. Next: LLM agents via Bankr, persistent shared store, real x402, and stronger mobile Agent Battle layout.
 
 ---
 
 ## What NOT to claim
 
-- Do **not** say real x402 or USDC settlement is live.
-- Do **not** say Bankr production API is connected without env credentials.
-- Do **not** describe in-game chips as real money.
-- Do **not** claim shared state is durable across server restarts or instances yet (memory cache only in this demo).
+- Real x402 or USDC settlement is **not** live.
+- Bankr production API is **not** connected without credentials.
+- In-game chips are **not** real money.
+- Agents are **rules-based demo bots**, not external LLM players yet.
+- Shared state is **not** durable across deploys/instances yet (memory cache).
 
 ---
 
 ## Backup if API fails
 
-- Refresh page and retry mock unlock.
-- Check browser console; run `npm run dev` locally.
-- Fall back to README architecture slide plus recorded screenshot.
+- Refresh; retry **Start Demo Session**.
+- Run `npm run dev` locally.
+- Fall back to README + screenshots.
