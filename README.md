@@ -108,6 +108,7 @@ Status matrix: [PROJECT_STATUS.md](./PROJECT_STATUS.md)
 | `NEXT_PUBLIC_APP_NAME` | Display name |
 | `NEXT_PUBLIC_SITE_URL` | Canonical origin for production metadata / Open Graph (recommended on Vercel) |
 | `NEXT_PUBLIC_CHAIN_ID` | `84532` Sepolia demo |
+| `NEXT_PUBLIC_TESTNET_TREASURY_ADDRESS` | Optional Base Sepolia treasury for test ETH lock tx |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | Optional |
 | `BANKR_*` | Server-only — mock if empty |
 | `X402_*` | Real facilitator TODO |

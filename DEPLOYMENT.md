@@ -42,6 +42,7 @@ Edit `.env.local`:
 | Variable | Demo value | Notes |
 |----------|------------|-------|
 | `NEXT_PUBLIC_CHAIN_ID` | `84532` | Base Sepolia |
+| `NEXT_PUBLIC_TESTNET_TREASURY_ADDRESS` | empty or `0x…` | Optional — when set, lock stake sends tier test ETH on Base Sepolia |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | your ID | Optional |
 | `NEXT_PUBLIC_SITE_URL` | `https://…` | Production canonical URL for metadata / OG (recommended) |
 | `X402_ENTRY_FEE_USDC` | `0.01` | Mock display label only — not charged in demo mode |

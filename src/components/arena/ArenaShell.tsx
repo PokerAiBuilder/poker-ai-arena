@@ -137,6 +137,16 @@ import {
   saveStakeSessionMeta,
   type StakeSessionMeta,
 } from "@/lib/stake/stakeSessionStorage";
+import { sendLockTestStakeTx } from "@/lib/stake/lockTestStakeTx";
+import {
+  isUserRejectedTransactionError,
+  type LockStakePhase,
+} from "@/lib/stake/lockStakeFlow";
+import {
+  getBaseSepoliaExplorerTxUrl,
+  getTestnetTreasuryAddress,
+  isBaseSepolia,
+} from "@/lib/onchain/baseSepolia";
 import type { GameAction, GameMode, SimulationResult } from "@/lib/poker/types";
 import { cn } from "@/lib/utils";
 
@@ -235,8 +245,10 @@ export function ArenaShell() {
   const [paymentResult, setPaymentResult] = useState<X402PaymentResult | null>(
     null,
   );
-  const { address } = useAccount();
-  const [paying, setPaying] = useState(false);
+  const { address, isConnected, chain } = useAccount();
+  const [payingLock, setPayingLock] = useState(false);
+  const [payingMock, setPayingMock] = useState(false);
+  const [lockStakePhase, setLockStakePhase] = useState<LockStakePhase>("idle");
   const [selectedTestStake, setSelectedTestStake] =
     useState<TestStakeAmount>(DEFAULT_TEST_STAKE);
   const [stakeSessionMeta, setStakeSessionMeta] = useState<StakeSessionMeta | null>(
@@ -465,6 +477,7 @@ export function ArenaShell() {
           currency: "USDC",
           network: "base-sepolia",
           paidAt: loadedStakeSession.lockedAt,
+          txHash: loadedStakeSession.lockTxHash,
         });
       }
     }
@@ -845,55 +858,175 @@ export function ArenaShell() {
     [clearSharedNextHandTimer],
   );
 
-  const payEntryFee = useCallback(async (stakeAmount: TestStakeAmount = selectedTestStake) => {
-    setPaying(true);
-    setPaymentError(null);
-
-    try {
-      const response = await fetch("/api/x402/entry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "mock", stakeAmount }),
-      });
-
-      const data = (await response.json()) as X402PaymentResult;
-
-      if (!data.success) {
-        throw new Error(data.error ?? "Test stake session lock failed");
-      }
-
-      setPaymentResult(data);
-
-      const tier = getTestStakeTier(data.amount);
-      const startingChips = data.chipAmount ?? tier.chipAmount;
-      const meta: StakeSessionMeta = {
-        stakeAmount: tier.amount,
-        startingChips,
-        lockedAt: data.paidAt,
-        status: "active",
-      };
+  const activateStakeSession = useCallback(
+    (
+      tier: ReturnType<typeof getTestStakeTier>,
+      startingChips: number,
+      meta: StakeSessionMeta,
+      paymentData: X402PaymentResult,
+      logMessage: string,
+    ) => {
+      setPaymentResult(paymentData);
       saveStakeSessionMeta(meta);
       setStakeSessionMeta(meta);
       setSessionStacks((prev) => applyStakeStartingStacks(prev, startingChips));
       setStepDemo(createInitialStepDemoState());
       setResult(null);
       setError(null);
+      setSessionLog((prev) => [...prev, createSessionLogEntry(logMessage)]);
+    },
+    [],
+  );
 
-      setSessionLog((prev) => [
-        ...prev,
-        createSessionLogEntry(
-          `Test stake locked — ${formatStakeToChipsLine(tier.amount)}. Base Sepolia mock settlement only.`,
-        ),
-      ]);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Test stake session lock failed";
-      setPaymentError(message);
-      setSessionLog((prev) => [...prev, createErrorLogEntry(message)]);
-    } finally {
-      setPaying(false);
-    }
-  }, [selectedTestStake]);
+  const lockTestStake = useCallback(
+    async (stakeAmount: TestStakeAmount = selectedTestStake) => {
+      setPayingLock(true);
+      setPaymentError(null);
+      setLockStakePhase("idle");
+
+      const tier = getTestStakeTier(stakeAmount);
+      const startingChips = tier.chipAmount;
+      const onBaseSepolia = isBaseSepolia(chain?.id);
+
+      if (!isConnected || !address) {
+        setPaymentError("Connect wallet to lock test stake on Base Sepolia.");
+        setPayingLock(false);
+        return;
+      }
+
+      if (!onBaseSepolia) {
+        setPaymentError("Switch to Base Sepolia to lock a test stake.");
+        setPayingLock(false);
+        return;
+      }
+
+      if (!getTestnetTreasuryAddress()) {
+        setPaymentError(
+          "Treasury address not configured — cannot send testnet stake transaction.",
+        );
+        setPayingLock(false);
+        return;
+      }
+
+      try {
+        const { hash, lockTxStatus, treasuryAddress } = await sendLockTestStakeTx(
+          stakeAmount,
+          address,
+          chain!.id,
+          (phase) => setLockStakePhase(phase),
+        );
+        const lockedAt = new Date().toISOString();
+        const explorerUrl = getBaseSepoliaExplorerTxUrl(hash);
+        const meta: StakeSessionMeta = {
+          stakeAmount: tier.amount,
+          startingChips,
+          lockedAt,
+          status: "active",
+          lockTxHash: hash,
+          lockTxStatus,
+          lockSettlement: "base-sepolia-test-tx",
+          treasuryAddress,
+          explorerUrl,
+        };
+        const paymentData: X402PaymentResult = {
+          success: true,
+          mode: "mock",
+          txHash: hash,
+          amount: tier.amount,
+          chipAmount: startingChips,
+          currency: "USDC",
+          network: "base-sepolia",
+          paidAt: lockedAt,
+        };
+
+        setLockStakePhase("locked");
+        activateStakeSession(
+          tier,
+          startingChips,
+          meta,
+          paymentData,
+          `Test stake locked on Base Sepolia — ${formatStakeToChipsLine(tier.amount)}. Tx ${hash.slice(0, 10)}…`,
+        );
+      } catch (err) {
+        if (isUserRejectedTransactionError(err)) {
+          setLockStakePhase("rejected");
+          setPaymentError("Transaction rejected in wallet.");
+          setSessionLog((prev) => [
+            ...prev,
+            createErrorLogEntry("Test stake lock rejected in wallet."),
+          ]);
+        } else {
+          setLockStakePhase("failed");
+          const message =
+            err instanceof Error ? err.message : "Test stake transaction failed";
+          setPaymentError(message);
+          setSessionLog((prev) => [...prev, createErrorLogEntry(message)]);
+        }
+      } finally {
+        setPayingLock(false);
+      }
+    },
+    [selectedTestStake, isConnected, chain, address, activateStakeSession],
+  );
+
+  const payMockEntryFee = useCallback(
+    async (stakeAmount: TestStakeAmount = selectedTestStake) => {
+      setPayingMock(true);
+      setPaymentError(null);
+      setLockStakePhase("idle");
+
+      const tier = getTestStakeTier(stakeAmount);
+      const startingChips = tier.chipAmount;
+
+      try {
+        const response = await fetch("/api/x402/entry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "mock", stakeAmount }),
+        });
+
+        const data = (await response.json()) as X402PaymentResult;
+
+        if (!data.success) {
+          throw new Error(data.error ?? "Test stake session lock failed");
+        }
+
+        const resolvedStartingChips = data.chipAmount ?? startingChips;
+        const meta: StakeSessionMeta = {
+          stakeAmount: tier.amount,
+          startingChips: resolvedStartingChips,
+          lockedAt: data.paidAt,
+          status: "active",
+          lockSettlement: "mock",
+          lockTxStatus: "mock",
+        };
+
+        activateStakeSession(
+          tier,
+          resolvedStartingChips,
+          meta,
+          data,
+          `Test stake locked — ${formatStakeToChipsLine(tier.amount)}. Mock test stake lock.`,
+        );
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Test stake session lock failed";
+        setPaymentError(message);
+        setSessionLog((prev) => [...prev, createErrorLogEntry(message)]);
+      } finally {
+        setPayingMock(false);
+      }
+    },
+    [selectedTestStake, activateStakeSession],
+  );
+
+  const beginNewStakeSession = useCallback(() => {
+    clearStakeSessionMeta();
+    setStakeSessionMeta(null);
+    setPaymentResult(null);
+    setPaymentError(null);
+    setLockStakePhase("idle");
+  }, []);
 
   const handleCashOut = useCallback(async () => {
     if (!stakeSessionMeta || !isStakeSessionActive(stakeSessionMeta)) return;
@@ -1926,8 +2059,12 @@ export function ArenaShell() {
               <PokerTable
                 className="arena-table-surface"
                 roomLayout
-                onPayEntryFee={() => payEntryFee(selectedTestStake)}
-                payingEntryFee={paying}
+                onLockStake={() => lockTestStake(selectedTestStake)}
+                onPayMock={() => payMockEntryFee(selectedTestStake)}
+                onBeginNewStakeSession={beginNewStakeSession}
+                payingLockStake={payingLock}
+                payingMockStake={payingMock}
+                lockStakePhase={lockStakePhase}
                 paymentError={paymentError}
                 selectedTestStake={selectedTestStake}
                 onTestStakeChange={setSelectedTestStake}
@@ -1969,9 +2106,13 @@ export function ArenaShell() {
                 className="min-h-0 shrink-0"
                 paymentResult={paymentResult}
                 stakeSessionMeta={stakeSessionMeta}
-                onPayMock={payEntryFee}
+                onLockStake={lockTestStake}
+                onPayMock={payMockEntryFee}
+                onBeginNewStakeSession={beginNewStakeSession}
                 onCashOut={handleCashOut}
-                paying={paying}
+                payingLock={payingLock}
+                payingMock={payingMock}
+                lockStakePhase={lockStakePhase}
                 cashingOut={cashingOut}
                 error={paymentError}
                 selectedStake={selectedTestStake}

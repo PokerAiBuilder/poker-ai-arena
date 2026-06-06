@@ -6,17 +6,21 @@ import { ChipStack } from "@/components/arena/ChipStack";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { useAccount } from "wagmi";
+import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
 import { TestStakePicker } from "@/components/arena/TestStakePicker";
+import { useTestnetStakeNetwork } from "@/hooks/useTestnetStakeNetwork";
 import type { HandResultDisplayType } from "@/lib/arena/simulationDisplay";
 import type { Card } from "@/lib/poker/types";
-import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
 import type { StakeCashOutRecord } from "@/lib/stake/stakeSessionStorage";
 import {
   formatStakeToChipsLine,
   formatTestBalanceAmount,
   type TestStakeAmount,
 } from "@/lib/stake/testnetStake";
+import {
+  getLockStakePhaseLabel,
+  type LockStakePhase,
+} from "@/lib/stake/lockStakeFlow";
 import { cn } from "@/lib/utils";
 
 export type TableSeat = {
@@ -57,8 +61,12 @@ type PokerTableProps = {
   roomLayout?: boolean;
   /** Human vs AI — countdown seconds during player turn */
   humanTurnSecondsLeft?: number | null;
-  onPayEntryFee?: () => void;
-  payingEntryFee?: boolean;
+  onLockStake?: () => void;
+  onPayMock?: () => void;
+  onBeginNewStakeSession?: () => void;
+  payingLockStake?: boolean;
+  payingMockStake?: boolean;
+  lockStakePhase?: LockStakePhase;
   paymentError?: string | null;
   selectedTestStake?: TestStakeAmount;
   onTestStakeChange?: (stake: TestStakeAmount) => void;
@@ -1273,8 +1281,12 @@ export function PokerTable({
   showHumanVsAiBadge = false,
   roomLayout = false,
   humanTurnSecondsLeft = null,
-  onPayEntryFee,
-  payingEntryFee = false,
+  onLockStake,
+  onPayMock,
+  onBeginNewStakeSession,
+  payingLockStake = false,
+  payingMockStake = false,
+  lockStakePhase = "idle",
   paymentError,
   selectedTestStake,
   onTestStakeChange,
@@ -1282,9 +1294,20 @@ export function PokerTable({
   cashOutRecord = null,
   className,
 }: PokerTableProps) {
-  const { isConnected } = useAccount();
+  const {
+    isConnected,
+    onBaseSepolia,
+    wrongNetwork,
+    treasuryConfigured,
+    canSendLockTx,
+    switchToBaseSepolia,
+    isSwitching,
+  } = useTestnetStakeNetwork();
   const layoutMode = resolveSeatLayoutMode(fourPlayerLayout, roomLayout);
   const boardCardSize = resolveBoardCardSize(layoutMode);
+  const isPayingStake = payingLockStake || payingMockStake;
+  const phaseLabel = getLockStakePhaseLabel(lockStakePhase);
+  const showStakeActions = Boolean(onLockStake || onPayMock);
 
   return (
     <div
@@ -1510,16 +1533,36 @@ export function PokerTable({
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Choose stake — it becomes your starting chip stack. Pay with test
-                  ETH on Base Sepolia (mock lock for now).
+                  ETH on Base Sepolia.
                 </p>
+                {!stakeCashedOut ? (
+                  <p
+                    className={cn(
+                      "mt-2 rounded-lg border px-2.5 py-1.5 text-[10px]",
+                      wrongNetwork
+                        ? "border-amber-500/30 bg-amber-500/10 text-amber-100/90"
+                        : isConnected && onBaseSepolia
+                          ? "border-emerald-500/30 bg-emerald-950/25 text-emerald-100/90"
+                          : "border-white/10 bg-black/25 text-muted-foreground",
+                    )}
+                  >
+                    {wrongNetwork
+                      ? "Switch to Base Sepolia to lock a test stake."
+                      : isConnected && onBaseSepolia && canSendLockTx
+                        ? "MetaMask will ask you to confirm a Base Sepolia test ETH transfer."
+                        : isConnected && onBaseSepolia
+                          ? "Ready to lock test stake on Base Sepolia."
+                          : "Connect wallet for testnet lock, or start a mock session."}
+                  </p>
+                ) : null}
               </>
             )}
-            {onPayEntryFee && selectedTestStake && onTestStakeChange ? (
+            {showStakeActions && selectedTestStake && onTestStakeChange ? (
               <div className="mt-3 text-left">
                 <TestStakePicker
                   value={selectedTestStake}
                   onChange={onTestStakeChange}
-                  disabled={payingEntryFee}
+                  disabled={isPayingStake}
                   compact
                 />
                 <p className="mt-2 text-center text-[10px] font-medium text-[var(--arena-cyan)]">
@@ -1527,46 +1570,133 @@ export function PokerTable({
                 </p>
               </div>
             ) : null}
-            {onPayEntryFee ? (
+            {showStakeActions ? (
               <div className="mt-4 space-y-2">
-                {!isConnected ? (
-                  <ConnectWalletButton
+                {stakeCashedOut ? (
+                  <Button
+                    type="button"
                     size="lg"
-                    showDemoHint={false}
                     className="v1-button-primary w-full"
-                  />
+                    disabled={isPayingStake}
+                    onClick={() => onBeginNewStakeSession?.()}
+                  >
+                    Choose New Test Stake Session
+                  </Button>
+                ) : wrongNetwork ? (
+                  <>
+                    <Button
+                      type="button"
+                      size="lg"
+                      variant="destructive"
+                      className="w-full"
+                      disabled={isSwitching || isPayingStake}
+                      onClick={() => switchToBaseSepolia()}
+                    >
+                      {isSwitching ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Switching network…
+                        </>
+                      ) : (
+                        "Switch to Base Sepolia"
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="lg"
+                      variant="secondary"
+                      className="w-full"
+                      disabled={isPayingStake}
+                      onClick={onPayMock}
+                    >
+                      {payingMockStake ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Starting mock session…
+                        </>
+                      ) : (
+                        "Start Mock Test Session"
+                      )}
+                    </Button>
+                  </>
+                ) : isConnected && onBaseSepolia ? (
+                  <>
+                    <Button
+                      type="button"
+                      size="lg"
+                      className="v1-button-primary w-full"
+                      disabled={isPayingStake || !treasuryConfigured}
+                      onClick={onLockStake}
+                    >
+                      {payingLockStake ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {phaseLabel ?? "Locking test stake…"}
+                        </>
+                      ) : (
+                        "Lock Test Stake"
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="lg"
+                      variant="secondary"
+                      className="w-full"
+                      disabled={isPayingStake}
+                      onClick={onPayMock}
+                    >
+                      {payingMockStake ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Starting mock session…
+                        </>
+                      ) : (
+                        "Start Mock Test Session"
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <ConnectWalletButton
+                      size="lg"
+                      showDemoHint={false}
+                      className="v1-button-primary w-full"
+                    />
+                    <Button
+                      type="button"
+                      size="lg"
+                      variant="secondary"
+                      className="w-full"
+                      disabled={isPayingStake}
+                      onClick={onPayMock}
+                    >
+                      {payingMockStake ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Starting mock session…
+                        </>
+                      ) : (
+                        "Start Mock Test Session"
+                      )}
+                    </Button>
+                  </>
+                )}
+                {isConnected && onBaseSepolia && !treasuryConfigured && !stakeCashedOut ? (
+                  <p className="text-[10px] leading-relaxed text-amber-200/85">
+                    Treasury address not configured — cannot send testnet stake
+                    transaction. Use Start Mock Test Session for local preview.
+                  </p>
                 ) : null}
-                <Button
-                  type="button"
-                  size="lg"
-                  variant={isConnected ? "default" : "secondary"}
-                  className={cn(
-                    "w-full",
-                    isConnected && "v1-button-primary",
-                  )}
-                  disabled={payingEntryFee}
-                  onClick={onPayEntryFee}
-                >
-                  {payingEntryFee ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {isConnected
-                        ? stakeCashedOut
-                          ? "Starting new session…"
-                          : "Locking test stake…"
-                        : "Starting mock session…"}
-                    </>
-                  ) : stakeCashedOut ? (
-                    "Start New Test Stake Session"
-                  ) : isConnected ? (
-                    "Lock Test Stake"
-                  ) : (
-                    "Start Mock Test Session"
-                  )}
-                </Button>
+                {phaseLabel && lockStakePhase !== "idle" && !stakeCashedOut ? (
+                  <p className="text-[10px] leading-relaxed text-[var(--arena-cyan)]">
+                    {phaseLabel}
+                  </p>
+                ) : null}
                 <p className="text-[10px] leading-relaxed text-[var(--arena-muted)]">
-                  Base Sepolia · test tokens only · no mainnet funds · mock
-                  settlement only
+                  Base Sepolia · test tokens only · no mainnet funds
+                  {canSendLockTx && !stakeCashedOut
+                    ? " · confirm test ETH transfer in MetaMask"
+                    : " · mock session available as fallback"}
                 </p>
                 {paymentError ? (
                   <p className="text-[10px] text-red-400">{paymentError}</p>

@@ -1,6 +1,51 @@
 # Project status
 
-Last updated for **v1.1.0-c** — mock cash-out flow (testnet mock only).
+Last updated for **v1.1.0-d** — Base Sepolia transaction scaffold (testnet only).
+
+---
+
+## v1.1.0-d — Base Sepolia transaction scaffold
+
+**Scope:** Wallet/network guard + optional native test ETH lock tx on Base Sepolia. **No** escrow contract, **no** on-chain cash-out, **no** mainnet funds, **no** poker hand logic or Agent Battle changes.
+
+### Config (`src/lib/onchain/baseSepolia.ts`)
+
+| Item | Value |
+| ---- | ----- |
+| Chain ID | `84532` |
+| Name | Base Sepolia |
+| Native currency | ETH |
+| Explorer | `https://sepolia.basescan.org` |
+| Treasury | `NEXT_PUBLIC_TESTNET_TREASURY_ADDRESS` (optional) |
+
+### Lock stake behavior
+
+| Condition | Result |
+| --------- | ------ |
+| Wallet + Base Sepolia + treasury env set | Send tier test ETH to treasury; store `lockTxHash`, `lockSettlement: base-sepolia-test-tx` |
+| Wallet + wrong network | Block lock; show **Switch to Base Sepolia** |
+| Wallet + Base Sepolia + no treasury | Mock lock via `/api/x402/entry`; helper text shown |
+| No wallet | **Start Mock Test Session** fallback (unchanged) |
+
+Test ETH amounts: `$0.10` → `0.00010`, `$0.25` → `0.00025`, `$0.50` → `0.00050`, `$1.00` → `0.00100`.
+
+### Session metadata (extended)
+
+- `lockTxHash`, `lockTxStatus` (`pending` \| `confirmed` \| `failed` \| `mock`)
+- `lockSettlement` (`mock` \| `base-sepolia-test-tx`)
+- `treasuryAddress`, `explorerUrl`
+
+### Cash-out
+
+Still **mock withdrawal only** — receipt may show `Payout tx hash: Coming next`.
+
+### Next steps
+
+| Version | Focus |
+| ------- | ----- |
+| **v1.2** | Escrow smart contract + on-chain payout tx |
+
+**Build:** `npm run build` (target for v1.1.0-d).
 
 ---
 

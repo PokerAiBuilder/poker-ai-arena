@@ -4,6 +4,10 @@ export const STAKE_SESSION_STORAGE_KEY = "poker-ai-arena-stake-session-v1";
 
 export type StakeSessionStatus = "active" | "cashed_out";
 
+export type LockTxStatus = "pending" | "confirmed" | "failed" | "mock";
+
+export type LockSettlement = "mock" | "base-sepolia-test-tx";
+
 export type StakeCashOutRecord = {
   cashedOutAt: string;
   cashOutChips: number;
@@ -20,6 +24,11 @@ export type StakeSessionMeta = {
   lockedAt: string;
   status: StakeSessionStatus;
   cashOut?: StakeCashOutRecord;
+  lockTxHash?: string;
+  lockTxStatus?: LockTxStatus;
+  lockSettlement?: LockSettlement;
+  treasuryAddress?: string;
+  explorerUrl?: string;
 };
 
 function generateMockWithdrawalId(): string {
@@ -46,6 +55,8 @@ function normalizeStakeSessionMeta(raw: StakeSessionMeta): StakeSessionMeta {
   return {
     ...raw,
     status: raw.status ?? "active",
+    lockTxStatus: raw.lockTxStatus ?? (raw.lockSettlement === "base-sepolia-test-tx" ? "pending" : "mock"),
+    lockSettlement: raw.lockSettlement ?? "mock",
   };
 }
 

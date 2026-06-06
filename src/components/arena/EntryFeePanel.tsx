@@ -1,9 +1,9 @@
 "use client";
 
-import { useAccount } from "wagmi";
 import {
   CheckCircle2,
   ChevronDown,
+  ExternalLink,
   Loader2,
   Lock,
   ShieldCheck,
@@ -13,8 +13,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TestStakePicker } from "@/components/arena/TestStakePicker";
+import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
 import type { X402PaymentResult } from "@/lib/bankr/x402Client";
-import { getPaymentModeUserLabel } from "@/lib/bankr/x402Client";
+import { useTestnetStakeNetwork } from "@/hooks/useTestnetStakeNetwork";
+import {
+  formatTxHash,
+  getBaseSepoliaExplorerTxUrl,
+  getLockSettlementLabel,
+  getShortAddress,
+} from "@/lib/onchain/baseSepolia";
 import {
   DEFAULT_TEST_STAKE,
   formatStakeToChipsLine,
@@ -25,14 +32,22 @@ import {
 } from "@/lib/stake/testnetStake";
 import type { StakeSessionMeta } from "@/lib/stake/stakeSessionStorage";
 import { isStakeSessionCashedOut } from "@/lib/stake/stakeSessionStorage";
+import {
+  getLockStakePhaseLabel,
+  type LockStakePhase,
+} from "@/lib/stake/lockStakeFlow";
 import { cn } from "@/lib/utils";
 
 type EntryFeePanelProps = {
   paymentResult: X402PaymentResult | null;
   stakeSessionMeta?: StakeSessionMeta | null;
+  onLockStake: (stakeAmount: TestStakeAmount) => Promise<void>;
   onPayMock: (stakeAmount: TestStakeAmount) => Promise<void>;
+  onBeginNewStakeSession?: () => void;
   onCashOut?: () => void | Promise<void>;
-  paying?: boolean;
+  payingLock?: boolean;
+  payingMock?: boolean;
+  lockStakePhase?: LockStakePhase;
   cashingOut?: boolean;
   error?: string | null;
   selectedStake?: TestStakeAmount;
@@ -52,9 +67,13 @@ function truncateMiddle(value: string, head = 6, tail = 4): string {
 export function EntryFeePanel({
   paymentResult,
   stakeSessionMeta = null,
+  onLockStake,
   onPayMock,
+  onBeginNewStakeSession,
   onCashOut,
-  paying = false,
+  payingLock = false,
+  payingMock = false,
+  lockStakePhase = "idle",
   cashingOut = false,
   error,
   selectedStake = DEFAULT_TEST_STAKE,
@@ -65,12 +84,28 @@ export function EntryFeePanel({
   compact = false,
   className,
 }: EntryFeePanelProps) {
-  const { isConnected, address } = useAccount();
+  const {
+    address,
+    isConnected,
+    onBaseSepolia,
+    wrongNetwork,
+    treasuryConfigured,
+    canSendLockTx,
+    switchToBaseSepolia,
+    isSwitching,
+  } = useTestnetStakeNetwork();
 
   const recipientWalletLabel = (wallet?: string) =>
     wallet
-      ? truncateMiddle(wallet, 6, 4)
+      ? getShortAddress(wallet)
       : "Local preview / no wallet connected";
+
+  const lockTxHash =
+    stakeSessionMeta?.lockTxHash ?? paymentResult?.txHash;
+  const lockExplorerUrl =
+    stakeSessionMeta?.explorerUrl ??
+    (lockTxHash ? getBaseSepoliaExplorerTxUrl(lockTxHash) : undefined);
+  const lockSettlement = stakeSessionMeta?.lockSettlement ?? "mock";
 
   const isCashedOut = isStakeSessionCashedOut(stakeSessionMeta);
   const isActive = !isCashedOut && paymentResult?.success === true;
@@ -89,9 +124,17 @@ export function EntryFeePanel({
     currentHumanChips > 0 &&
     !handInProgress &&
     !cashingOut &&
-    !paying;
+    !payingLock &&
+    !payingMock;
 
-  const lockingLabel = isConnected ? "Locking test stake…" : "Starting mock session…";
+  const isPaying = payingLock || payingMock;
+  const phaseLabel = getLockStakePhaseLabel(lockStakePhase);
+  const phaseTone =
+    lockStakePhase === "locked"
+      ? "border-emerald-500/30 bg-emerald-950/25 text-emerald-100/90"
+      : lockStakePhase === "rejected" || lockStakePhase === "failed"
+        ? "border-red-500/30 bg-red-950/25 text-red-200/90"
+        : "border-[var(--arena-cyan)]/30 bg-[var(--arena-blue)]/10 text-[var(--arena-cyan)]";
 
   const panelTone = isCashedOut
     ? "border-emerald-500/40 shadow-emerald-900/20"
@@ -215,6 +258,10 @@ export function EntryFeePanel({
                 </dd>
               </div>
               <div className="flex justify-between gap-2 text-[11px]">
+                <dt className="text-muted-foreground">Payout tx hash</dt>
+                <dd className="text-white/60">Coming next</dd>
+              </div>
+              <div className="flex justify-between gap-2 text-[11px]">
                 <dt className="text-muted-foreground">Cashed out</dt>
                 <dd className="text-[9px] text-white/70">
                   {new Date(cashOut.cashedOutAt).toLocaleString(undefined, {
@@ -225,19 +272,12 @@ export function EntryFeePanel({
               </div>
             </dl>
             <Button
-              onClick={() => onPayMock(selectedStake)}
-              disabled={paying}
+              onClick={() => onBeginNewStakeSession?.()}
+              disabled={isPaying}
               className="v1-button-primary w-full"
               size={compact ? "default" : "lg"}
             >
-              {paying ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Starting new session…
-                </>
-              ) : (
-                "Start New Test Stake Session"
-              )}
+              Choose New Test Stake Session
             </Button>
           </>
         ) : !isActive ? (
@@ -245,7 +285,7 @@ export function EntryFeePanel({
             {compact ? (
               <p className="text-[10px] leading-relaxed text-muted-foreground">
                 Stake converts to starting chips. Pay with test ETH on Base
-                Sepolia — mock settlement for now.
+                Sepolia{canSendLockTx ? " — confirm in MetaMask" : ""}.
               </p>
             ) : (
               <p className="leading-relaxed text-muted-foreground">
@@ -254,10 +294,37 @@ export function EntryFeePanel({
               </p>
             )}
 
+            <div
+              className={cn(
+                "rounded-lg border px-2.5 py-2 text-[10px]",
+                wrongNetwork
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-100/90"
+                  : isConnected && onBaseSepolia
+                    ? "border-emerald-500/30 bg-emerald-950/25 text-emerald-100/90"
+                    : "border-white/10 bg-black/25 text-muted-foreground",
+              )}
+            >
+              {wrongNetwork ? (
+                <p>Switch to Base Sepolia to lock a test stake with your wallet.</p>
+              ) : isConnected && onBaseSepolia && canSendLockTx ? (
+                <p>
+                  MetaMask will ask you to confirm a Base Sepolia test ETH
+                  transfer.
+                </p>
+              ) : isConnected && onBaseSepolia ? (
+                <p>Ready to lock test stake on Base Sepolia.</p>
+              ) : (
+                <p>
+                  Connect wallet for the Base Sepolia testnet path, or use mock
+                  session for local preview.
+                </p>
+              )}
+            </div>
+
             <TestStakePicker
               value={selectedStake}
               onChange={onStakeChange ?? (() => undefined)}
-              disabled={paying || !onStakeChange}
+              disabled={isPaying || !onStakeChange}
               compact={compact}
             />
 
@@ -279,40 +346,160 @@ export function EntryFeePanel({
                 {formatStakeToChipsLine(selectedStake)}
               </p>
               <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
-                {tier.testPaymentLabel} on Base Sepolia · mock lock (no real
-                transfer yet)
+                {tier.testPaymentLabel} on Base Sepolia
+                {canSendLockTx
+                  ? " · sends test ETH to testnet treasury"
+                  : isConnected && onBaseSepolia && !treasuryConfigured
+                    ? " · treasury not configured for on-chain lock"
+                    : " · use mock session for local preview"}
               </p>
             </div>
 
-            <Button
-              onClick={() => onPayMock(selectedStake)}
-              disabled={paying}
-              className="v1-button-primary w-full"
-              size={compact ? "default" : "lg"}
-            >
-              {paying ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {lockingLabel}
-                </>
-              ) : isConnected ? (
-                "Lock Test Stake"
-              ) : (
-                "Start Mock Test Session"
-              )}
-            </Button>
+            {wrongNetwork ? (
+              <div className="space-y-2">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={isSwitching || isPaying}
+                  className="w-full"
+                  size={compact ? "default" : "lg"}
+                  onClick={() => switchToBaseSepolia()}
+                >
+                  {isSwitching ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Switching network…
+                    </>
+                  ) : (
+                    "Switch to Base Sepolia"
+                  )}
+                </Button>
+                <Button
+                  onClick={() => onPayMock(selectedStake)}
+                  disabled={isPaying}
+                  variant="secondary"
+                  className="w-full"
+                  size={compact ? "default" : "lg"}
+                >
+                  {payingMock ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Starting mock session…
+                    </>
+                  ) : (
+                    "Start Mock Test Session"
+                  )}
+                </Button>
+              </div>
+            ) : isConnected && onBaseSepolia ? (
+              <div className="space-y-2">
+                <Button
+                  onClick={() => onLockStake(selectedStake)}
+                  disabled={isPaying || !treasuryConfigured}
+                  className="v1-button-primary w-full"
+                  size={compact ? "default" : "lg"}
+                >
+                  {payingLock ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {phaseLabel ?? "Locking test stake…"}
+                    </>
+                  ) : (
+                    "Lock Test Stake"
+                  )}
+                </Button>
+                <Button
+                  onClick={() => onPayMock(selectedStake)}
+                  disabled={isPaying}
+                  variant="secondary"
+                  className="w-full"
+                  size={compact ? "default" : "lg"}
+                >
+                  {payingMock ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Starting mock session…
+                    </>
+                  ) : (
+                    "Start Mock Test Session"
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <ConnectWalletButton
+                  size={compact ? "default" : "lg"}
+                  showDemoHint={false}
+                  className="v1-button-primary w-full"
+                />
+                <Button
+                  onClick={() => onPayMock(selectedStake)}
+                  disabled={isPaying}
+                  variant="secondary"
+                  className="w-full"
+                  size={compact ? "default" : "lg"}
+                >
+                  {payingMock ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Starting mock session…
+                    </>
+                  ) : (
+                    "Start Mock Test Session"
+                  )}
+                </Button>
+              </div>
+            )}
 
-            {!isConnected ? (
+            {isConnected && onBaseSepolia && !treasuryConfigured ? (
+              <p className="text-[9px] leading-relaxed text-amber-200/85">
+                Treasury address not configured — cannot send testnet stake
+                transaction. Use Start Mock Test Session for local preview.
+              </p>
+            ) : null}
+
+            {phaseLabel && lockStakePhase !== "idle" ? (
+              <p
+                className={cn(
+                  "rounded-lg border px-2.5 py-2 text-[10px] leading-relaxed",
+                  phaseTone,
+                )}
+              >
+                {phaseLabel}
+              </p>
+            ) : null}
+
+            {canSendLockTx ? (
+              <p className="text-[9px] leading-relaxed text-muted-foreground">
+                MetaMask will ask you to confirm a Base Sepolia test ETH transfer
+                ({tier.testPaymentLabel}) to the configured testnet treasury.
+                Testnet only — never mainnet.
+              </p>
+            ) : !isConnected ? (
               <p className="text-center text-[9px] leading-relaxed text-muted-foreground">
-                Connect wallet for the primary testnet path · mock session works
+                Connect wallet for on-chain test stake lock · mock session works
                 without wallet for local preview
               </p>
             ) : null}
 
             {compact ? (
-              <p className="text-[9px] leading-relaxed text-amber-200/75">
-                No mainnet funds · mock testnet only.
-              </p>
+              canSendLockTx ? (
+                <p className="text-[9px] leading-relaxed text-emerald-200/75">
+                  Base Sepolia test ETH transfer — confirm in MetaMask.
+                </p>
+              ) : (
+                <p className="text-[9px] leading-relaxed text-amber-200/75">
+                  No mainnet funds · mock testnet only.
+                </p>
+              )
+            ) : canSendLockTx ? (
+              <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2.5">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                <p className="text-[10px] leading-relaxed text-emerald-200/80">
+                  Lock Test Stake sends a small test ETH payment on Base Sepolia.
+                  Confirm the transfer in MetaMask to start your session.
+                </p>
+              </div>
             ) : (
               <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5">
                 <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
@@ -369,9 +556,41 @@ export function EntryFeePanel({
               <div className="flex justify-between gap-2 text-[11px]">
                 <dt className="shrink-0 text-muted-foreground">Settlement</dt>
                 <dd className="min-w-0 truncate text-right text-[var(--arena-cyan)]">
-                  {getPaymentModeUserLabel(paymentResult.mode)} · escrow next
+                  {getLockSettlementLabel(lockSettlement)}
                 </dd>
               </div>
+              {lockTxHash ? (
+                <div className="flex justify-between gap-2 text-[11px]">
+                  <dt className="shrink-0 text-muted-foreground">Lock tx</dt>
+                  <dd className="min-w-0 truncate text-right">
+                    {lockExplorerUrl ? (
+                      <a
+                        href={lockExplorerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-0.5 font-mono text-[9px] text-[var(--arena-cyan)] hover:underline"
+                        title={lockTxHash}
+                      >
+                        {formatTxHash(lockTxHash)}
+                        <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-70" />
+                      </a>
+                    ) : (
+                      <span className="font-mono text-[9px] text-white/75">
+                        {formatTxHash(lockTxHash)}
+                      </span>
+                    )}
+                  </dd>
+                </div>
+              ) : null}
+              {stakeSessionMeta?.lockTxStatus &&
+              stakeSessionMeta.lockTxStatus !== "mock" ? (
+                <div className="flex justify-between gap-2 text-[11px]">
+                  <dt className="shrink-0 text-muted-foreground">Lock tx status</dt>
+                  <dd className="min-w-0 truncate text-right capitalize text-white/80">
+                    {stakeSessionMeta.lockTxStatus}
+                  </dd>
+                </div>
+              ) : null}
             </dl>
 
             <Button
@@ -423,7 +642,8 @@ export function EntryFeePanel({
               </p>
             )}
 
-            {paymentResult.receiptId || paymentResult.txHash ? (
+            {(paymentResult.receiptId || lockTxHash) &&
+            lockSettlement === "mock" ? (
               <details className="shrink-0 rounded-lg border border-white/10 bg-black/20 text-[10px]">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-1.5 text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
                   <span>Stake lock receipt (mock)</span>

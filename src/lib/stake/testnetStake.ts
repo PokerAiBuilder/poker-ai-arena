@@ -4,24 +4,28 @@ export const TEST_STAKE_TIERS = [
     amount: "0.10",
     usdLabel: "$0.10 test",
     testPaymentLabel: "0.00010 test ETH",
+    testEthAmount: "0.00010",
     chipAmount: 100,
   },
   {
     amount: "0.25",
     usdLabel: "$0.25 test",
     testPaymentLabel: "0.00025 test ETH",
+    testEthAmount: "0.00025",
     chipAmount: 250,
   },
   {
     amount: "0.50",
     usdLabel: "$0.50 test",
     testPaymentLabel: "0.00050 test ETH",
+    testEthAmount: "0.00050",
     chipAmount: 500,
   },
   {
     amount: "1.00",
     usdLabel: "$1.00 test",
     testPaymentLabel: "0.00100 test ETH",
+    testEthAmount: "0.00100",
     chipAmount: 1000,
   },
 ] as const;
