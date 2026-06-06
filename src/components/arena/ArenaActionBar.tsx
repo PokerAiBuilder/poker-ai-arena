@@ -327,7 +327,7 @@ export function ArenaActionBar({
     }
   }
 
-  const mobileTap = "max-sm:arena-action-btn-tap";
+  const mobileTap = "max-md:arena-action-btn-tap";
 
   const renderHvaiModeControl = (compact = false) => {
     if (agentBattleSpectator) return null;
@@ -362,7 +362,7 @@ export function ArenaActionBar({
         <span
           className={cn(
             "arena-action-mode-pill",
-            compact && "min-w-[4.5rem] flex-1 justify-center max-sm:min-w-0",
+            compact && "min-w-[4.5rem] flex-1 justify-center max-md:min-w-0",
             !compact && "min-w-[7.5rem] xl:min-w-[8.5rem]",
           )}
           title="Human vs AI hand in progress"
@@ -531,23 +531,6 @@ export function ArenaActionBar({
             <>
               <div className="arena-controls-mobile">
                 <div className="arena-action-mobile-mode">
-                  {onPlayStepDemo ? (
-                    <Button
-                      onClick={onPlayStepDemo}
-                      disabled={playStepDemoDisabled}
-                      size="default"
-                      variant="outline"
-                      className={cn(
-                        "arena-action-btn",
-                        mobileTap,
-                        "shrink-0 border-emerald-400/40 text-emerald-100 hover:bg-emerald-950/40",
-                        stepDemoActive ? "min-w-[4.5rem] px-2" : "min-w-0 flex-1",
-                      )}
-                    >
-                      <Play className="h-4 w-4 shrink-0" />
-                      <span className="truncate">{stepDemoActive ? "Play" : "Play vs PM"}</span>
-                    </Button>
-                  ) : null}
                   {showAgentBattleDepletedUi && onResetAgentBattleStacks ? (
                     <Button
                       type="button"
@@ -692,7 +675,7 @@ export function ArenaActionBar({
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-9 border-[var(--arena-border)] text-[var(--arena-cyan)] text-xs lg:hidden"
+                    className="h-9 border-[var(--arena-border)] text-[var(--arena-cyan)] text-xs 2xl:hidden"
                     onClick={onOpenMenu}
                   >
                     Menu
@@ -869,7 +852,7 @@ export function ArenaActionBar({
                 <div className="arena-action-row arena-action-row-mode min-w-0 max-w-full">
             {renderHvaiModeControl()}
 
-            <div className="hidden flex-wrap items-center gap-1.5 sm:flex lg:hidden">
+            <div className="hidden flex-wrap items-center gap-1.5 sm:flex 2xl:hidden">
               <Button
                 onClick={onSimulateAgentBattle}
                 disabled={agentBattleDisabled}
@@ -1078,7 +1061,7 @@ export function ArenaActionBar({
                 </div>
               </div>
 
-              <div className="arena-action-row hidden min-w-0 shrink-0 lg:flex lg:justify-end">
+              <div className="arena-action-row hidden min-w-0 shrink-0 2xl:flex 2xl:justify-end">
             <Button
               onClick={onSimulateAgentBattle}
               disabled={agentBattleDisabled}

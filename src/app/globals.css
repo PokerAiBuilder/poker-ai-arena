@@ -207,7 +207,13 @@
     display: none;
   }
 
-  /* Arena shell — desktop/laptop viewport fit (v0.8.1) */
+  /*
+   * Arena responsive layout (v1.0.1) — CSS/UI only
+   * - Wide desktop >= 1536px (2xl): right sidebar + Agent Battle ellipse ONLY
+   * - Below 1536px: no sidebar (Menu); Agent Battle broadcast (all laptops/tablets/mobile)
+   * - Human vs AI five-zone tuning still applies from 1024px (lg) — unchanged
+   * - Mobile < 768px (max-md): simplified controls, no horizontal overflow
+   */
   .arena-header-bar {
     @apply h-14 shrink-0;
   }
@@ -234,7 +240,7 @@
   }
 
   .arena-main-grid {
-    @apply relative z-10 grid min-h-0 min-w-0 flex-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_clamp(10.5rem,15vw,13.5rem)];
+    @apply relative z-10 grid min-h-0 min-w-0 flex-1 overflow-hidden 2xl:grid-cols-[minmax(0,1fr)_clamp(10.5rem,15vw,13.5rem)];
   }
 
   @media (min-width: 640px) {
@@ -263,8 +269,8 @@
     @apply absolute inset-0 h-full w-full min-h-0 max-h-full;
   }
 
-  /* Mobile — absolute table surface needs a sized parent; flex-fill + min floor */
-  @media (max-width: 639px) {
+  /* Mobile (<768px) — absolute table surface needs a sized parent; flex-fill + min floor */
+  @media (max-width: 767px) {
     .arena-badge-bar {
       @apply py-1;
     }
@@ -302,6 +308,252 @@
     @apply absolute inset-x-[4%] inset-y-[7%] z-10 flex flex-col items-stretch sm:inset-x-[5%] sm:inset-y-[8%];
   }
 
+  /* Human vs AI — zones fill the oval felt (positioned inside .arena-table-oval-felt) */
+  .arena-hvai-layout {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: block;
+    height: 100%;
+    width: 100%;
+    overflow: visible;
+  }
+
+  .arena-hvai-column {
+    position: relative;
+    height: 100%;
+    width: 100%;
+  }
+
+  .arena-hvai-center {
+    position: absolute;
+    left: 50%;
+    top: 38%;
+    z-index: 12;
+    display: flex;
+    width: min(90%, 18rem);
+    transform: translate(-50%, -50%);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+  }
+
+  .arena-hvai-pot {
+    width: auto;
+  }
+
+  .arena-hvai-board {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .arena-hvai-board > div {
+    align-items: center;
+  }
+
+  .arena-hvai-result {
+    position: absolute;
+    left: 50%;
+    top: 48%;
+    z-index: 14;
+    width: min(86%, 12rem);
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: center;
+  }
+
+  .arena-hvai-result > * {
+    width: 100%;
+  }
+
+  .arena-hvai-slot {
+    position: absolute;
+    z-index: 16;
+    left: 50%;
+    max-width: calc(100% - 0.75rem);
+    width: max-content;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .arena-hvai-slot > * {
+    pointer-events: auto;
+    max-width: 100%;
+  }
+
+  .arena-hvai-slot--top {
+    top: -15%;
+    z-index: 18;
+  }
+
+  .arena-hvai-slot--human {
+    bottom: -8%;
+  }
+
+  .arena-hvai-player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 100%;
+    gap: 0.2rem;
+  }
+
+  .arena-hvai-player-cards {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    flex-shrink: 0;
+    margin-bottom: 0;
+    overflow: visible;
+  }
+
+  .arena-hvai-player-cards > *:nth-child(1),
+  .arena-hvai-player-cards > *:nth-child(2) {
+    transform: none;
+    margin: 0;
+  }
+
+  .arena-hvai-player--top .arena-hvai-player-cards {
+    align-items: center;
+    min-height: 2.5rem;
+    overflow: visible;
+  }
+
+  .arena-hvai-player-banner {
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .arena-hvai-player-banner .arena-seat-panel {
+    min-width: 5rem;
+    width: max-content;
+    max-width: min(7.5rem, 100%);
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+  }
+
+  /* Level horizontal oval — all viewports */
+  .arena-table-hvai .arena-table-oval-rail {
+    inset: 8% 3.5% 8% 3.5%;
+  }
+
+  .arena-table-hvai .arena-table-oval-felt {
+    inset: 11% 6% 11% 6%;
+    overflow: visible;
+  }
+
+  .arena-table-hvai .arena-table-inner {
+    overflow: visible;
+  }
+
+  /* Desktop — straight hole cards (no fan tilt) */
+  @media (min-width: 768px) {
+    .arena-hvai-layout {
+      overflow: visible;
+    }
+
+    .arena-hvai-player--top {
+      flex-direction: column;
+    }
+
+    .arena-hvai-player--top .arena-hvai-player-cards {
+      align-items: center;
+      min-height: 2.75rem;
+      overflow: visible;
+    }
+
+    .arena-hvai-player-banner .arena-seat-panel {
+      min-width: 5.75rem;
+      max-width: 8.5rem;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .arena-table-hvai .arena-table-oval-rail {
+      inset: 7% 3% 7% 3%;
+    }
+
+    .arena-table-hvai .arena-table-oval-felt {
+      inset: 10% 5% 10% 5%;
+    }
+
+    .arena-hvai-center {
+      top: 38%;
+      width: min(92%, 14rem);
+      gap: 0.2rem;
+    }
+
+    .arena-hvai-board {
+      transform: scale(0.88);
+      transform-origin: center center;
+    }
+
+    .arena-hvai-result {
+      top: 57%;
+      width: min(88%, 10.5rem);
+    }
+
+    .arena-hvai-slot--top {
+      top: -10%;
+    }
+
+    .arena-hvai-slot--human {
+      bottom: -5%;
+    }
+
+    .arena-hvai-player-cards {
+      transform: scale(0.88);
+      transform-origin: bottom center;
+    }
+
+    .arena-hvai-player--top .arena-hvai-player-cards {
+      transform: scale(0.88);
+      transform-origin: top center;
+    }
+
+    .arena-hvai-player-banner .arena-seat-panel {
+      min-width: 4.75rem;
+      max-width: min(6.5rem, 100%);
+      height: auto;
+      max-height: none;
+    }
+  }
+
+  @media (max-width: 767px) and (max-height: 740px) {
+    .arena-hvai-board {
+      transform: scale(0.82);
+    }
+
+    .arena-hvai-player-cards {
+      transform: scale(0.82);
+      transform-origin: bottom center;
+    }
+
+    .arena-hvai-player--top .arena-hvai-player-cards {
+      transform: scale(0.82);
+      transform-origin: top center;
+    }
+
+    .arena-hvai-slot--top {
+      top: -8%;
+    }
+
+    .arena-hvai-slot--human {
+      bottom: -4%;
+    }
+  }
+
   .arena-room-agent-battle-zones {
     @apply pointer-events-none;
   }
@@ -310,30 +562,85 @@
     pointer-events: auto;
   }
 
-  /* Human vs AI — zone heights are set on elements; desktop tuning below */
+  /*
+   * Agent Battle ellipse (>=1536px) — felt-relative zones, mirrors HvAI top/center/bottom.
+   * Side seats unchanged. Does not touch .arena-hvai-* rules.
+   */
+  .arena-ab-ellipse-layout {
+    position: absolute;
+    inset: 11% 6% 11% 6%;
+    z-index: 10;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .arena-ab-ellipse-layout > * {
+    pointer-events: auto;
+  }
+
+  .arena-ab-ellipse-slot {
+    position: absolute;
+    z-index: 16;
+    max-width: calc(100% - 0.75rem);
+    width: max-content;
+  }
+
+  .arena-ab-ellipse-slot--top {
+    left: 50%;
+    top: -15%;
+    transform: translateX(-50%);
+    z-index: 18;
+  }
+
+  .arena-ab-ellipse-slot--bottom {
+    left: 50%;
+    bottom: -8%;
+    transform: translateX(-50%);
+  }
+
+  .arena-ab-ellipse-slot--left {
+    left: 2%;
+    top: 36%;
+    transform: translateY(-50%);
+    z-index: 8;
+  }
+
+  .arena-ab-ellipse-slot--right {
+    right: 2%;
+    top: 36%;
+    transform: translateY(-50%);
+    z-index: 8;
+  }
+
+  .arena-ab-ellipse-center {
+    position: absolute;
+    left: 50%;
+    top: 38%;
+    z-index: 12;
+    display: flex;
+    width: min(96%, 22rem);
+    transform: translate(-50%, -50%);
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .arena-ab-ellipse-result {
+    position: absolute;
+    left: 50%;
+    top: 48%;
+    z-index: 14;
+    width: min(92%, 15rem);
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .arena-ab-ellipse-result > * {
+    pointer-events: auto;
+  }
+
+  /* Human vs AI — desktop table stage height */
   @media (min-width: 1024px) {
-    .arena-room-hvai-zones .arena-zone-top {
-      min-height: 4.5rem;
-      max-height: 6.25rem;
-    }
-
-    .arena-room-hvai-zones .arena-zone-board {
-      max-height: 11rem;
-    }
-
-    .arena-room-hvai-zones .arena-zone-result {
-      min-height: 2.5rem;
-    }
-
-    .arena-room-hvai-zones .arena-zone-human-cards {
-      min-height: 4rem;
-      max-height: 5.25rem;
-    }
-
-    .arena-room-hvai-zones .arena-zone-avatar {
-      min-height: 4rem;
-    }
-
     .arena-table-stage {
       min-height: min(520px, calc(100dvh - 12.5rem));
     }
@@ -343,12 +650,26 @@
     @apply mx-auto flex w-[12rem] max-w-full flex-row items-center justify-center gap-1.5 sm:gap-2;
   }
 
+  .arena-seat-row--end-top,
+  .arena-seat-row--end-bottom {
+    @apply w-auto flex-col gap-2;
+  }
+
+  .arena-ab-mini-seat-end--top,
+  .arena-ab-mini-seat-end--bottom {
+    gap: 0.35rem;
+  }
+
+  .arena-ab-mini-seat-end--bottom .arena-ab-mini-hole-cards {
+    transform-origin: center bottom;
+  }
+
   .arena-seat-panel-slot {
     @apply flex w-[4.75rem] shrink-0 items-center justify-center;
   }
 
   .arena-sidebar {
-    @apply hidden min-h-0 min-w-0 flex-col overflow-hidden border-l p-1.5 lg:flex;
+    @apply hidden min-h-0 min-w-0 flex-col overflow-hidden border-l p-1.5 2xl:flex;
     border-color: var(--arena-border);
     background-color: rgb(10 15 26 / 0.78);
   }
@@ -362,18 +683,18 @@
   }
 
   .arena-controls-mobile {
-    @apply flex w-full max-w-full flex-col gap-2 sm:hidden;
+    @apply flex w-full max-w-full flex-col gap-2 md:hidden;
   }
 
   .arena-controls-desktop-hvai {
-    @apply hidden w-full min-w-0 flex-col gap-2 sm:flex lg:flex-row lg:items-center lg:justify-between lg:gap-3;
+    @apply hidden w-full min-w-0 flex-col gap-2 md:flex lg:flex-row lg:items-center lg:justify-between lg:gap-3;
   }
 
   .arena-controls-desktop-ab {
-    @apply hidden min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-hide sm:flex lg:flex-1 lg:justify-start;
+    @apply hidden min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-hide md:flex lg:flex-1 lg:justify-start;
   }
 
-  @media (max-width: 639px) {
+  @media (max-width: 767px) {
     .arena-controls-mobile {
       display: flex !important;
     }
@@ -430,7 +751,20 @@
     @apply min-w-0 max-w-full break-words;
   }
 
-  @media (max-width: 639px) {
+  /* Below 2xl — compact table, sidebar via Menu only (1024–1535 laptop + DevTools) */
+  @media (min-width: 768px) and (max-width: 1535px) {
+    .arena-table-stage {
+      min-height: min(460px, calc(100dvh - 13rem));
+    }
+
+    .arena-action-hvai-cluster .arena-action-row-mode,
+    .arena-action-hvai-cluster .arena-action-row-poker {
+      flex-wrap: wrap;
+      overflow-x: visible;
+    }
+  }
+
+  @media (max-width: 767px) {
     .arena-badge-strip {
       @apply justify-start;
     }
@@ -475,9 +809,666 @@
     background-color: rgb(15 22 40 / 0.88);
   }
 
-  @media (max-width: 639px) {
+  @media (max-width: 767px) {
     .arena-action-mode-pill {
       @apply h-11 min-h-[2.75rem] px-3;
+    }
+  }
+
+  /*
+   * Agent Battle broadcast mini-table — absolute positions (<1536px).
+   * One relative surface; slots are absolutely placed — no grid/list layout.
+   */
+  .arena-ab-broadcast {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0.5rem;
+  }
+
+  .arena-ab-mini-table-surface {
+    position: relative;
+    width: 100%;
+    height: clamp(420px, calc(100dvh - 15.5rem), 520px);
+    overflow: visible;
+    padding: 0.5rem;
+    border-radius: 0.875rem;
+    border: 2px solid rgb(34 211 238 / 0.28);
+    background: radial-gradient(
+      ellipse 88% 62% at 50% 40%,
+      rgb(14 32 64 / 0.98) 0%,
+      rgb(10 15 26 / 0.99) 52%,
+      rgb(5 10 18 / 1) 100%
+    );
+    box-shadow:
+      inset 0 0 28px rgb(0 82 255 / 0.14),
+      0 0 18px rgb(0 82 255 / 0.08);
+  }
+
+  .arena-ab-mini-table-felt {
+    position: absolute;
+    left: 50%;
+    top: 38%;
+    z-index: 1;
+    width: 11.5rem;
+    height: 8.25rem;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 2px solid rgb(34 211 238 / 0.32);
+    background: radial-gradient(
+      ellipse 75% 58% at 50% 42%,
+      rgb(0 82 255 / 0.22) 0%,
+      rgb(12 24 48 / 0.92) 48%,
+      rgb(8 14 28 / 0.98) 100%
+    );
+    pointer-events: none;
+  }
+
+  .arena-ab-mini-slot {
+    position: absolute;
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+
+  .arena-ab-mini-slot > * {
+    pointer-events: auto;
+    max-width: 100%;
+  }
+
+  /* Mobile (<768px) — felt-relative broadcast map */
+  .arena-ab-mini-slot--top {
+    top: 0.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 7rem;
+    max-width: 7rem;
+    overflow: visible;
+    z-index: 10;
+  }
+
+  .arena-ab-mini-slot--center {
+    top: 38%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 11.75rem;
+    max-width: calc(100% - 8.25rem);
+    overflow: visible;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+  }
+
+  .arena-ab-mini-slot--result {
+    top: 52%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 10.5rem;
+    overflow: visible;
+    z-index: 25;
+    display: flex;
+    justify-content: center;
+  }
+
+  .arena-ab-mini-slot--result > div {
+    width: 100%;
+    max-width: 10.5rem;
+    padding: 0.15rem 0.3rem !important;
+  }
+
+  .arena-ab-mini-slot--result p {
+    line-height: 1.1 !important;
+  }
+
+  .arena-ab-mini-slot--left {
+    top: 44%;
+    left: 0;
+    transform: translateY(-50%);
+    width: 5.25rem;
+    max-width: 5.25rem;
+    overflow: visible;
+    z-index: 10;
+  }
+
+  .arena-ab-mini-slot--right {
+    top: 44%;
+    right: 0;
+    transform: translateY(-50%);
+    width: 5.25rem;
+    max-width: 5.25rem;
+    overflow: visible;
+    z-index: 10;
+  }
+
+  .arena-ab-mini-slot--bottom {
+    bottom: 0.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 7rem;
+    max-width: 7rem;
+    overflow: visible;
+    z-index: 10;
+  }
+
+  .arena-ab-mini-pot {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    flex-shrink: 0;
+    transform: scale(0.9);
+    transform-origin: center top;
+  }
+
+  .arena-ab-mini-board {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: visible;
+  }
+
+  .arena-ab-mini-board-cards {
+    transform: scale(0.92);
+    transform-origin: center center;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  .arena-ab-mini-board-cards > div,
+  .arena-ab-mini-board-cards > div > div {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.05rem;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  .arena-ab-mini-board-cards .relative {
+    z-index: auto;
+  }
+
+  .arena-ab-mini-side-unit {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+  }
+
+  .arena-ab-mini-seat--panel-only {
+    padding: 0.15rem;
+  }
+
+  .arena-ab-mini-seat-cards--outset {
+    width: 100%;
+    max-width: 100%;
+    flex-direction: column;
+    align-items: center;
+    overflow: visible;
+  }
+
+  .arena-ab-mini-side-unit .arena-ab-mini-seat-cards--outset {
+    flex-direction: row;
+    justify-content: center;
+    width: auto;
+    max-width: none;
+  }
+
+  .arena-ab-mini-seat {
+    min-width: 0;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    border: 1px solid var(--arena-border);
+    padding: 0.2rem;
+    background: rgb(15 22 40 / 0.96);
+    backdrop-filter: blur(4px);
+  }
+
+  .arena-ab-mini-seat--winner {
+    border-color: rgb(250 204 21 / 0.55);
+    box-shadow: 0 0 12px rgba(250, 204, 21, 0.12);
+  }
+
+  .arena-ab-mini-seat--thinking {
+    border-color: rgb(34 211 238 / 0.45);
+  }
+
+  .arena-ab-mini-seat--active {
+    border-color: rgb(0 82 255 / 0.5);
+  }
+
+  .arena-ab-mini-seat-end {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+  }
+
+  .arena-ab-mini-seat-panel {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .arena-ab-mini-seat-panel--row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+
+  .arena-ab-mini-hole-cards {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .arena-ab-mini-seat-end .arena-ab-mini-hole-cards,
+  .arena-ab-mini-side-unit .arena-ab-mini-hole-cards {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 0.15rem;
+    transform: none;
+    transform-origin: center center;
+    overflow: visible;
+    width: auto;
+    max-width: none;
+  }
+
+  .arena-ab-mini-hole-cards .relative {
+    z-index: auto;
+  }
+
+  .arena-ab-mini-seat-avatar {
+    display: flex;
+    height: 1.5rem;
+    width: 1.5rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 9999px;
+    border: 1px solid var(--arena-border);
+  }
+
+  .arena-ab-mini-seat-meta {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+  }
+
+  .arena-ab-mini-seat-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 7px;
+    font-weight: 600;
+    color: white;
+  }
+
+  .arena-ab-mini-slot--left .arena-ab-mini-seat-name,
+  .arena-ab-mini-slot--right .arena-ab-mini-seat-name {
+    max-width: 3.75rem;
+  }
+
+  .arena-ab-mini-seat-status {
+    border-radius: 0.25rem;
+    padding: 0 0.25rem;
+    font-size: 6px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--arena-muted);
+    background: rgb(10 15 26 / 0.85);
+  }
+
+  .arena-ab-mini-seat-stack {
+    font-size: 8px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--arena-cyan);
+  }
+
+  .arena-ab-mini-seat-cards {
+    display: flex;
+    flex-shrink: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* Tablet / narrow desktop (768–1535px) — scaled absolute map */
+  @media (min-width: 768px) and (max-width: 1535px) {
+    .arena-ab-broadcast {
+      padding: 0.65rem;
+    }
+
+    .arena-ab-mini-table-surface {
+      height: clamp(500px, calc(100dvh - 13rem), 650px);
+      padding: 0.65rem;
+    }
+
+    .arena-ab-mini-slot--top {
+      top: 0.5rem;
+      width: 10rem;
+      max-width: 10rem;
+      overflow: visible;
+    }
+
+    .arena-ab-mini-table-felt {
+      width: 14rem;
+      height: 9.5rem;
+      top: 38%;
+    }
+
+    .arena-ab-mini-slot--center {
+      top: 38%;
+      width: 14rem;
+      max-width: calc(100% - 13rem);
+      gap: 0.35rem;
+    }
+
+    .arena-ab-mini-slot--result {
+      top: 50%;
+      max-width: 18rem;
+    }
+
+    .arena-ab-mini-board-cards {
+      transform: scale(1.1);
+    }
+
+    .arena-ab-mini-slot--result > div {
+      max-width: 18rem;
+      padding: 0.25rem 0.5rem !important;
+    }
+
+    .arena-ab-mini-slot--left {
+      top: 36%;
+      left: 1rem;
+      width: 5.75rem;
+      max-width: 5.75rem;
+      overflow: visible;
+    }
+
+    .arena-ab-mini-slot--right {
+      top: 36%;
+      right: 1rem;
+      width: 5.75rem;
+      max-width: 5.75rem;
+      overflow: visible;
+    }
+
+    .arena-ab-mini-slot--bottom {
+      bottom: 0.5rem;
+      width: 10rem;
+      max-width: 10rem;
+      overflow: visible;
+    }
+
+    .arena-ab-mini-pot {
+      transform: none;
+    }
+
+    .arena-ab-mini-board-cards > div > div {
+      gap: 0.25rem;
+    }
+
+    .arena-ab-mini-seat {
+      padding: 0.375rem;
+    }
+
+    .arena-ab-mini-seat-end {
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .arena-ab-mini-slot--top .arena-ab-mini-seat-end,
+    .arena-ab-mini-slot--bottom .arena-ab-mini-seat-end {
+      flex-direction: column;
+    }
+
+    .arena-ab-mini-seat-end .arena-ab-mini-seat-cards {
+      width: auto;
+    }
+
+    .arena-ab-mini-seat-end .arena-ab-mini-hole-cards {
+      transform: none;
+    }
+
+    .arena-ab-mini-side-unit .arena-ab-mini-hole-cards {
+      flex-direction: row;
+      transform: none;
+    }
+
+    .arena-ab-mini-seat-side {
+      gap: 0.35rem;
+    }
+
+    .arena-ab-mini-slot--left .arena-ab-mini-seat-name,
+    .arena-ab-mini-slot--right .arena-ab-mini-seat-name {
+      max-width: 6.5rem;
+    }
+
+    .arena-ab-mini-seat-avatar {
+      height: 2.25rem;
+      width: 2.25rem;
+    }
+
+    .arena-ab-mini-seat-name {
+      max-width: 6.5rem;
+      font-size: 10px;
+    }
+
+    .arena-ab-mini-seat-status {
+      font-size: 8px;
+    }
+
+    .arena-ab-mini-seat-stack {
+      font-size: 10px;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .arena-ab-broadcast {
+      padding: 0;
+    }
+
+    .arena-ab-mini-board-cards {
+      transform: scale(0.96);
+    }
+
+    .arena-ab-mini-pot {
+      transform: scale(0.85);
+    }
+
+    .arena-ab-mini-slot--result {
+      top: 52%;
+      max-width: 9.75rem;
+    }
+  }
+
+  @media (max-width: 767px) and (max-height: 740px) {
+    .arena-ab-mini-slot--top {
+      top: -1.5%;
+    }
+
+    .arena-ab-mini-slot--center {
+      top: 38%;
+    }
+
+    .arena-ab-mini-slot--left,
+    .arena-ab-mini-slot--right {
+      top: 52%;
+    }
+
+    .arena-ab-mini-slot--bottom {
+      bottom: -1.5%;
+    }
+
+    .arena-ab-mini-board-cards {
+      transform: scale(0.82);
+    }
+  }
+
+  /*
+   * AB ellipse (>=1536px): allow top/bottom seat panels to overhang the oval felt.
+   */
+  @media (min-width: 1536px) {
+    .arena-table-agent-battle {
+      overflow: visible;
+    }
+
+    .arena-table-agent-battle .arena-table-oval-felt {
+      overflow: visible;
+    }
+
+    .arena-table-agent-battle .arena-table-inner {
+      overflow: visible;
+    }
+  }
+
+  /*
+   * AB broadcast mode (<1536px): flat panel — oval hidden.
+   * Layout mount is controlled by AgentBattleResponsiveShell (one layout in DOM).
+   */
+  @media (max-width: 1535px) {
+    .arena-table-agent-battle .arena-table-oval-rail,
+    .arena-table-agent-battle .arena-table-oval-felt {
+      display: none;
+    }
+
+    .arena-table-agent-battle .arena-table-inner {
+      min-height: min(72dvh, 640px);
+      background: linear-gradient(
+        180deg,
+        rgb(10 15 26 / 0.98) 0%,
+        rgb(5 10 18 / 1) 100%
+      );
+    }
+
+    .arena-table-agent-battle .arena-ab-broadcast {
+      min-height: 0;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .arena-table-agent-battle .arena-table-inner {
+      min-height: 0;
+      height: 100%;
+      background: transparent;
+    }
+
+    /* Mobile AB — oval table like Human vs AI (override broadcast flat panel) */
+    .arena-table-agent-battle .arena-table-oval-rail {
+      display: block;
+      inset: 7% 3% 7% 3%;
+    }
+
+    .arena-table-agent-battle .arena-table-oval-felt {
+      display: block;
+      inset: 10% 5% 10% 5%;
+      overflow: visible;
+    }
+
+    .arena-table-agent-battle .arena-ab-broadcast {
+      inset: 10% 5% 10% 5%;
+      padding: 0;
+      overflow: visible;
+    }
+
+    .arena-ab-mini-table-surface {
+      height: 100%;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      padding: 0;
+    }
+
+    .arena-ab-mini-table-felt {
+      display: none;
+    }
+
+    .arena-ab-mini-slot--top {
+      top: -2%;
+      width: 7.5rem;
+      max-width: 7.5rem;
+    }
+
+    .arena-ab-mini-slot--center {
+      top: 38%;
+      width: min(14rem, calc(100% - 9rem));
+      max-width: calc(100% - 9rem);
+    }
+
+    .arena-ab-mini-board-cards {
+      transform: scale(1);
+    }
+
+    .arena-ab-mini-pot {
+      transform: scale(0.92);
+    }
+
+    .arena-ab-mini-slot--bottom {
+      bottom: -2%;
+      width: 7.5rem;
+      max-width: 7.5rem;
+    }
+
+    .arena-ab-mini-slot--left {
+      left: 0;
+      top: 52%;
+      width: 5.5rem;
+      max-width: 5.5rem;
+    }
+
+    .arena-ab-mini-slot--right {
+      right: 0;
+      top: 52%;
+      width: 5.5rem;
+      max-width: 5.5rem;
+    }
+
+    .arena-ab-mini-seat {
+      overflow: visible;
+      background: rgb(15 22 40 / 0.92);
+    }
+
+    .arena-ab-mini-seat-end {
+      flex-direction: column;
+    }
+
+    .arena-ab-mini-seat-end .arena-ab-mini-hole-cards,
+    .arena-ab-mini-side-unit .arena-ab-mini-hole-cards {
+      flex-direction: row;
+      transform: none;
     }
   }
 

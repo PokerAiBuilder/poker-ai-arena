@@ -12,6 +12,20 @@ export function getHandResultDisplayType(
   return isWinByFoldResult(result) ? "fold" : "showdown";
 }
 
+/** Prefer evaluated winner hand over stored summary when both exist. */
+export function resolveSimulationWinningHandName(
+  result: SimulationResult,
+): string | undefined {
+  if (isWinByFoldResult(result)) return undefined;
+
+  const winnerPlayer = result.players.find((player) => player.id === result.winner.id);
+  if (winnerPlayer?.finalHand?.rankName) {
+    return winnerPlayer.finalHand.rankName;
+  }
+
+  return result.winningHand.rankName;
+}
+
 /**
  * UI-only hole-card visibility (engine still returns full simulation data).
  */

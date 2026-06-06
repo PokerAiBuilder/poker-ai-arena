@@ -115,6 +115,7 @@ import {
   getHandResultDisplayType,
   isWinByFoldResult,
   pickLatestAgentBattleDecision,
+  resolveSimulationWinningHandName,
 } from "@/lib/arena/simulationDisplay";
 import type { X402PaymentResult } from "@/lib/bankr/x402Client";
 import type { GameAction, GameMode, SimulationResult } from "@/lib/poker/types";
@@ -1518,14 +1519,25 @@ export function ArenaShell() {
     agentBattleWatchingShared &&
     sharedLifecycle?.lifecyclePhase === "result_pause" &&
     !agentBattleReplayActive;
-  const latestAiDecision = stepDemo.isActive
-    ? (stepDemo.aiDecision ?? undefined)
-    : agentBattleReplayDisplay?.latestDecision
-      ? agentBattleReplayDisplay.latestDecision
-      : isAgentBattleSpectatorEarly && aiDecisions.length > 0
-        ? pickLatestAgentBattleDecision(aiDecisions)
-        : aiDecisions[aiDecisions.length - 1];
+
+  const agentBattleHandSettled =
+    isAgentBattleSpectatorEarly &&
+    !stepDemo.isActive &&
+    (agentBattleSharedResultPause ||
+      agentBattleReplayDisplay?.showResult === true ||
+      (result != null && !agentBattleReplayActive && !agentBattleReplayDisplay));
+
+  const latestAiDecision = agentBattleHandSettled
+    ? undefined
+    : stepDemo.isActive
+      ? (stepDemo.aiDecision ?? undefined)
+      : agentBattleReplayDisplay?.latestDecision
+        ? agentBattleReplayDisplay.latestDecision
+        : isAgentBattleSpectatorEarly && aiDecisions.length > 0
+          ? pickLatestAgentBattleDecision(aiDecisions)
+          : aiDecisions[aiDecisions.length - 1];
   const agentBattleThinking =
+    !agentBattleHandSettled &&
     agentBattleReplayDisplay?.thinkingAgentId != null &&
     agentBattleReplayDisplay.thinkingAgentName != null;
   const agentBattleThinkingLabel = agentBattleThinking
@@ -1536,10 +1548,6 @@ export function ArenaShell() {
     stepDemo.isActive &&
     isHeadsUpGuided &&
     !shouldRevealPokerMasterHandContext(stepDemo);
-
-  const headsUpLayoutKey = isHeadsUpGuided
-    ? `${stepDemo.step}-${stepDemo.isActive}-${stepDemo.communityCards.length}-${stepDemo.players.pokerMaster.holeCards.length}-${stepDemo.players.human.holeCards.length}`
-    : undefined;
 
   const handResultType = stepDemo.isActive
     ? stepDemo.winner
@@ -1559,7 +1567,7 @@ export function ArenaShell() {
     : agentBattleReplayDisplay?.showResult
       ? agentBattleReplayDisplay.winningHand
       : result && !isWinByFoldResult(result)
-        ? result.winningHand.rankName
+        ? resolveSimulationWinningHandName(result)
         : undefined;
 
   const tablePot = isHeadsUpGuided
@@ -1567,6 +1575,31 @@ export function ArenaShell() {
     : agentBattleReplayDisplay
       ? agentBattleReplayDisplay.pot
       : (result?.pot ?? null);
+
+  const agentBattleTableCommunityCards = useMemo(() => {
+    let cards: typeof stepDemo.communityCards;
+    if (isHeadsUpGuided) {
+      cards = stepDemo.communityCards;
+    } else if (agentBattleReplayDisplay) {
+      if (agentBattleReplayDisplay.communityCards.length > 0) {
+        cards = agentBattleReplayDisplay.communityCards;
+      } else {
+        cards = agentBattleReplay?.finalResult.communityCards ?? [];
+      }
+    } else if (isAgentBattleSpectatorEarly && result?.communityCards?.length) {
+      cards = result.communityCards;
+    } else {
+      cards = result?.communityCards ?? [];
+    }
+    return cards.slice(0, 5);
+  }, [
+    isHeadsUpGuided,
+    stepDemo.communityCards,
+    agentBattleReplayDisplay,
+    agentBattleReplay?.finalResult.communityCards,
+    isAgentBattleSpectatorEarly,
+    result?.communityCards,
+  ]);
 
   const isAgentBattleSpectator = isAgentBattleSpectatorEarly;
 
@@ -1739,13 +1772,7 @@ export function ArenaShell() {
                 payingEntryFee={paying}
                 paymentError={paymentError}
                 pot={tablePot}
-                communityCards={
-                  isHeadsUpGuided
-                    ? stepDemo.communityCards
-                    : agentBattleReplayDisplay
-                      ? agentBattleReplayDisplay.communityCards
-                      : (result?.communityCards ?? [])
-                }
+                communityCards={agentBattleTableCommunityCards}
                 seats={seats}
                 winnerName={
                   stepDemo.isActive
@@ -1764,7 +1791,6 @@ export function ArenaShell() {
                 agentBattleMode={isAgentBattleSpectator}
                 headsUpGuidedMode={isHeadsUpGuided}
                 showHumanVsAiBadge={stepDemo.isActive}
-                headsUpLayoutKey={headsUpLayoutKey}
                 humanTurnSecondsLeft={
                   isHeadsUpGuided && stepDemo.isActive ? humanTurnSecondsLeft : null
                 }
@@ -1788,6 +1814,14 @@ export function ArenaShell() {
                 <AiDecisionPanel
                   compact
                   latest={latestAiDecision}
+                  handSettled={agentBattleHandSettled}
+                  settledWinnerName={
+                    agentBattleHandSettled
+                      ? agentBattleReplayDisplay?.winnerName ?? result?.winner.name
+                      : undefined
+                  }
+                  settledWinningHand={agentBattleHandSettled ? showdownHandName : undefined}
+                  settledResultType={agentBattleHandSettled ? handResultType : undefined}
                   guidedHand={stepDemo.isActive}
                   hidePrivateHandInfo={hidePrivatePokerMasterInfo}
                   thinking={pokerMasterThinking || agentBattleThinking}
@@ -1890,6 +1924,14 @@ export function ArenaShell() {
         aiThinkingLabel={agentBattleThinkingLabel}
         spectatorMode={isAgentBattleSpectator}
         guidedHand={stepDemo.isActive}
+        handSettled={agentBattleHandSettled}
+        settledWinnerName={
+          agentBattleHandSettled
+            ? agentBattleReplayDisplay?.winnerName ?? result?.winner.name
+            : undefined
+        }
+        settledWinningHand={agentBattleHandSettled ? showdownHandName : undefined}
+        settledResultType={agentBattleHandSettled ? handResultType : undefined}
         humanCallAmount={
           stepDemo.isActive ? stepDemoHumanCallAmount : undefined
         }

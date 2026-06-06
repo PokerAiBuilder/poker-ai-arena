@@ -3,7 +3,7 @@ import type { TableSeat } from "@/components/arena/PokerTable";
 import type { AgentStatus } from "@/components/arena/AgentAvatar";
 import {
   getHandResultDisplayType,
-  isWinByFoldResult,
+  resolveSimulationWinningHandName,
 } from "@/lib/arena/simulationDisplay";
 import type {
   Card,
@@ -405,8 +405,32 @@ export function deriveAgentBattleReplayDisplayFromTimeline(
       display.communityCards = step.visibleBoardCards;
     }
 
+    if (
+      step.type === "showdown" ||
+      step.type === "deal_flop" ||
+      step.type === "deal_turn" ||
+      step.type === "deal_river" ||
+      step.type === "result"
+    ) {
+      display.thinkingAgentId = undefined;
+      display.thinkingAgentName = undefined;
+      display.highlightAgentId = undefined;
+      display.activeHighlight = undefined;
+    }
+
     if (step.type === "showdown") {
       display.bannerText = step.text;
+      const winAnnounced =
+        /\bwins\b/i.test(step.text) || /win by fold/i.test(step.text);
+      if (winAnnounced || step.text === "Showdown complete.") {
+        display.showResult = true;
+        display.useFinalStacks = true;
+        display.communityCards = finalResult.communityCards.slice(0, 5);
+        display.winnerName = finalResult.winner.name;
+        display.winningHand = resolveSimulationWinningHandName(finalResult);
+        display.resultType = getHandResultDisplayType(finalResult);
+        display.latestDecision = undefined;
+      }
     }
 
     if (step.type === "result" || step.showResult) {
@@ -414,10 +438,9 @@ export function deriveAgentBattleReplayDisplayFromTimeline(
       display.useFinalStacks = true;
       display.communityCards = finalResult.communityCards.slice(0, 5);
       display.winnerName = finalResult.winner.name;
-      display.winningHand = isWinByFoldResult(finalResult)
-        ? undefined
-        : finalResult.winningHand.rankName;
+      display.winningHand = resolveSimulationWinningHandName(finalResult);
       display.resultType = getHandResultDisplayType(finalResult);
+      display.latestDecision = undefined;
       display.thinkingAgentId = undefined;
       display.thinkingAgentName = undefined;
       display.highlightAgentId = undefined;
@@ -445,7 +468,7 @@ function replaySeatStatus(
     if (finalResult.winner.id === playerId) return "winner";
     const player = finalResult.players.find((p) => p.id === playerId);
     if (player?.hasFolded || display.foldedPlayerIds.has(playerId)) return "folded";
-    return "active";
+    return "idle";
   }
 
   if (display.foldedPlayerIds.has(playerId)) return "folded";
@@ -455,7 +478,7 @@ function replaySeatStatus(
   ) {
     return "active";
   }
-  return "active";
+  return "idle";
 }
 
 function replaySeatStack(

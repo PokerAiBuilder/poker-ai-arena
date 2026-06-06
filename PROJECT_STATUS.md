@@ -1,6 +1,50 @@
 # Project status
 
-Last updated for **v1.0.0-d** — final public demo release polish.
+Last updated for **v1.0.1** — responsive arena cleanup (layout/CSS only).
+
+---
+
+## v1.0.1 — responsive arena cleanup
+
+**Scope:** Responsive layout/CSS/UI only. No gameplay logic, Human vs AI timers/auto-flow, Agent Battle simulation/timeline/shared lifecycle/API, or payment/demo behavior changes.
+
+### Breakpoints (documented in `globals.css`)
+
+| Range | Behavior |
+| ----- | -------- |
+| **Wide desktop ≥ 1536px** | Right sidebar (`2xl`); Agent Battle **ellipse** only at this width |
+| **Below 1536px** | No sidebar (Menu drawer); Agent Battle **broadcast** (1024/1366/1440 laptop, tablet, mobile, DevTools) |
+| **Human vs AI ≥ 1024px** | Five-zone felt tuning unchanged at `lg` (not tied to AB ellipse breakpoint) |
+| **Mobile &lt; 768px** | Mobile action row (`max-md`); HvAI zone height tuning; AB broadcast |
+
+### Viewports reviewed (layout QA)
+
+| Viewport | Notes |
+| -------- | ----- |
+| 1920×1080 | Ellipse AB + sidebar (≥1536) |
+| 1440×900, 1366×768 | Broadcast AB; Menu in action bar; HvAI zone caps at `lg` |
+| 1024×768 | Broadcast AB (not ellipse); Menu for insights; no sidebar |
+| 430×932, 390×844, 375×667 | AB mini-table seats (not grid); HvAI zones tightened |
+
+### Mobile Agent Battle approach
+
+Below **1536px**: `AgentBattleResponsiveShell` mounts **one** layout in DOM (broadcast **absolute mini-table** — fixed slot positions for top/left/right/bottom + center board). At **≥1536px** mounts ellipse only. Temporary debug label: `AB layout: broadcast <1536` or `AB layout: ellipse >=1536`.
+
+### Action bar
+
+- Mobile controls breakpoint aligned to **768px** (`md`) — avoids duplicate mobile/desktop rows on tablet.
+- Agent Battle mobile row: Join/Reset/Skip/Menu only (no Play vs PM duplicate).
+- Human vs AI active hand: mode pill on mobile/desktop (no large Play when hand in progress).
+
+### Known limitations
+
+- Very short viewports (&lt; 667px height): Agent Battle broadcast grid may scroll internally; ellipse not attempted on small screens.
+- Dedicated 1200×630 OG asset still TODO (v1.0.0-d).
+- Sidebar only at `2xl+` (≥1536px); below relies on Menu drawer.
+
+**Build:** `npm run build` (verified for v1.0.1).
+
+**Unchanged:** Gameplay logic, Human vs AI timers/auto-flow, Agent Battle shared auto-next-hand, full-board-after-fold, hidden hand privacy, wallet optional demo session, mock payments only.
 
 ---
 
@@ -14,7 +58,7 @@ Last updated for **v1.0.0-d** — final public demo release polish.
 | **Human vs AI — result** | Result between board and player cards; no overlap with board or avatar |
 | **Agent Battle — playing** | Desktop ellipse layout; four seats; board readable; Skip during playing only |
 | **Agent Battle — result** | Result below board; no seat/card overlap |
-| **Mobile baseline** | Usable at ~390px; controls reachable; Agent Battle mobile polish **deferred** |
+| **Mobile baseline** | v1.0.1 broadcast AB + HvAI zone tuning; see v1.0.1 section |
 | **Wallet** | Optional; Base testnet scaffold |
 | **Demo-safe wording** | Demo chips; no real funds moved; not real-money gambling |
 | **Payments** | Start Demo Session mock only; no live x402/Bankr settlement |

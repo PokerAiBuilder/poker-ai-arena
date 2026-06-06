@@ -1,7 +1,8 @@
-import { Brain, Loader2 } from "lucide-react";
+import { Brain, Loader2, Trophy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getAgentProfile } from "@/lib/agents/agentProfiles";
 import { sanitizeHumanVsAiDecisionDisplay } from "@/lib/arena/humanVsAiDecisionPrivacy";
+import type { HandResultDisplayType } from "@/lib/arena/simulationDisplay";
 import type { SimulationAgentDecision } from "@/lib/poker/types";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +19,11 @@ type AiDecisionPanelProps = {
   thinkingLabel?: string;
   /** AI Agent Battle spectator simulation */
   spectatorMode?: boolean;
+  /** Hand finished — show result summary instead of a live action */
+  handSettled?: boolean;
+  settledWinnerName?: string;
+  settledWinningHand?: string;
+  settledResultType?: HandResultDisplayType;
   /** Tighter sidebar layout — hides long reasoning */
   compact?: boolean;
   /** Human vs AI — hide PokerMaster private hand metadata before showdown */
@@ -56,10 +62,55 @@ export function AiDecisionPanel({
   thinking = false,
   thinkingLabel,
   spectatorMode = false,
+  handSettled = false,
+  settledWinnerName,
+  settledWinningHand,
+  settledResultType,
   compact = false,
   hidePrivateHandInfo = false,
   className,
 }: AiDecisionPanelProps) {
+  if (handSettled && spectatorMode && settledWinnerName) {
+    const isFoldWin = settledResultType === "fold";
+
+    return (
+      <div
+        className={cn(
+          "glass-panel-arena shrink-0 rounded-xl border border-[var(--arena-gold-accent)]/25 shadow-[0_0_20px_rgba(250,204,21,0.08)]",
+          compact ? "p-2" : "p-4",
+          className,
+        )}
+      >
+        <div className="flex items-center gap-1.5">
+          <Trophy className="h-3.5 w-3.5 text-[var(--arena-gold-accent)]" />
+          <h3 className="text-xs font-semibold text-[var(--arena-cyan)]">Hand Result</h3>
+        </div>
+        <p
+          className={cn(
+            "mt-1.5 font-bold text-[var(--arena-gold-accent)]",
+            compact ? "text-[11px]" : "text-sm",
+          )}
+        >
+          {settledWinnerName}
+        </p>
+        <p
+          className={cn(
+            "mt-1 text-white/70",
+            compact ? "text-[10px]" : "text-xs",
+          )}
+        >
+          {isFoldWin ? "Win by fold" : "Showdown"}
+          {!isFoldWin && settledWinningHand ? ` · ${settledWinningHand}` : ""}
+        </p>
+        {!compact ? (
+          <p className="mt-2 text-[10px] text-white/40">
+            Next shared hand starts automatically.
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
   if (thinking && (guidedHand || spectatorMode)) {
     return (
       <div

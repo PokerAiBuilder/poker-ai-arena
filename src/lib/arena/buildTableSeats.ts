@@ -37,7 +37,7 @@ function seatStatus(
   if (result.winner.id === playerId) return "winner";
   const player = result.players.find((p) => p.id === playerId);
   if (player?.hasFolded) return "folded";
-  if (player) return "active";
+  if (player) return "idle";
   return "idle";
 }
 

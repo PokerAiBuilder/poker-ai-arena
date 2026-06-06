@@ -13,6 +13,7 @@ import { HandHistoryPanel } from "@/components/arena/HandHistoryPanel";
 import type { HandHistoryRecord } from "@/lib/arena/handHistory";
 import { Button } from "@/components/ui/button";
 import type { LeaderboardEntry, SessionStats } from "@/lib/analytics/types";
+import type { HandResultDisplayType } from "@/lib/arena/simulationDisplay";
 import type { GameAction, SimulationAgentDecision } from "@/lib/poker/types";
 import type { X402PaymentMode } from "@/lib/bankr/x402Client";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,10 @@ type ArenaMenuDrawerProps = {
   aiThinkingLabel?: string;
   spectatorMode?: boolean;
   guidedHand?: boolean;
+  handSettled?: boolean;
+  settledWinnerName?: string;
+  settledWinningHand?: string;
+  settledResultType?: HandResultDisplayType;
   humanCallAmount?: number;
   totalDecisions?: number;
 };
@@ -123,6 +128,10 @@ export function ArenaMenuDrawer({
   aiThinkingLabel,
   spectatorMode = false,
   guidedHand = false,
+  handSettled = false,
+  settledWinnerName,
+  settledWinningHand,
+  settledResultType,
   humanCallAmount,
   totalDecisions = 0,
 }: ArenaMenuDrawerProps) {
@@ -240,6 +249,10 @@ export function ArenaMenuDrawer({
                   thinking={aiThinking}
                   thinkingLabel={aiThinkingLabel}
                   spectatorMode={spectatorMode}
+                  handSettled={handSettled}
+                  settledWinnerName={settledWinnerName}
+                  settledWinningHand={settledWinningHand}
+                  settledResultType={settledResultType}
                   humanCallAmount={humanCallAmount}
                   totalDecisions={totalDecisions}
                   className="shadow-none"

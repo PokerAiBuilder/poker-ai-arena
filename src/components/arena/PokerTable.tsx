@@ -1,3 +1,4 @@
+import { AgentBattleResponsiveShell } from "@/components/arena/AgentBattleResponsiveShell";
 import { PlayingCard } from "@/components/arena/PlayingCard";
 import { AgentAvatar, type AgentStatus } from "@/components/arena/AgentAvatar";
 import { HumanTurnTimerRing } from "@/components/arena/HumanTurnTimerRing";
@@ -43,8 +44,6 @@ type PokerTableProps = {
   headsUpGuidedMode?: boolean;
   /** Show in-table badge while a guided hand is in progress */
   showHumanVsAiBadge?: boolean;
-  /** Bumps keyed subtrees on hand reset so card visuals remount cleanly */
-  headsUpLayoutKey?: string;
   /** Fill parent height for poker-room viewport layout */
   roomLayout?: boolean;
   /** Human vs AI — countdown seconds during player turn */
@@ -167,18 +166,27 @@ function CommunityBoard({
 function SpectatorCommunityBoard({
   communityCards,
   cardSize,
+  compactRow = false,
 }: {
   communityCards: Card[];
   cardSize: CardSize;
   winByFold?: boolean;
+  compactRow?: boolean;
 }) {
   const isFullBoard = communityCards.length >= 5;
 
+  const boardCards = communityCards.slice(0, 5);
+
   return (
-    <div className="flex flex-col items-center">
-      <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+    <div className={cn("flex items-center justify-center", compactRow && "w-full")}>
+      <div
+        className={cn(
+          "flex items-center justify-center",
+          compactRow ? "flex-nowrap gap-0.5" : "gap-1.5 sm:gap-2",
+        )}
+      >
         {isFullBoard ? (
-          communityCards.slice(0, 5).map((card, i) => (
+          boardCards.map((card, i) => (
             <PlayingCard
               key={`spectator-board-${card.rank}-${card.suit}-${i}`}
               rank={card.rank}
@@ -188,8 +196,8 @@ function SpectatorCommunityBoard({
               className="relative z-[2]"
             />
           ))
-        ) : communityCards.length > 0 ? (
-          communityCards.map((card, i) => (
+        ) : boardCards.length > 0 ? (
+          boardCards.map((card, i) => (
             <PlayingCard
               key={`spectator-partial-${card.rank}-${card.suit}-${i}`}
               rank={card.rank}
@@ -230,7 +238,7 @@ function StepDemoBoardSlot({
           rank={card.rank}
           suit={card.suit}
           size={cardSize}
-          animate
+          animate={!roomLayout}
           className="relative z-[2]"
         />
       ) : (
@@ -389,24 +397,28 @@ function SeatHoleCards({
   seat,
   cardSize,
   softFold = false,
+  animate = true,
 }: {
   seat: TableSeat;
   cardSize: CardSize;
   softFold?: boolean;
+  animate?: boolean;
 }) {
   const dimmed =
     (seat.status === "folded" && !softFold) || seat.status === "idle";
 
-  if (seat.revealCards && seat.holeCards.length > 0) {
+  const holeCards = seat.holeCards.slice(0, 2);
+
+  if (seat.revealCards && holeCards.length > 0) {
     return (
       <>
-        {seat.holeCards.map((card, i) => (
+        {holeCards.map((card, i) => (
           <PlayingCard
             key={`${seat.id}-${card.rank}-${card.suit}-${i}`}
             rank={card.rank}
             suit={card.suit}
             size={cardSize}
-            animate
+            animate={animate}
             dimmed={seat.status === "folded" && !softFold}
             className="relative z-[25] shrink-0"
           />
@@ -431,57 +443,72 @@ function SeatHoleCards({
   );
 }
 
-function HeadsUpOpponentSeat({ seat }: { seat: TableSeat }) {
-  const cardSize: CardSize = "sm";
+/** Human vs AI seat — hole cards between banner and table center. */
+function HeadsUpPlayerCluster({
+  seat,
+  cardSize,
+  humanTurnSecondsLeft = null,
+  cardsLabel,
+  orientation = "bottom",
+}: {
+  seat: TableSeat;
+  cardSize: CardSize;
+  humanTurnSecondsLeft?: number | null;
+  cardsLabel: string;
+  orientation?: "top" | "bottom";
+}) {
   const isFolded = seat.status === "folded";
   const isSpectator = seat.status === "idle" && !seat.revealCards;
 
+  const banner = (
+    <AgentAvatar
+      name={seat.name}
+      avatar={seat.avatar}
+      strategy={seat.strategy}
+      stack={seat.stack}
+      status={seat.status}
+      compact
+      stackTextOnly
+      className={cn(isSpectator && "opacity-90")}
+    />
+  );
+
+  const cards = (
+    <div className="arena-hvai-player-cards" aria-label={cardsLabel}>
+      <SeatHoleCards seat={seat} cardSize={cardSize} animate={false} />
+    </div>
+  );
+
+  const bannerNode =
+    humanTurnSecondsLeft != null && seat.id === "human" ? (
+      <HumanTurnTimerRing secondsLeft={humanTurnSecondsLeft}>
+        {banner}
+      </HumanTurnTimerRing>
+    ) : (
+      banner
+    );
+
   return (
     <div
       className={cn(
-        "arena-seat-row",
-        isFolded && "opacity-80",
+        "arena-hvai-player",
+        orientation === "top" && "arena-hvai-player--top",
+        orientation === "bottom" && "arena-hvai-player--bottom",
+        isFolded && "opacity-85",
         isSpectator && "opacity-90",
       )}
     >
-      <div className="arena-seat-panel-slot">
-        <AgentAvatar
-          name={seat.name}
-          avatar={seat.avatar}
-          strategy={seat.strategy}
-          stack={seat.stack}
-          status={seat.status}
-          compact
-          stackTextOnly
-        />
-      </div>
-      <div
-        className="flex h-[3.25rem] w-[4.35rem] shrink-0 items-center justify-center"
-        aria-label="Opponent hole cards"
-      >
-        <div className="flex gap-0.5">
-          <SeatHoleCards seat={seat} cardSize={cardSize} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function HeadsUpHumanCards({ seat }: { seat: TableSeat }) {
-  const cardSize: CardSize = "sm";
-  const isFolded = seat.status === "folded";
-
-  return (
-    <div
-      className={cn(
-        "flex w-[6.5rem] shrink-0 items-end justify-center",
-        isFolded && "opacity-80",
+      {orientation === "top" ? (
+        <>
+          <div className="arena-hvai-player-banner">{bannerNode}</div>
+          {cards}
+        </>
+      ) : (
+        <>
+          {cards}
+          <div className="arena-hvai-player-banner">{bannerNode}</div>
+        </>
       )}
-      aria-label="Your hole cards"
-    >
-      <div className="flex gap-0.5">
-        <SeatHoleCards seat={seat} cardSize={cardSize} />
-      </div>
     </div>
   );
 }
@@ -527,53 +554,79 @@ function AgentBattleActiveHighlight({
 function AgentBattleSeatRow({
   seat,
   edgeInset = false,
+  endLayout,
 }: {
   seat: TableSeat;
   edgeInset?: boolean;
+  endLayout?: "top" | "bottom";
 }) {
   const cardSize: CardSize = "sm";
   const isSpectator = seat.status === "idle" && !seat.revealCards;
+
+  const avatar = (
+    <div className="flex w-[3.25rem] shrink-0 items-center justify-center">
+      <AgentBattleActiveHighlight seat={seat}>
+        <AgentAvatar
+          name={seat.name}
+          avatar={seat.avatar}
+          strategy={seat.strategy}
+          styleBadge={seat.personalityBadge}
+          stack={seat.stack}
+          status={seat.status}
+          compact
+          stackTextOnly
+          readableFold
+          className={cn(
+            isSpectator && "opacity-90",
+            seat.activeHighlight === "thinking" &&
+              "border-cyan-400/70 shadow-[0_0_18px_rgba(34,211,238,0.35)]",
+            seat.activeHighlight === "acting" &&
+              "border-[var(--arena-blue-bright)]/70 shadow-[0_0_16px_rgba(0,82,255,0.35)]",
+          )}
+        />
+      </AgentBattleActiveHighlight>
+    </div>
+  );
+
+  const cards = (
+    <div
+      className={cn(
+        "flex h-[3rem] w-[4.25rem] shrink-0 items-center justify-center overflow-visible",
+        edgeInset && "translate-x-1.5 sm:translate-x-2",
+      )}
+      aria-label={`${seat.name} hole cards`}
+    >
+      <div className="flex scale-90 gap-0.5 overflow-visible">
+        <SeatHoleCards seat={seat} cardSize={cardSize} softFold />
+      </div>
+    </div>
+  );
 
   return (
     <div
       className={cn(
         "arena-seat-row",
+        endLayout === "top" && "arena-seat-row--end-top",
+        endLayout === "bottom" && "arena-seat-row--end-bottom",
         isSpectator && "opacity-90",
       )}
     >
-      <div className="flex w-[3.25rem] shrink-0 items-center justify-center">
-        <AgentBattleActiveHighlight seat={seat}>
-          <AgentAvatar
-            name={seat.name}
-            avatar={seat.avatar}
-            strategy={seat.strategy}
-            styleBadge={seat.personalityBadge}
-            stack={seat.stack}
-            status={seat.status}
-            compact
-            stackTextOnly
-            readableFold
-            className={cn(
-              isSpectator && "opacity-90",
-              seat.activeHighlight === "thinking" &&
-                "border-cyan-400/70 shadow-[0_0_18px_rgba(34,211,238,0.35)]",
-              seat.activeHighlight === "acting" &&
-                "border-[var(--arena-blue-bright)]/70 shadow-[0_0_16px_rgba(0,82,255,0.35)]",
-            )}
-          />
-        </AgentBattleActiveHighlight>
-      </div>
-      <div
-        className={cn(
-          "flex h-[3rem] w-[4.25rem] shrink-0 items-center justify-center overflow-visible",
-          edgeInset && "translate-x-1.5 sm:translate-x-2",
-        )}
-        aria-label={`${seat.name} hole cards`}
-      >
-        <div className="flex scale-90 gap-0.5 overflow-visible">
-          <SeatHoleCards seat={seat} cardSize={cardSize} softFold />
-        </div>
-      </div>
+      {endLayout === "bottom" ? (
+        <>
+          {cards}
+          {avatar}
+        </>
+      ) : endLayout === "top" ? (
+        <>
+          {avatar}
+          {cards}
+        </>
+      ) : (
+        <>
+          {avatar}
+          {cards}
+        </>
+      )}
     </div>
   );
 }
@@ -622,7 +675,212 @@ function AgentBattleSideSeat({
   );
 }
 
-function RoomAgentBattleTableLayout({
+function agentBattleMiniSeatStatus(seat: TableSeat): string {
+  if (seat.activeHighlight === "thinking") return "THINKING";
+  if (seat.activeHighlight === "acting") return "ACTING";
+  if (seat.status === "winner") return "WINNER";
+  if (seat.status === "folded") return "FOLDED";
+  if (seat.status === "active") return "ACTIVE";
+  return "WATCHING";
+}
+
+function AgentBattleMiniHoleCards({ seat }: { seat: TableSeat }) {
+  return (
+    <div className="arena-ab-mini-hole-cards">
+      <SeatHoleCards seat={seat} cardSize="sm" softFold animate={false} />
+    </div>
+  );
+}
+
+function AgentBattleMiniSideSeat({ seat }: { seat: TableSeat }) {
+  const statusLabel = agentBattleMiniSeatStatus(seat);
+  const isWinner = seat.status === "winner";
+  const isActive = seat.status === "active" || seat.activeHighlight === "acting";
+  const isThinking = seat.activeHighlight === "thinking";
+  const isFolded = seat.status === "folded";
+
+  return (
+    <div className="arena-ab-mini-side-unit">
+      <article
+        className={cn(
+          "arena-ab-mini-seat arena-ab-mini-seat--panel-only",
+          isWinner && "arena-ab-mini-seat--winner",
+          isThinking && "arena-ab-mini-seat--thinking",
+          isActive && !isWinner && !isThinking && "arena-ab-mini-seat--active",
+          isFolded && "opacity-90",
+        )}
+      >
+        <div className="arena-ab-mini-seat-panel">
+          <div className="arena-ab-mini-seat-avatar">{seat.avatar}</div>
+          <p className="arena-ab-mini-seat-name">{seat.name}</p>
+          <span className="arena-ab-mini-seat-status">{statusLabel}</span>
+          <p className="arena-ab-mini-seat-stack">{seat.stack.toLocaleString()}</p>
+        </div>
+      </article>
+      <div className="arena-ab-mini-seat-cards arena-ab-mini-seat-cards--outset">
+        <AgentBattleMiniHoleCards seat={seat} />
+      </div>
+    </div>
+  );
+}
+
+function AgentBattleMiniSeat({
+  seat,
+  orientation,
+}: {
+  seat: TableSeat;
+  orientation: "top" | "bottom";
+}) {
+  const statusLabel = agentBattleMiniSeatStatus(seat);
+  const isWinner = seat.status === "winner";
+  const isActive = seat.status === "active" || seat.activeHighlight === "acting";
+  const isThinking = seat.activeHighlight === "thinking";
+  const isFolded = seat.status === "folded";
+
+  const panel = (
+    <div className="arena-ab-mini-seat-panel arena-ab-mini-seat-panel--row">
+      <div className="arena-ab-mini-seat-avatar">{seat.avatar}</div>
+      <div className="arena-ab-mini-seat-meta">
+        <p className="arena-ab-mini-seat-name">{seat.name}</p>
+        <span className="arena-ab-mini-seat-status">{statusLabel}</span>
+        <p className="arena-ab-mini-seat-stack">{seat.stack.toLocaleString()}</p>
+      </div>
+    </div>
+  );
+
+  const cards = (
+    <div className="arena-ab-mini-seat-cards arena-ab-mini-seat-cards--outset">
+      <AgentBattleMiniHoleCards seat={seat} />
+    </div>
+  );
+
+  return (
+    <article
+      className={cn(
+        "arena-ab-mini-seat",
+        isWinner && "arena-ab-mini-seat--winner",
+        isThinking && "arena-ab-mini-seat--thinking",
+        isActive && !isWinner && !isThinking && "arena-ab-mini-seat--active",
+        isFolded && "opacity-90",
+      )}
+    >
+      <div
+        className={cn(
+          "arena-ab-mini-seat-end",
+          orientation === "top" && "arena-ab-mini-seat-end--top",
+          orientation === "bottom" && "arena-ab-mini-seat-end--bottom",
+        )}
+      >
+        {orientation === "bottom" ? (
+          <>
+            {cards}
+            {panel}
+          </>
+        ) : (
+          <>
+            {panel}
+            {cards}
+          </>
+        )}
+      </div>
+    </article>
+  );
+}
+
+/** Broadcast mini-table below 2xl (<1536px) — absolute-positioned poker seats. */
+function RoomAgentBattleBroadcastLayout({
+  pot,
+  communityCards,
+  seats,
+  winnerName,
+  winningHand,
+  resultType,
+}: {
+  pot: number | null;
+  communityCards: Card[];
+  seats: TableSeat[];
+  winnerName?: string;
+  winningHand?: string;
+  resultType: HandResultDisplayType;
+}) {
+  const topSeat = seats.find((s) => s.position === "top");
+  const bottomSeat = seats.find((s) => s.position === "bottom");
+  const leftSeat = seats.find((s) => s.position === "left");
+  const rightSeat = seats.find((s) => s.position === "right");
+
+  const showBoard = communityCards.length > 0;
+
+  return (
+    <div className="arena-ab-broadcast arena-ab-mini-table" data-ab-layout="broadcast">
+      <div className="arena-ab-mini-table-surface">
+        <div className="arena-ab-mini-table-felt" aria-hidden />
+        {topSeat ? (
+          <div className="arena-ab-mini-slot arena-ab-mini-slot--top">
+            <AgentBattleMiniSeat seat={topSeat} orientation="top" />
+          </div>
+        ) : null}
+
+        {leftSeat ? (
+          <div className="arena-ab-mini-slot arena-ab-mini-slot--left">
+            <AgentBattleMiniSideSeat seat={leftSeat} />
+          </div>
+        ) : null}
+
+        <div className="arena-ab-mini-slot arena-ab-mini-slot--center">
+          {!winnerName ? (
+            <div className="arena-ab-mini-pot">
+              <ChipStack
+                amount={pot ?? "\u2014"}
+                size="sm"
+                label="Pot"
+                showIcons={false}
+                className="justify-center"
+              />
+            </div>
+          ) : null}
+          {showBoard ? (
+            <div className="arena-ab-mini-board">
+              <div className="arena-ab-mini-board-cards">
+                <SpectatorCommunityBoard
+                  communityCards={communityCards}
+                  cardSize="sm"
+                  compactRow
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {winnerName ? (
+          <div className="arena-ab-mini-slot arena-ab-mini-slot--result">
+            <WinnerBanner
+              winnerName={winnerName}
+              resultType={resultType}
+              winningHand={winningHand}
+              pot={pot}
+              ultraCompact
+              spectator
+            />
+          </div>
+        ) : null}
+
+        {rightSeat ? (
+          <div className="arena-ab-mini-slot arena-ab-mini-slot--right">
+            <AgentBattleMiniSideSeat seat={rightSeat} />
+          </div>
+        ) : null}
+
+        {bottomSeat ? (
+          <div className="arena-ab-mini-slot arena-ab-mini-slot--bottom">
+            <AgentBattleMiniSeat seat={bottomSeat} orientation="bottom" />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function RoomAgentBattleEllipseLayout({
   pot,
   communityCards,
   seats,
@@ -644,59 +902,101 @@ function RoomAgentBattleTableLayout({
   const rightSeat = seats.find((s) => s.position === "right");
 
   return (
-    <div className="arena-room-felt-zones arena-room-agent-battle-zones">
-      <div className="relative min-h-0 flex-1">
-        <div className="absolute left-1/2 top-[3%] z-10 flex -translate-x-[calc(50%-0.5rem)] items-start justify-center overflow-visible px-2 pt-0.5">
-          {topSeat ? <AgentBattleSeatRow seat={topSeat} edgeInset /> : null}
+    <div className="arena-ab-ellipse-layout" data-ab-layout="ellipse">
+      {topSeat ? (
+        <div className="arena-ab-ellipse-slot arena-ab-ellipse-slot--top">
+          <AgentBattleSeatRow seat={topSeat} endLayout="top" />
         </div>
+      ) : null}
 
-        <div className="absolute left-1/2 top-[43%] z-[12] flex w-[min(96%,22rem)] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1">
-          <div className="flex min-h-[1.125rem] shrink-0 items-center justify-center rounded-full border border-[var(--arena-border)] bg-[var(--arena-surface)]/85 px-3 py-0.5 shadow-sm">
-            <ChipStack
-              amount={pot ?? "\u2014"}
-              size="sm"
-              label="Pot"
-              showIcons={false}
-              className="justify-center"
-            />
-          </div>
-          <SpectatorCommunityBoard
-            communityCards={communityCards}
-            cardSize={agentBattleBoardCardSize}
+      <div className="arena-ab-ellipse-center">
+        <div className="flex min-h-[1.125rem] shrink-0 items-center justify-center rounded-full border border-[var(--arena-border)] bg-[var(--arena-surface)]/85 px-3 py-0.5 shadow-sm">
+          <ChipStack
+            amount={pot ?? "\u2014"}
+            size="sm"
+            label="Pot"
+            showIcons={false}
+            className="justify-center"
           />
         </div>
-
-        {winnerName ? (
-          <div className="absolute left-1/2 top-[59%] z-[15] w-[min(92%,15rem)] -translate-x-1/2 px-2">
-            <WinnerBanner
-              winnerName={winnerName}
-              resultType={resultType}
-              winningHand={winningHand}
-              pot={pot}
-              ultraCompact
-              spectator
-            />
-          </div>
-        ) : null}
-
-        {bottomSeat ? (
-          <div className="absolute bottom-[2.5%] left-1/2 z-[9] -translate-x-[calc(50%-0.5rem)] overflow-visible px-2">
-            <AgentBattleSeatRow seat={bottomSeat} edgeInset />
-          </div>
-        ) : null}
-
-        {leftSeat ? (
-          <div className="absolute left-[2%] top-[36%] z-[8] -translate-y-1/2">
-            <AgentBattleSideSeat seat={leftSeat} side="left" />
-          </div>
-        ) : null}
-        {rightSeat ? (
-          <div className="absolute right-[2%] top-[36%] z-[8] -translate-y-1/2">
-            <AgentBattleSideSeat seat={rightSeat} side="right" />
-          </div>
-        ) : null}
+        <SpectatorCommunityBoard
+          communityCards={communityCards}
+          cardSize={agentBattleBoardCardSize}
+        />
       </div>
+
+      {winnerName ? (
+        <div className="arena-ab-ellipse-result">
+          <WinnerBanner
+            winnerName={winnerName}
+            resultType={resultType}
+            winningHand={winningHand}
+            pot={pot}
+            ultraCompact
+            spectator
+          />
+        </div>
+      ) : null}
+
+      {bottomSeat ? (
+        <div className="arena-ab-ellipse-slot arena-ab-ellipse-slot--bottom">
+          <AgentBattleSeatRow seat={bottomSeat} endLayout="bottom" />
+        </div>
+      ) : null}
+
+      {leftSeat ? (
+        <div className="arena-ab-ellipse-slot arena-ab-ellipse-slot--left">
+          <AgentBattleSideSeat seat={leftSeat} side="left" />
+        </div>
+      ) : null}
+
+      {rightSeat ? (
+        <div className="arena-ab-ellipse-slot arena-ab-ellipse-slot--right">
+          <AgentBattleSideSeat seat={rightSeat} side="right" />
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function RoomAgentBattleTableLayout({
+  pot,
+  communityCards,
+  seats,
+  winnerName,
+  winningHand,
+  resultType,
+}: {
+  pot: number | null;
+  communityCards: Card[];
+  seats: TableSeat[];
+  winnerName?: string;
+  winningHand?: string;
+  resultType: HandResultDisplayType;
+}) {
+  return (
+    <AgentBattleResponsiveShell
+      broadcast={
+        <RoomAgentBattleBroadcastLayout
+          pot={pot}
+          communityCards={communityCards}
+          seats={seats}
+          winnerName={winnerName}
+          winningHand={winningHand}
+          resultType={resultType}
+        />
+      }
+      ellipse={
+        <RoomAgentBattleEllipseLayout
+          pot={pot}
+          communityCards={communityCards}
+          seats={seats}
+          winnerName={winnerName}
+          winningHand={winningHand}
+          resultType={resultType}
+        />
+      }
+    />
   );
 }
 
@@ -708,7 +1008,6 @@ function RoomHeadsUpTableLayout({
   winningHand,
   resultType,
   boardCardSize,
-  headsUpLayoutKey,
   humanTurnSecondsLeft,
 }: {
   pot: number | null;
@@ -718,30 +1017,27 @@ function RoomHeadsUpTableLayout({
   winningHand?: string;
   resultType: HandResultDisplayType;
   boardCardSize: CardSize;
-  headsUpLayoutKey?: string;
   humanTurnSecondsLeft?: number | null;
 }) {
-  const topSeat = seats.find((s) => s.position === "top");
-  const bottomSeat = seats.find((s) => s.position === "bottom");
-  const sideSeats = seats.filter(
-    (s) => s.position === "left" || s.position === "right",
-  );
+  const humanSeat = seats.find((s) => s.position === "bottom");
+  const opponentSeat = seats.find((s) => s.position === "top");
 
   return (
-    <>
-      <div className="arena-room-felt-zones arena-room-hvai-zones">
-        <div className="arena-zone-top flex h-[16%] min-h-[4.25rem] max-h-[6rem] shrink-0 items-end justify-center px-1 pb-0.5 pt-0.5">
-          {topSeat ? (
-            <div key={headsUpLayoutKey ?? topSeat.id}>
-              <HeadsUpOpponentSeat seat={topSeat} />
-            </div>
-          ) : (
-            <div className="h-[3.5rem] w-[11.75rem] shrink-0" aria-hidden />
-          )}
-        </div>
+    <div className="arena-hvai-layout">
+      <div className="arena-hvai-column">
+        {opponentSeat ? (
+          <div className="arena-hvai-slot arena-hvai-slot--top">
+            <HeadsUpPlayerCluster
+              seat={opponentSeat}
+              cardSize="sm"
+              orientation="top"
+              cardsLabel={`${opponentSeat.name} hole cards`}
+            />
+          </div>
+        ) : null}
 
-        <div className="arena-zone-board flex h-[28%] max-h-[10.5rem] shrink-0 flex-col items-center justify-center gap-1 pt-1">
-          <div className="flex min-h-[1.125rem] shrink-0 items-center justify-center rounded-full border border-[var(--arena-border)] bg-[var(--arena-surface)]/80 px-3 py-0.5 shadow-sm">
+        <div className="arena-hvai-center">
+          <div className="arena-hvai-pot flex min-h-[1.125rem] shrink-0 items-center justify-center rounded-full border border-[var(--arena-border)] bg-[var(--arena-surface)]/80 px-3 py-0.5 shadow-sm">
             <ChipStack
               amount={pot ?? "\u2014"}
               size="sm"
@@ -750,15 +1046,17 @@ function RoomHeadsUpTableLayout({
               className="justify-center"
             />
           </div>
-          <StepDemoCommunityBoard
-            communityCards={communityCards}
-            cardSize={boardCardSize}
-            roomLayout
-          />
+          <div className="arena-hvai-board">
+            <StepDemoCommunityBoard
+              communityCards={communityCards}
+              cardSize={boardCardSize}
+              roomLayout
+            />
+          </div>
         </div>
 
-        <div className="arena-zone-result flex h-[10%] max-h-[4.25rem] shrink-0 items-center justify-center px-2">
-          {winnerName ? (
+        {winnerName ? (
+          <div className="arena-hvai-result">
             <WinnerBanner
               winnerName={winnerName}
               resultType={resultType}
@@ -766,39 +1064,22 @@ function RoomHeadsUpTableLayout({
               pot={pot}
               ultraCompact
             />
-          ) : (
-            <div className="h-px w-full max-w-[8rem] opacity-0" aria-hidden />
-          )}
-        </div>
+          </div>
+        ) : null}
 
-        <div className="arena-zone-human-cards flex h-[13%] max-h-[5rem] shrink-0 items-end justify-center">
-          {bottomSeat ? (
-            <div key={`${headsUpLayoutKey ?? bottomSeat.id}-cards`}>
-              <HeadsUpHumanCards seat={bottomSeat} />
-            </div>
-          ) : (
-            <div className="h-[4.25rem] w-[5.75rem] shrink-0" aria-hidden />
-          )}
-        </div>
-
-        <div className="arena-zone-avatar flex min-h-[3.75rem] flex-1 items-start justify-center pb-0.5 pt-0.5">
-          {bottomSeat ? (
-            <TableSeatCluster
-              seat={bottomSeat}
-              layoutMode="roomHeadsUp"
-              part="avatar"
-              humanTurnSecondsLeft={
-                bottomSeat.id === "human" ? humanTurnSecondsLeft : null
-              }
+        {humanSeat ? (
+          <div className="arena-hvai-slot arena-hvai-slot--human">
+            <HeadsUpPlayerCluster
+              seat={humanSeat}
+              cardSize="sm"
+              orientation="bottom"
+              humanTurnSecondsLeft={humanTurnSecondsLeft}
+              cardsLabel="Your hole cards"
             />
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
-
-      {sideSeats.map((seat) => (
-        <TableSeatCluster key={seat.id} seat={seat} layoutMode="roomHeadsUp" />
-      ))}
-    </>
+    </div>
   );
 }
 
@@ -978,7 +1259,6 @@ export function PokerTable({
   headsUpGuidedMode = false,
   showHumanVsAiBadge = false,
   roomLayout = false,
-  headsUpLayoutKey,
   humanTurnSecondsLeft = null,
   onPayEntryFee,
   payingEntryFee = false,
@@ -991,8 +1271,11 @@ export function PokerTable({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-[2rem] border border-[var(--arena-border)] bg-[var(--arena-bg)] shadow-[0_12px_40px_rgba(0,0,0,0.55)]",
+        "relative rounded-[2rem] border border-[var(--arena-border)] bg-[var(--arena-bg)] shadow-[0_12px_40px_rgba(0,0,0,0.55)]",
+        roomLayout && !agentBattleMode ? "overflow-visible" : "overflow-hidden",
         roomLayout ? "arena-table-room" : "p-4",
+        agentBattleMode && roomLayout && "arena-table-agent-battle",
+        roomLayout && !agentBattleMode && "arena-table-hvai",
         className,
       )}
     >
@@ -1027,11 +1310,14 @@ export function PokerTable({
       >
         <div className="absolute inset-0">
         {/* Outer rail */}
-        <div className="absolute inset-[2%] rounded-[50%] border-4 border-slate-700/80 bg-gradient-to-b from-slate-800 to-slate-950 shadow-inner" />
+        <div className="arena-table-oval-rail absolute inset-[2%] rounded-[50%] border-4 border-slate-700/80 bg-gradient-to-b from-slate-800 to-slate-950 shadow-inner" />
 
         {/* Felt — premium AI arena (navy / electric blue) */}
         <div
-          className="absolute inset-[5%] overflow-hidden rounded-[50%] border-2 border-[var(--arena-cyan)]/35 arena-table-glow-blue"
+          className={cn(
+            "arena-table-oval-felt absolute inset-[5%] rounded-[50%] border-2 border-[var(--arena-cyan)]/35 arena-table-glow-blue",
+            layoutMode === "roomHeadsUp" ? "overflow-visible" : "overflow-hidden",
+          )}
           style={{
             background:
               "radial-gradient(ellipse 75% 60% at 50% 42%, rgba(0, 82, 255, 0.48) 0%, #0c1a30 42%, #050a12 100%)",
@@ -1044,22 +1330,23 @@ export function PokerTable({
                 "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.15) 3px, rgba(0,0,0,0.15) 4px)",
             }}
           />
-          <div className="absolute inset-[12%] rounded-[50%] border border-white/10" />
+          <div className="absolute inset-[12%] rounded-[50%] border border-white/10 pointer-events-none" />
+
+          {layoutMode === "roomHeadsUp" ? (
+            <RoomHeadsUpTableLayout
+              pot={pot}
+              communityCards={communityCards}
+              seats={seats}
+              winnerName={winnerName}
+              winningHand={winningHand}
+              resultType={resultType}
+              boardCardSize={boardCardSize}
+              humanTurnSecondsLeft={humanTurnSecondsLeft}
+            />
+          ) : null}
         </div>
 
-        {layoutMode === "roomHeadsUp" ? (
-          <RoomHeadsUpTableLayout
-            pot={pot}
-            communityCards={communityCards}
-            seats={seats}
-            winnerName={winnerName}
-            winningHand={winningHand}
-            resultType={resultType}
-            boardCardSize={boardCardSize}
-            headsUpLayoutKey={headsUpLayoutKey}
-            humanTurnSecondsLeft={humanTurnSecondsLeft}
-          />
-        ) : agentBattleMode && roomLayout ? (
+        {layoutMode === "roomHeadsUp" ? null : agentBattleMode && roomLayout ? (
           <RoomAgentBattleTableLayout
             pot={pot}
             communityCards={communityCards}
