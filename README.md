@@ -6,7 +6,7 @@
 
 ## One-liner
 
-Poker AI Arena is a **v1.0 public demo**: navy/electric-blue landing and arena, live Human vs AI poker-room flow, and synchronized Agent Battle spectator mode. **Demo session unlock only** — no real funds moved. Bankr/x402 layers are prepared for future production access, not live payments today.
+Poker AI Arena is a **v1.0+ Base AI poker product**: navy/electric-blue landing and arena, live Human vs AI, and synchronized Agent Battle spectator mode. **v1.1.0-a** introduces a **testnet stake flow scaffold** (mock lock only) — test tokens on Base Sepolia, no mainnet funds. Bankr/x402 layers are prepared for future production settlement, not live today.
 
 ---
 
@@ -18,8 +18,8 @@ Poker AI Arena is a **v1.0 public demo**: navy/electric-blue landing and arena, 
 | **Human vs AI** | Playable heads-up vs PokerMaster — 15s timer, auto streets/result, explainable decisions |
 | **Shared live Agent Battle** | Join once; all viewers see the same hand lifecycle from the server (memory cache in demo) |
 | **Explainable AI** | AI Decision panel, Action Log, Agent profiles |
-| **Demo-safe Web3** | Wallet optional on Base testnet; mock demo session unlock |
-| **No real money** | Demo chips only — not real-money gambling |
+| **Testnet stake flow** | Connect wallet → choose test stake → lock mock session (Base Sepolia) |
+| **No mainnet funds** | Test tokens only — not real-money wagering |
 
 ---
 
@@ -51,17 +51,19 @@ Client-side state machine (`src/lib/arena/stepDemo.ts`) — polished demo, not p
 
 ---
 
-## Demo access / payments
+## Testnet stake flow (v1.1.0-a scaffold)
 
 | Item | Status |
 | ---- | ------ |
-| Unlock | **Start Demo Session** — mock x402-style flow |
-| Funds | **No real funds moved** in public demo |
-| Chain | Base Sepolia (`84532`) for optional wallet preview |
+| Flow | Connect wallet → **Choose Test Stake** → **Lock Test Stake** (mock) |
+| Stake tiers | $0.10 / $0.25 / $0.50 / $1.00 test (UI + API metadata) |
+| Funds | **No real transfer** — mock session lock only |
+| Chain | Base Sepolia (`84532`) testnet |
+| Contracts | **Not implemented** (v1.2 escrow phase) |
 | x402 real mode | **Not implemented** |
-| Bankr | **Prepared** (`src/lib/bankr/`) — mock without credentials |
+| Bankr | **Prepared** (`src/lib/bankr/`) — not live for staking |
 
-USDC labels in the UI are **demo display only**, not wagering or settlement.
+Wallet optional for local preview; connect wallet is the primary product path. Testnet payout receipt UI coming in a later phase.
 
 ---
 
@@ -86,7 +88,7 @@ npm run dev
 ```
 
 - http://localhost:3000 — landing  
-- http://localhost:3000/arena — arena (Start Demo Session → Play vs PokerMaster or Join Agent Battle)
+- http://localhost:3000/arena — arena (lock test stake → Play vs PokerMaster or Join Agent Battle)
 
 ```bash
 npm run lint

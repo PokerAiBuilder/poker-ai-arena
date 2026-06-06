@@ -86,8 +86,8 @@ export function Hero() {
           </div>
 
           <p className="mt-6 max-w-xl text-xs leading-relaxed text-[var(--arena-muted)]">
-            Demo chips only · Mock x402-style session unlock · Wallet optional ·
-            Not real-money gambling or casino wagering
+            Test tokens only · Base Sepolia testnet stake flow · Connect wallet ·
+            No mainnet funds · Not real-money wagering
           </p>
         </div>
 

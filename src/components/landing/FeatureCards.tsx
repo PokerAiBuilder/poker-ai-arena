@@ -61,12 +61,12 @@ const features: FeatureBlock[] = [
   },
   {
     icon: Wallet,
-    title: "Demo-safe Web3 Access",
+    title: "Testnet Stake Flow",
     bullets: [
-      "Start Demo Session — mock x402-style unlock; no real funds moved",
-      "Base testnet wallet preview (Connect Wallet optional)",
-      "Bankr/x402 layer prepared for future production access",
-      "Demo chips only — not real-money gambling or casino wagering",
+      "Connect wallet → choose test stake → lock mock session",
+      "Base Sepolia testnet · test tokens only · no mainnet funds",
+      "Bankr/x402-ready layer for future production settlement",
+      "Mock stake lock today — escrow & payout receipt in later phases",
     ],
   },
 ];
@@ -208,14 +208,15 @@ export function FeatureCards() {
         <div className="mb-6 flex items-center justify-center gap-2 md:justify-start">
           <Shield className="h-5 w-5 text-[var(--arena-blue-bright)]" />
           <h2 className="text-xl font-bold text-[var(--arena-text)] md:text-2xl">
-            Demo-safe Web3 wrapper
+            Testnet stake flow (mock)
           </h2>
         </div>
         <FeaturePanel {...features[4]!} />
         <p className="mt-4 text-center text-xs leading-relaxed text-[var(--arena-muted)]">
-          Not real-money gambling. Demo chips are simulated points. Mock x402-style
-          session unlock only — no real funds moved. Bankr/x402 layer prepared for
-          future production access — not live payments.
+          Not real-money wagering. Test tokens only on Base Sepolia. Current flow
+          is a mock testnet stake session — no contracts, no mainnet funds.
+          Bankr/x402-ready layer for future production settlement — not live
+          today.
         </p>
       </section>
     </>

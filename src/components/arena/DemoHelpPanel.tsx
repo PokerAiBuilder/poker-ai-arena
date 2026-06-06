@@ -1,11 +1,12 @@
 import { ListOrdered } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const DEMO_STEPS = [
-  "Start Demo Session — demo chips only, no real funds moved",
+const STAKE_FLOW_STEPS = [
+  "Connect wallet (optional for local preview) — Base Sepolia testnet",
+  "Choose test stake — $0.10 / $0.25 / $0.50 / $1.00 test tiers",
+  "Lock test stake — mock session lock; no real transfer yet",
   "Play vs PokerMaster — playable Human vs AI mode",
   "Choose Fold / Call / Check / Raise on your turn",
-  "Human vs AI streets auto-deal and results show automatically",
   "Try AI Agent Battle — full-board spectator simulation (watch only)",
   "Open Arena Menu for Action Log, stats, and full AI reasoning",
 ] as const;
@@ -25,11 +26,11 @@ export function DemoHelpPanel({ className }: DemoHelpPanelProps) {
       <div className="flex items-center justify-center gap-2">
         <ListOrdered className="h-3.5 w-3.5 text-casino-goldLight" />
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-casino-goldLight/90">
-          How to demo
+          Testnet stake flow
         </p>
       </div>
       <ol className="mt-3 space-y-1.5 text-left text-xs leading-relaxed text-muted-foreground">
-        {DEMO_STEPS.map((step, index) => (
+        {STAKE_FLOW_STEPS.map((step, index) => (
           <li key={step} className="flex gap-2">
             <span className="shrink-0 font-semibold tabular-nums text-emerald-400/90">
               {index + 1}.
@@ -39,12 +40,12 @@ export function DemoHelpPanel({ className }: DemoHelpPanelProps) {
         ))}
       </ol>
       <p className="mt-3 text-center text-[10px] leading-relaxed text-white/45">
-        Human vs AI is playable · AI Agent Battle is spectator-only · Demo chips
-        only · No real funds moved
+        Human vs AI is playable · AI Agent Battle is spectator-only · Test
+        tokens only · No mainnet funds
       </p>
       <p className="mt-2 text-center text-[10px] leading-relaxed text-violet-200/55">
-        Agent Battle uses a shared server timeline — multiple viewers watch the
-        same AI hand. Skip animations is local only.
+        Testnet payout receipt coming soon. Agent Battle uses a shared server
+        timeline — multiple viewers watch the same AI hand.
       </p>
     </div>
   );

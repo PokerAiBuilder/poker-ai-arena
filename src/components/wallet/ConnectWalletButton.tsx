@@ -76,7 +76,7 @@ export function ConnectWalletButton({
         size={size}
         className={cn(className)}
         disabled={isPending}
-        title="Optional — Base testnet Web3 preview. Demo gameplay works without a wallet."
+        title="Connect wallet for testnet stake flow on Base Sepolia"
         onClick={() => connect({ connector: injected() })}
       >
         {isPending ? (
@@ -88,7 +88,7 @@ export function ConnectWalletButton({
       </Button>
       {showDemoHint ? (
         <p className="hidden text-center text-[9px] leading-snug text-muted-foreground lg:block">
-          Optional · Base testnet preview
+          Base Sepolia · testnet stake flow
         </p>
       ) : null}
       {connectError ? (

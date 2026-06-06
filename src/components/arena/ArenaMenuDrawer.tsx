@@ -260,11 +260,11 @@ export function ArenaMenuDrawer({
               ) : (
                 <div className="v1-card rounded-xl border-dashed px-4 py-6 text-center">
                   <p className="text-sm text-[var(--arena-muted)]">
-                    Unlock the arena to see AI decisions.
+                    Lock a test stake session to see AI decisions.
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-white/45">
-                    Start a demo session from the action bar to enable Decision,
-                    Log, and History panels.
+                    Choose a test stake and lock a session from the sidebar or
+                    table overlay to enable Decision, Log, and History panels.
                   </p>
                 </div>
               )

@@ -5,9 +5,18 @@ import { HumanTurnTimerRing } from "@/components/arena/HumanTurnTimerRing";
 import { ChipStack } from "@/components/arena/ChipStack";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
+import { useAccount } from "wagmi";
+import { TestStakePicker } from "@/components/arena/TestStakePicker";
 import type { HandResultDisplayType } from "@/lib/arena/simulationDisplay";
 import type { Card } from "@/lib/poker/types";
+import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
+import type { StakeCashOutRecord } from "@/lib/stake/stakeSessionStorage";
+import {
+  formatStakeToChipsLine,
+  formatTestBalanceAmount,
+  type TestStakeAmount,
+} from "@/lib/stake/testnetStake";
 import { cn } from "@/lib/utils";
 
 export type TableSeat = {
@@ -51,6 +60,10 @@ type PokerTableProps = {
   onPayEntryFee?: () => void;
   payingEntryFee?: boolean;
   paymentError?: string | null;
+  selectedTestStake?: TestStakeAmount;
+  onTestStakeChange?: (stake: TestStakeAmount) => void;
+  stakeCashedOut?: boolean;
+  cashOutRecord?: StakeCashOutRecord | null;
   className?: string;
 };
 
@@ -1263,8 +1276,13 @@ export function PokerTable({
   onPayEntryFee,
   payingEntryFee = false,
   paymentError,
+  selectedTestStake,
+  onTestStakeChange,
+  stakeCashedOut = false,
+  cashOutRecord = null,
   className,
 }: PokerTableProps) {
+  const { isConnected } = useAccount();
   const layoutMode = resolveSeatLayoutMode(fourPlayerLayout, roomLayout);
   const boardCardSize = resolveBoardCardSize(layoutMode);
 
@@ -1420,40 +1438,143 @@ export function PokerTable({
 
       {locked ? (
         <div className="absolute inset-0 z-40 flex items-center justify-center rounded-[2rem] bg-black/60 backdrop-blur-[3px]">
-          <div className="mx-4 max-w-sm rounded-2xl v1-panel v1-glow-border px-6 py-5 text-center backdrop-blur-md">
-            <p className="text-sm font-semibold text-[var(--arena-cyan)]">Arena Locked</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Start demo session to play Human vs AI or watch AI Agent Battle.
-            </p>
-            {onPayEntryFee ? (
+          <div
+            className={cn(
+              "mx-4 max-w-sm rounded-2xl v1-panel v1-glow-border px-6 py-5 text-center backdrop-blur-md",
+              stakeCashedOut && "border-emerald-500/35",
+            )}
+          >
+            {stakeCashedOut ? (
               <>
+                <div className="flex items-center justify-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  <p className="text-sm font-semibold text-emerald-300">
+                    Test Balance Cashed Out
+                  </p>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Start a new test stake session to play again.
+                </p>
+                {cashOutRecord ? (
+                  <dl className="mt-3 space-y-1 rounded-lg border border-emerald-500/25 bg-emerald-950/25 p-2.5 text-left text-[10px]">
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted-foreground">Chips cashed out</dt>
+                      <dd className="font-semibold text-white">
+                        {cashOutRecord.cashOutChips.toLocaleString()}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted-foreground">Test balance</dt>
+                      <dd className="font-semibold text-emerald-300">
+                        {formatTestBalanceAmount(cashOutRecord.cashOutTestBalance)}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted-foreground">Recipient wallet</dt>
+                      <dd
+                        className="max-w-[7rem] truncate font-mono text-[9px] text-white/75"
+                        title={cashOutRecord.walletAddress ?? undefined}
+                      >
+                        {cashOutRecord.walletAddress ??
+                          "Local preview / no wallet connected"}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted-foreground">Mock withdrawal receipt</dt>
+                      <dd
+                        className="max-w-[7rem] truncate font-mono text-[9px] text-white/75"
+                        title={cashOutRecord.mockWithdrawalId}
+                      >
+                        {cashOutRecord.mockWithdrawalId}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted-foreground">No transfer yet</dt>
+                      <dd className="text-white/80">No on-chain transfer yet</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted-foreground">Future payout target</dt>
+                      <dd className="text-right text-emerald-300/90">
+                        {cashOutRecord.walletAddress
+                          ? "Connected wallet"
+                          : "Connect wallet for next session"}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-[var(--arena-cyan)]">
+                  Lock Test Stake
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Choose stake — it becomes your starting chip stack. Pay with test
+                  ETH on Base Sepolia (mock lock for now).
+                </p>
+              </>
+            )}
+            {onPayEntryFee && selectedTestStake && onTestStakeChange ? (
+              <div className="mt-3 text-left">
+                <TestStakePicker
+                  value={selectedTestStake}
+                  onChange={onTestStakeChange}
+                  disabled={payingEntryFee}
+                  compact
+                />
+                <p className="mt-2 text-center text-[10px] font-medium text-[var(--arena-cyan)]">
+                  {formatStakeToChipsLine(selectedTestStake)}
+                </p>
+              </div>
+            ) : null}
+            {onPayEntryFee ? (
+              <div className="mt-4 space-y-2">
+                {!isConnected ? (
+                  <ConnectWalletButton
+                    size="lg"
+                    showDemoHint={false}
+                    className="v1-button-primary w-full"
+                  />
+                ) : null}
                 <Button
                   type="button"
                   size="lg"
-                  className="v1-button-primary mt-4 w-full"
+                  variant={isConnected ? "default" : "secondary"}
+                  className={cn(
+                    "w-full",
+                    isConnected && "v1-button-primary",
+                  )}
                   disabled={payingEntryFee}
                   onClick={onPayEntryFee}
                 >
                   {payingEntryFee ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Starting…
+                      {isConnected
+                        ? stakeCashedOut
+                          ? "Starting new session…"
+                          : "Locking test stake…"
+                        : "Starting mock session…"}
                     </>
+                  ) : stakeCashedOut ? (
+                    "Start New Test Stake Session"
+                  ) : isConnected ? (
+                    "Lock Test Stake"
                   ) : (
-                    "Start Demo Session"
+                    "Start Mock Test Session"
                   )}
                 </Button>
-                <p className="mt-3 text-[10px] leading-relaxed text-[var(--arena-muted)]">
-                  Mock x402-style unlock · Demo chips only · No real funds
-                  moved · Connect Wallet optional
+                <p className="text-[10px] leading-relaxed text-[var(--arena-muted)]">
+                  Base Sepolia · test tokens only · no mainnet funds · mock
+                  settlement only
                 </p>
                 {paymentError ? (
-                  <p className="mt-2 text-[10px] text-red-400">{paymentError}</p>
+                  <p className="text-[10px] text-red-400">{paymentError}</p>
                 ) : null}
-              </>
+              </div>
             ) : (
               <p className="mt-3 text-xs text-muted-foreground">
-                Use the sidebar to unlock the arena.
+                Use the sidebar to lock a test stake session.
               </p>
             )}
           </div>

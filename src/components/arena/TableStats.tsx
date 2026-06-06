@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import type { SessionStats } from "@/lib/analytics/types";
 import type { X402PaymentMode } from "@/lib/bankr/x402Client";
-import { getPaymentModeUserLabel, formatDemoAccessAmountLabel } from "@/lib/bankr/x402Client";
+import { getPaymentModeUserLabel } from "@/lib/bankr/x402Client";
+import { getTestStakeTier } from "@/lib/stake/testnetStake";
 import { cn } from "@/lib/utils";
 
 type TableStatsProps = {
@@ -84,14 +85,17 @@ export function TableStats({
       live: false,
     },
     {
-      label: "Session Status",
-      value: sessionStatus === "unlocked" ? "Unlocked" : "Locked",
+      label: "Stake Session",
+      value: sessionStatus === "unlocked" ? "Active (mock)" : "Not locked",
       icon: Lock,
       live: true,
     },
     {
-      label: "Mock Unlock",
-      value: formatDemoAccessAmountLabel(entryFee),
+      label: "Test Stake",
+      value: (() => {
+        const tier = getTestStakeTier(entryFee);
+        return `${tier.usdLabel} → ${tier.chipAmount.toLocaleString()} chips`;
+      })(),
       icon: CreditCard,
       live: false,
     },

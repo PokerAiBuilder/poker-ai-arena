@@ -16,10 +16,11 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => ({}))) as {
       mode?: X402PaymentMode;
+      stakeAmount?: string;
     };
 
     const mode: X402PaymentMode = body.mode === "real" ? "real" : "mock";
-    const result = await payEntryFee(mode);
+    const result = await payEntryFee(mode, body.stakeAmount);
 
     if (process.env.NODE_ENV === "development") {
       console.log("[api/x402/entry]", {
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Demo session unlock failed";
+      error instanceof Error ? error.message : "Test stake session lock failed";
     console.error("[api/x402/entry] error:", message);
     return NextResponse.json(
       {

@@ -1,6 +1,138 @@
 # Project status
 
-Last updated for **v1.0.1** — responsive arena cleanup (layout/CSS only).
+Last updated for **v1.1.0-c** — mock cash-out flow (testnet mock only).
+
+---
+
+## v1.1.0-c — mock cash-out flow
+
+**Scope:** Mock/testnet withdrawal after play. **No** on-chain transfer, **no** smart contracts, **no** mainnet funds, **no** poker hand logic or Agent Battle changes.
+
+### Cash-out value
+
+- **1,000 chips = $1.00 test balance** via `chipsToTestBalance()` / `formatTestBalance()` in `testnetStake.ts`
+- Cash-out amount = current Human chip stack at time of withdrawal
+
+### Session state (`stakeSessionStorage.ts`)
+
+| Field | Role |
+| ----- | ---- |
+| `status` | `active` \| `cashed_out` |
+| `cashOut.cashedOutAt` | ISO timestamp |
+| `cashOut.cashOutChips` | Chips withdrawn |
+| `cashOut.cashOutTestBalance` | USD test balance |
+| `cashOut.mockWithdrawalId` | Mock receipt id |
+| `cashOut.walletAddress` | Connected wallet (optional) |
+| `cashOut.network` | `base-sepolia` |
+| `cashOut.settlement` | `mock withdrawal` |
+
+Persisted in `localStorage` key `poker-ai-arena-stake-session-v1`.
+
+### Behavior
+
+- **Cash Out Test Chips** enabled when session active, chips &gt; 0, no hand in progress
+- Hand active → helper: “Finish the current hand before cashing out.”
+- Cash out → mock receipt, session `cashed_out`, arena locked, `paymentResult` cleared
+- **EntryFeePanel** + table overlay show receipt; **Start New Test Stake Session** begins fresh lock
+- Badge: active / cashed out / lock stake
+
+### Safety (unchanged)
+
+- Mock withdrawal only — no escrow contract, no Base Sepolia tx yet
+- Bankr/x402 not live for staking or payout
+
+### Next steps
+
+| Version | Focus |
+| ------- | ----- |
+| **v1.2** | Base Sepolia payment transaction + smart contract escrow + wallet payout |
+
+**Build:** `npm run build` (target for v1.1.0-c).
+
+---
+
+## v1.1.0-b — stake controls starting stack
+
+**Scope:** Stake tier → chip mapping, session stack initialization, cash-out UI scaffold. **No** smart contracts, **no** real transfer, **no** mainnet, **no** gameplay/hand-evaluation changes.
+
+### Stake → chips mapping
+
+| Test stake | Starting chips (Human + PokerMaster) |
+| ---------- | ------------------------------------ |
+| $0.10 test | 100 |
+| $0.25 test | 250 |
+| $0.50 test | 500 |
+| $1.00 test | 1,000 |
+
+Ratio: **1,000 chips = $1.00 test balance** (used for estimated cash-out display).
+
+### Behavior
+
+- **Lock test stake** → `applyStakeStartingStacks()` sets human + PokerMaster stacks to tier `chipAmount`
+- **Reset Demo Stacks** → restores to locked stake starting chips (not hardcoded 1,000)
+- **Stake session meta** persisted in `localStorage` (`stakeSessionStorage.ts`) — restores unlocked state on refresh
+- **EntryFeePanel** shows stake, starting chips, current chips, estimated test balance
+- **Cash Out Test Chips** — implemented in v1.1.0-c (mock withdrawal)
+- **Agent Battle** stacks unchanged (separate spectator stacks)
+
+### Safety (unchanged)
+
+- Mock testnet settlement only · Base Sepolia · no mainnet funds
+- Bankr/x402 not live for staking
+
+### Next steps
+
+| Version | Focus |
+| ------- | ----- |
+| **v1.1.0-c** | Mock cash-out flow (done) |
+| **v1.2** | Smart contract escrow + Base Sepolia payment transaction + wallet cash-out |
+
+**Build:** `npm run build` (target for v1.1.0-b).
+
+---
+
+## v1.1.0-a — testnet stake flow scaffold
+
+**Scope:** UI copy, stake-picker scaffold, and session metadata only. **No** smart contracts, **no** real fund transfer, **no** mainnet wagering, **no** gameplay / Agent Battle / timer changes.
+
+### Product direction
+
+| Step | Status (v1.1.0-a) |
+| ---- | ------------------ |
+| Connect Wallet | UI primary path — Base Sepolia testnet |
+| Choose Test Stake | `$0.10` / `$0.25` / `$0.50` / `$1.00` test tiers in `TestStakePicker` |
+| Lock Test Stake | Mock session via existing `POST /api/x402/entry` + `stakeAmount` metadata |
+| Play Hand | Unchanged Human vs AI + Agent Battle (requires active stake session) |
+| Result → Payout / Receipt | Copy only: “Testnet payout receipt coming soon” |
+
+### Architecture (new / updated)
+
+| File | Role |
+| ---- | ---- |
+| `src/lib/stake/testnetStake.ts` | Stake catalog, defaults, label helpers |
+| `src/components/arena/TestStakePicker.tsx` | Four-tier stake UI |
+| `src/components/arena/EntryFeePanel.tsx` | Testnet stake session panel + wallet-aware CTA |
+| `src/lib/bankr/x402Client.ts` | `formatTestStakeSessionLabel`, `stakeAmount` on mock pay |
+| `POST /api/x402/entry` | Accepts optional `stakeAmount` (metadata only) |
+
+### Safety (unchanged)
+
+- **Testnet only** — Base Sepolia; no mainnet funds
+- **Mock stake lock** — no contracts, no on-chain transfer
+- **Bankr/x402** — prepared layer; **not** live for staking
+- In-table chips remain **simulated** — not real-money settlement
+
+### Next steps
+
+| Version | Focus |
+| ------- | ----- |
+| **v1.1.0-b** | Test token + contract config scaffold |
+| **v1.1.0-c** | Escrow API scaffold |
+| **v1.2** | Smart contract escrow + house/bot bankroll |
+
+**Build:** `npm run build` (target for v1.1.0-a).
+
+**Unchanged:** Poker gameplay logic, Human vs AI timers/auto-flow, Agent Battle shared lifecycle/API, card dealing / hand evaluation, responsive arena layout (v1.0.1).
 
 ---
 

@@ -1,5 +1,7 @@
 export type X402Network = "base" | "base-sepolia";
 
+import { getTestStakeTier, resolveTestStakeAmount } from "@/lib/stake/testnetStake";
+
 export type X402PaymentMode = "mock" | "real";
 
 export type X402PaymentRequest = {
@@ -8,6 +10,8 @@ export type X402PaymentRequest = {
   network: X402Network;
   receiverAddress: string;
   description: string;
+  /** Selected test stake tier (UI metadata; mock until escrow phase). */
+  stakeAmount?: string;
 };
 
 export type X402PaymentResult = {
@@ -19,6 +23,8 @@ export type X402PaymentResult = {
   currency: "USDC";
   network: X402Network;
   paidAt: string;
+  /** Starting chip stack granted for this stake tier (Human vs AI). */
+  chipAmount?: number;
   error?: string;
 };
 
@@ -45,12 +51,20 @@ export function getTechnicalNetworkLabel(network: X402Network): string {
 }
 
 export function getPaymentModeUserLabel(mode: X402PaymentMode): string {
-  return mode === "mock" ? "Mock demo unlock" : "Production (not live)";
+  return mode === "mock" ? "Test stake (mock)" : "Production settlement (not live)";
 }
 
-/** User-facing demo access label — not a charge amount. */
+/** User-facing test stake label — mock/testnet only, not a live charge. */
+export function formatTestStakeSessionLabel(amount: string): string {
+  const normalized = amount.trim();
+  if (!normalized) return "$0.25 test stake (mock)";
+  const withSymbol = normalized.startsWith("$") ? normalized : `$${normalized}`;
+  return `${withSymbol} test stake (mock)`;
+}
+
+/** @deprecated Prefer formatTestStakeSessionLabel — kept for existing imports. */
 export function formatDemoAccessAmountLabel(amount: string): string {
-  return `${amount} mock label (not charged)`;
+  return formatTestStakeSessionLabel(amount);
 }
 
 export function getEntryFeeConfig(): X402PaymentRequest {
@@ -63,7 +77,7 @@ export function getEntryFeeConfig(): X402PaymentRequest {
     currency: "USDC",
     network: resolveNetwork(),
     receiverAddress,
-    description: "Poker AI Arena demo session access",
+    description: "Poker AI Arena testnet stake session",
   };
 }
 
@@ -81,12 +95,16 @@ export async function payEntryFeeMock(
 ): Promise<X402PaymentResult> {
   await new Promise((resolve) => setTimeout(resolve, 400));
 
+  const lockedAmount = resolveTestStakeAmount(request.stakeAmount ?? request.amount);
+  const tier = getTestStakeTier(lockedAmount);
+
   return {
     success: true,
     mode: "mock",
     txHash: generateMockTxHash(),
     receiptId: generateReceiptId(),
-    amount: request.amount,
+    amount: lockedAmount,
+    chipAmount: tier.chipAmount,
     currency: "USDC",
     network: request.network,
     paidAt: new Date().toISOString(),
@@ -119,16 +137,23 @@ export async function payEntryFeeReal(
 
 export async function payEntryFee(
   mode?: X402PaymentMode,
+  stakeAmount?: string,
 ): Promise<X402PaymentResult> {
   const request = getEntryFeeConfig();
+  const resolvedStake = resolveTestStakeAmount(stakeAmount ?? request.amount);
+  const paymentRequest: X402PaymentRequest = {
+    ...request,
+    stakeAmount: resolvedStake,
+    amount: resolvedStake,
+  };
   const paymentMode =
     mode ?? (process.env.NODE_ENV === "development" ? "mock" : "real");
 
   if (paymentMode === "mock") {
-    return payEntryFeeMock(request);
+    return payEntryFeeMock(paymentRequest);
   }
 
-  return payEntryFeeReal(request);
+  return payEntryFeeReal(paymentRequest);
 }
 
 /** @deprecated Use payEntryFee() — kept for Bankr layer compatibility. */

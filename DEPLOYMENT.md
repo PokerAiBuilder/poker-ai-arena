@@ -94,7 +94,7 @@ X402_ENTRY_FEE_USDC=0.01
 ```
 
 - **`NEXT_PUBLIC_SITE_URL`** — set to your production origin so favicon, Open Graph, and Twitter preview URLs resolve correctly (uses `public/brand/poker-ai-arena-mark.png`). Vercel also sets `VERCEL_URL` as a fallback.
-- **No real payment env vars** are required for the public demo — mock **Start Demo Session** only.
+- **No real payment env vars** are required — mock **Lock Test Stake** / **Start Test Session** only (testnet scaffold).
 - Leave `BANKR_*` and `X402_FACILITATOR_URL` empty for mock demo mode.
 - **Wallet** is optional; Base Sepolia (`84532`) for connect preview only.
 
@@ -135,7 +135,7 @@ X402_ENTRY_FEE_USDC=0.5
 |-------|-----|
 | Build fails on Vercel | Run `npm run build` locally; check Node version |
 | Wallet won't connect | Set `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` |
-| Arena stays locked | Click **Start Demo Session**; check `/api/x402/entry` |
+| Arena stays locked | Choose test stake and **Lock Test Stake**; check `/api/x402/entry` |
 | Stats missing after reload | Enable browser localStorage; not private/incognito |
 | Bankr shows Mock | Expected without `BANKR_*` env vars |
 

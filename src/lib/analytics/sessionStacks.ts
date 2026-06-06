@@ -31,6 +31,27 @@ export function createInitialSessionStacks(): SessionStacksState {
   );
 }
 
+/** Apply locked test stake as Human vs AI starting stacks (both seats match). */
+export function applyStakeStartingStacks(
+  stacks: SessionStacksState,
+  chipAmount: number,
+): SessionStacksState {
+  const chips = sanitizeSessionStackValue(chipAmount);
+  return sanitizeSessionStacks({
+    ...stacks,
+    human: chips,
+    [PokerMaster.id]: chips,
+  });
+}
+
+/** Reset Human vs AI stacks back to the locked stake chip amount. */
+export function resetHeadsUpToStakeStacks(
+  stacks: SessionStacksState,
+  startingChips: number,
+): SessionStacksState {
+  return applyStakeStartingStacks(stacks, startingChips);
+}
+
 /** Clamp stored values; missing keys keep first-session defaults. */
 export function sanitizeSessionStacks(
   stacks: SessionStacksState,
@@ -53,15 +74,12 @@ export function canStartHeadsUpHand(stacks: SessionStacksState): boolean {
   return !isHeadsUpStackDepleted(stacks);
 }
 
-/** User-triggered reset — Human vs AI demo stacks only. */
+/** User-triggered reset — Human vs AI stacks to locked stake or default. */
 export function resetHeadsUpDemoStacks(
   stacks: SessionStacksState,
+  startingChips: number = DEFAULT_STARTING_STACK,
 ): SessionStacksState {
-  return sanitizeSessionStacks({
-    ...stacks,
-    human: DEFAULT_STARTING_STACK,
-    [PokerMaster.id]: DEFAULT_STARTING_STACK,
-  });
+  return resetHeadsUpToStakeStacks(stacks, startingChips);
 }
 
 function stacksChanged(

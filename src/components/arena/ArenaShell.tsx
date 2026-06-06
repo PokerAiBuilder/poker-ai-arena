@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useAccount } from "wagmi";
 import { ArrowLeft, Sparkles, Swords, Users } from "lucide-react";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { ArenaActionBar } from "@/components/arena/ArenaActionBar";
@@ -28,6 +29,7 @@ import {
   loadSessionStacks,
   resetAgentBattleStacks,
   resetHeadsUpDemoStacks,
+  applyStakeStartingStacks,
   saveAgentBattleStacks,
   saveArenaAnalytics,
   saveSessionStacks,
@@ -118,6 +120,23 @@ import {
   resolveSimulationWinningHandName,
 } from "@/lib/arena/simulationDisplay";
 import type { X402PaymentResult } from "@/lib/bankr/x402Client";
+import {
+  DEFAULT_TEST_STAKE,
+  formatStakeToChipsLine,
+  getTestStakeTier,
+  chipsToTestBalance,
+  formatTestBalanceAmount,
+  type TestStakeAmount,
+} from "@/lib/stake/testnetStake";
+import {
+  clearStakeSessionMeta,
+  createMockCashOutRecord,
+  isStakeSessionActive,
+  isStakeSessionCashedOut,
+  loadStakeSessionMeta,
+  saveStakeSessionMeta,
+  type StakeSessionMeta,
+} from "@/lib/stake/stakeSessionStorage";
 import type { GameAction, GameMode, SimulationResult } from "@/lib/poker/types";
 import { cn } from "@/lib/utils";
 
@@ -216,7 +235,14 @@ export function ArenaShell() {
   const [paymentResult, setPaymentResult] = useState<X402PaymentResult | null>(
     null,
   );
+  const { address } = useAccount();
   const [paying, setPaying] = useState(false);
+  const [selectedTestStake, setSelectedTestStake] =
+    useState<TestStakeAmount>(DEFAULT_TEST_STAKE);
+  const [stakeSessionMeta, setStakeSessionMeta] = useState<StakeSessionMeta | null>(
+    null,
+  );
+  const [cashingOut, setCashingOut] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [sessionLog, setSessionLog] = useState<GameAction[]>([]);
   const [stepDemo, setStepDemo] = useState<StepDemoState>(createInitialStepDemoState);
@@ -390,7 +416,32 @@ export function ArenaShell() {
     [clearPokerMasterThinking, completePendingAiResponse],
   );
 
-  const isArenaUnlocked = paymentResult?.success === true;
+  const isStakeSessionActiveState = isStakeSessionActive(stakeSessionMeta);
+  const isStakeCashedOut = isStakeSessionCashedOut(stakeSessionMeta);
+  const isArenaUnlocked = isStakeSessionActiveState && paymentResult?.success === true;
+
+  const handInProgress = useMemo(
+    () =>
+      stepDemo.isActive &&
+      stepDemo.step !== "idle" &&
+      stepDemo.step !== "result",
+    [stepDemo.isActive, stepDemo.step],
+  );
+
+  const lockedStartingChips = useMemo(() => {
+    return (
+      stakeSessionMeta?.startingChips ??
+      paymentResult?.chipAmount ??
+      getTestStakeTier(selectedTestStake).chipAmount
+    );
+  }, [stakeSessionMeta, paymentResult, selectedTestStake]);
+
+  const currentHumanChips = useMemo(() => {
+    if (stepDemo.isActive && stepDemo.step !== "idle") {
+      return stepDemo.players.human.stack;
+    }
+    return sessionStacks.human ?? 0;
+  }, [stepDemo, sessionStacks.human]);
 
   useEffect(() => {
     const loaded = loadArenaAnalytics();
@@ -400,6 +451,22 @@ export function ArenaShell() {
     const loadedStacks = loadSessionStacks();
     if (loadedStacks) {
       setSessionStacks(loadedStacks);
+    }
+    const loadedStakeSession = loadStakeSessionMeta();
+    if (loadedStakeSession) {
+      setStakeSessionMeta(loadedStakeSession);
+      setSelectedTestStake(loadedStakeSession.stakeAmount);
+      if (isStakeSessionActive(loadedStakeSession)) {
+        setPaymentResult({
+          success: true,
+          mode: "mock",
+          amount: loadedStakeSession.stakeAmount,
+          chipAmount: loadedStakeSession.startingChips,
+          currency: "USDC",
+          network: "base-sepolia",
+          paidAt: loadedStakeSession.lockedAt,
+        });
+      }
     }
     const loadedAgentBattleStacks = loadAgentBattleStacks();
     if (loadedAgentBattleStacks) {
@@ -778,7 +845,7 @@ export function ArenaShell() {
     [clearSharedNextHandTimer],
   );
 
-  const payEntryFee = useCallback(async () => {
+  const payEntryFee = useCallback(async (stakeAmount: TestStakeAmount = selectedTestStake) => {
     setPaying(true);
     setPaymentError(null);
 
@@ -786,36 +853,105 @@ export function ArenaShell() {
       const response = await fetch("/api/x402/entry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "mock" }),
+        body: JSON.stringify({ mode: "mock", stakeAmount }),
       });
 
       const data = (await response.json()) as X402PaymentResult;
 
       if (!data.success) {
-        throw new Error(data.error ?? "Demo session unlock failed");
+        throw new Error(data.error ?? "Test stake session lock failed");
       }
 
       setPaymentResult(data);
+
+      const tier = getTestStakeTier(data.amount);
+      const startingChips = data.chipAmount ?? tier.chipAmount;
+      const meta: StakeSessionMeta = {
+        stakeAmount: tier.amount,
+        startingChips,
+        lockedAt: data.paidAt,
+        status: "active",
+      };
+      saveStakeSessionMeta(meta);
+      setStakeSessionMeta(meta);
+      setSessionStacks((prev) => applyStakeStartingStacks(prev, startingChips));
+      setStepDemo(createInitialStepDemoState());
+      setResult(null);
+      setError(null);
+
       setSessionLog((prev) => [
         ...prev,
         createSessionLogEntry(
-          "Demo session started — mock unlock, no real funds moved.",
+          `Test stake locked — ${formatStakeToChipsLine(tier.amount)}. Base Sepolia mock settlement only.`,
         ),
       ]);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Demo session unlock failed";
+        err instanceof Error ? err.message : "Test stake session lock failed";
       setPaymentError(message);
       setSessionLog((prev) => [...prev, createErrorLogEntry(message)]);
     } finally {
       setPaying(false);
     }
-  }, []);
+  }, [selectedTestStake]);
+
+  const handleCashOut = useCallback(async () => {
+    if (!stakeSessionMeta || !isStakeSessionActive(stakeSessionMeta)) return;
+    if (handInProgress) {
+      setPaymentError("Finish the current hand before cashing out.");
+      return;
+    }
+    const chips = currentHumanChips;
+    if (chips <= 0) {
+      setPaymentError("No chips available to cash out.");
+      return;
+    }
+
+    setCashingOut(true);
+    setPaymentError(null);
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+
+      const testBalance = chipsToTestBalance(chips);
+      const cashOut = createMockCashOutRecord(chips, testBalance, address);
+      const meta: StakeSessionMeta = {
+        ...stakeSessionMeta,
+        status: "cashed_out",
+        cashOut,
+      };
+
+      saveStakeSessionMeta(meta);
+      setStakeSessionMeta(meta);
+      setPaymentResult(null);
+      setStepDemo(createInitialStepDemoState());
+      setResult(null);
+      setError(null);
+      clearPokerMasterThinking();
+      resetAutoFlowSession();
+
+      setSessionLog((prev) => [
+        ...prev,
+        createSessionLogEntry(
+          `Mock cash out — ${chips.toLocaleString()} chips (${formatTestBalanceAmount(testBalance)}) to wallet on Base Sepolia. Receipt ${cashOut.mockWithdrawalId}.`,
+        ),
+      ]);
+    } finally {
+      setCashingOut(false);
+    }
+  }, [
+    stakeSessionMeta,
+    handInProgress,
+    currentHumanChips,
+    address,
+    clearPokerMasterThinking,
+    resetAutoFlowSession,
+  ]);
 
   const runSimulation = useCallback(
     async (mode: GameMode) => {
       if (!isArenaUnlocked) {
-        setError("Start demo session to play.");
+        setError("Lock a test stake session to play.");
         return;
       }
 
@@ -938,15 +1074,19 @@ export function ArenaShell() {
   const handleResetStats = useCallback(() => {
     clearArenaAnalytics();
     clearSessionStacks();
+    clearStakeSessionMeta();
     clearAgentBattleStacks();
     clearAgentBattleSpectatorSession();
     setAgentBattleLocalFallback(false);
     setAnalytics(createInitialArenaAnalytics());
     setSessionStacks(createInitialSessionStacks());
     setAgentBattleStacks(createInitialAgentBattleStacks());
+    setPaymentResult(null);
+    setStakeSessionMeta(null);
+    setStepDemo(createInitialStepDemoState());
     setSessionLog((prev) => [
       ...prev,
-      createSessionLogEntry("Arena stats and demo stacks reset."),
+      createSessionLogEntry("Arena stats and stacks reset."),
     ]);
   }, [clearAgentBattleSpectatorSession]);
 
@@ -988,7 +1128,7 @@ export function ArenaShell() {
   const handlePlayStepDemo = useCallback(() => {
     if (pokerMasterThinkingRef.current || transitionLockRef.current) return;
     if (!isArenaUnlocked) {
-      setError("Start demo session to play.");
+      setError("Lock a test stake session to play.");
       return;
     }
     const readyStacks = sanitizeSessionStacks(sessionStacks);
@@ -1013,16 +1153,29 @@ export function ArenaShell() {
     clearPokerMasterThinking();
     resetAutoFlowSession();
     clearAgentBattleSpectatorSession();
-    setSessionStacks((prev) => resetHeadsUpDemoStacks(prev));
+    const startingChips =
+      stakeSessionMeta?.startingChips ??
+      paymentResult?.chipAmount ??
+      getTestStakeTier(selectedTestStake).chipAmount;
+    setSessionStacks((prev) => resetHeadsUpDemoStacks(prev, startingChips));
     setStepDemo(createInitialStepDemoState());
     setResult(null);
     setError(null);
     setPreferredSeatLayout("human-vs-ai");
     setSessionLog((prev) => [
       ...prev,
-      createSessionLogEntry("Demo stacks reset."),
+      createSessionLogEntry(
+        `Stacks reset to ${startingChips.toLocaleString()} chips (${formatStakeToChipsLine(selectedTestStake)}).`,
+      ),
     ]);
-  }, [clearPokerMasterThinking, resetAutoFlowSession, clearAgentBattleSpectatorSession]);
+  }, [
+    clearPokerMasterThinking,
+    resetAutoFlowSession,
+    clearAgentBattleSpectatorSession,
+    stakeSessionMeta,
+    paymentResult,
+    selectedTestStake,
+  ]);
 
   const agentBattleReplayTimeline = useMemo(() => {
     if (agentBattleReplay?.timeline) {
@@ -1700,15 +1853,20 @@ export function ArenaShell() {
           >
             <Sparkles className="h-3 w-3 shrink-0" />
             <span className="max-w-[7.5rem] truncate sm:max-w-none">
-              {isArenaUnlocked ? (
+              {isStakeCashedOut ? (
                 <>
-                  <span className="sm:hidden">Demo</span>
-                  <span className="hidden sm:inline">Demo session active</span>
+                  <span className="sm:hidden">Cashed out</span>
+                  <span className="hidden sm:inline">Test balance cashed out</span>
+                </>
+              ) : isArenaUnlocked ? (
+                <>
+                  <span className="sm:hidden">Staked</span>
+                  <span className="hidden sm:inline">Test stake session active</span>
                 </>
               ) : (
                 <>
-                  <span className="sm:hidden">Start demo</span>
-                  <span className="hidden sm:inline">Start demo to play</span>
+                  <span className="sm:hidden">Lock stake</span>
+                  <span className="hidden sm:inline">Lock test stake to play</span>
                 </>
               )}
             </span>
@@ -1753,9 +1911,9 @@ export function ArenaShell() {
               </span>
             </Badge>
           ) : null}
-          {!isArenaUnlocked ? (
+          {!isArenaUnlocked && !isStakeCashedOut ? (
             <Badge variant="secondary" className="shrink-0 text-[10px] sm:text-xs">
-              Demo access required
+              Test stake required
             </Badge>
           ) : null}
         </div>
@@ -1768,9 +1926,13 @@ export function ArenaShell() {
               <PokerTable
                 className="arena-table-surface"
                 roomLayout
-                onPayEntryFee={payEntryFee}
+                onPayEntryFee={() => payEntryFee(selectedTestStake)}
                 payingEntryFee={paying}
                 paymentError={paymentError}
+                selectedTestStake={selectedTestStake}
+                onTestStakeChange={setSelectedTestStake}
+                stakeCashedOut={isStakeCashedOut}
+                cashOutRecord={stakeSessionMeta?.cashOut ?? null}
                 pot={tablePot}
                 communityCards={agentBattleTableCommunityCards}
                 seats={seats}
@@ -1806,9 +1968,17 @@ export function ArenaShell() {
                 compact
                 className="min-h-0 shrink-0"
                 paymentResult={paymentResult}
+                stakeSessionMeta={stakeSessionMeta}
                 onPayMock={payEntryFee}
+                onCashOut={handleCashOut}
                 paying={paying}
+                cashingOut={cashingOut}
                 error={paymentError}
+                selectedStake={selectedTestStake}
+                onStakeChange={setSelectedTestStake}
+                startingChips={lockedStartingChips}
+                currentHumanChips={currentHumanChips}
+                handInProgress={handInProgress}
               />
               {isArenaUnlocked ? (
                 <AiDecisionPanel
@@ -1877,7 +2047,7 @@ export function ArenaShell() {
         disabled={!isArenaUnlocked}
         disabledReason={
           !isArenaUnlocked
-            ? "Start demo session to play."
+            ? "Lock a test stake session to play."
             : undefined
         }
         error={error}
@@ -1913,7 +2083,7 @@ export function ArenaShell() {
         sessionStats={analytics.sessionStats}
         sessionStatus={isArenaUnlocked ? "unlocked" : "locked"}
         paymentMode={paymentResult?.mode ?? null}
-        entryFee={paymentResult?.amount ?? "0.01"}
+        entryFee={paymentResult?.amount ?? stakeSessionMeta?.stakeAmount ?? "0.25"}
         onResetStats={handleResetStats}
         handHistoryEntries={handHistory}
         onClearHandHistory={handleClearHandHistory}

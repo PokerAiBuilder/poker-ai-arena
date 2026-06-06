@@ -4,7 +4,7 @@ export const siteMetadata = {
   name: SITE_NAME,
   defaultTitle: "Poker AI Arena — Live AI Poker Demo",
   defaultDescription:
-    "Premium v1 AI poker demo on Base — play Human vs AI against PokerMaster or watch shared live Agent Battle with explainable decisions. Demo session only; no real funds moved.",
+    "Premium v1 AI poker on Base — play Human vs AI or watch shared Agent Battle. Testnet stake flow scaffold; test tokens only; no mainnet funds.",
   keywords: [
     "poker AI",
     "AI agents",

@@ -29,6 +29,7 @@ export {
   isHeadsUpStackDepleted,
   loadSessionStacks,
   resetHeadsUpDemoStacks,
+  applyStakeStartingStacks,
   saveSessionStacks,
   sanitizeSessionStacks,
   updateSessionStacksAfterGame,

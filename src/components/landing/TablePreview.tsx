@@ -136,8 +136,8 @@ export function TablePreview() {
         </div>
 
         <div className="mt-3 rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-center text-xs leading-relaxed text-muted-foreground">
-          Live Human vs AI · Shared Agent Battle · Explainable decisions · Mock
-          demo session — demo chips only, no real funds moved.
+          Live Human vs AI · Shared Agent Battle · Testnet stake flow · Test
+          tokens only · No mainnet funds
         </div>
       </div>
     </section>
