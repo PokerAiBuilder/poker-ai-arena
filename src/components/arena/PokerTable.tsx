@@ -10,6 +10,7 @@ import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
 import { TestStakePicker } from "@/components/arena/TestStakePicker";
 import { useTestnetStakeNetwork } from "@/hooks/useTestnetStakeNetwork";
 import type { HandResultDisplayType } from "@/lib/arena/simulationDisplay";
+import { getVisibleBoardCount } from "@/lib/arena/simulationDisplay";
 import type { Card } from "@/lib/poker/types";
 import type { StakeCashOutRecord } from "@/lib/stake/stakeSessionStorage";
 import {
@@ -54,6 +55,8 @@ type PokerTableProps = {
   spectatorMode?: boolean;
   /** Agent Battle spectator table — 5-slot board + labels */
   agentBattleMode?: boolean;
+  /** Agent Battle — count of face-up community cards (0–5). */
+  agentBattleVisibleBoardCount?: number;
   /** Human vs AI guided table layout (5-slot board, fixed heads-up zones) */
   headsUpGuidedMode?: boolean;
   /** Show in-table badge while a guided hand is in progress */
@@ -187,17 +190,21 @@ function CommunityBoard({
 
 function SpectatorCommunityBoard({
   communityCards,
+  visibleBoardCount,
   cardSize,
   compactRow = false,
 }: {
   communityCards: Card[];
+  visibleBoardCount?: number;
   cardSize: CardSize;
   winByFold?: boolean;
   compactRow?: boolean;
 }) {
-  const isFullBoard = communityCards.length >= 5;
-
-  const boardCards = communityCards.slice(0, 5);
+  const fullBoard = communityCards.slice(0, 5);
+  const visibleCount =
+    visibleBoardCount != null
+      ? getVisibleBoardCount({ visibleCount: visibleBoardCount })
+      : getVisibleBoardCount({ status: "unknown" });
 
   return (
     <div className={cn("flex items-center justify-center", compactRow && "w-full")}>
@@ -207,29 +214,34 @@ function SpectatorCommunityBoard({
           compactRow ? "flex-nowrap gap-0.5" : "gap-1.5 sm:gap-2",
         )}
       >
-        {isFullBoard ? (
-          boardCards.map((card, i) => (
+        {Array.from({ length: 5 }, (_, index) => {
+          const card = fullBoard[index];
+          if (index < visibleCount && card) {
+            return (
+              <PlayingCard
+                key={`spectator-board-${card.rank}-${card.suit}-${index}`}
+                rank={card.rank}
+                suit={card.suit}
+                size={cardSize}
+                animate
+                className="relative z-[2]"
+              />
+            );
+          }
+
+          return (
             <PlayingCard
-              key={`spectator-board-${card.rank}-${card.suit}-${i}`}
-              rank={card.rank}
-              suit={card.suit}
+              key={`spectator-board-hidden-${index}`}
+              faceDown
               size={cardSize}
-              animate
-              className="relative z-[2]"
+              animate={false}
+              className={cn(
+                "relative z-[2] border-sky-800/50 shadow-md",
+                "from-sky-950 via-indigo-950 to-blue-950",
+              )}
             />
-          ))
-        ) : boardCards.length > 0 ? (
-          boardCards.map((card, i) => (
-            <PlayingCard
-              key={`spectator-partial-${card.rank}-${card.suit}-${i}`}
-              rank={card.rank}
-              suit={card.suit}
-              size={cardSize}
-              animate
-              className="relative z-[2]"
-            />
-          ))
-        ) : null}
+          );
+        })}
       </div>
     </div>
   );
@@ -813,6 +825,7 @@ function AgentBattleMiniSeat({
 function RoomAgentBattleBroadcastLayout({
   pot,
   communityCards,
+  visibleBoardCount,
   seats,
   winnerName,
   winningHand,
@@ -820,6 +833,7 @@ function RoomAgentBattleBroadcastLayout({
 }: {
   pot: number | null;
   communityCards: Card[];
+  visibleBoardCount?: number;
   seats: TableSeat[];
   winnerName?: string;
   winningHand?: string;
@@ -830,7 +844,7 @@ function RoomAgentBattleBroadcastLayout({
   const leftSeat = seats.find((s) => s.position === "left");
   const rightSeat = seats.find((s) => s.position === "right");
 
-  const showBoard = communityCards.length > 0;
+  const showBoard = visibleBoardCount != null || communityCards.length > 0;
 
   return (
     <div className="arena-ab-broadcast arena-ab-mini-table" data-ab-layout="broadcast">
@@ -865,6 +879,7 @@ function RoomAgentBattleBroadcastLayout({
               <div className="arena-ab-mini-board-cards">
                 <SpectatorCommunityBoard
                   communityCards={communityCards}
+                  visibleBoardCount={visibleBoardCount}
                   cardSize="sm"
                   compactRow
                 />
@@ -905,6 +920,7 @@ function RoomAgentBattleBroadcastLayout({
 function RoomAgentBattleEllipseLayout({
   pot,
   communityCards,
+  visibleBoardCount,
   seats,
   winnerName,
   winningHand,
@@ -912,6 +928,7 @@ function RoomAgentBattleEllipseLayout({
 }: {
   pot: number | null;
   communityCards: Card[];
+  visibleBoardCount?: number;
   seats: TableSeat[];
   winnerName?: string;
   winningHand?: string;
@@ -943,6 +960,7 @@ function RoomAgentBattleEllipseLayout({
         </div>
         <SpectatorCommunityBoard
           communityCards={communityCards}
+          visibleBoardCount={visibleBoardCount}
           cardSize={agentBattleBoardCardSize}
         />
       </div>
@@ -984,6 +1002,7 @@ function RoomAgentBattleEllipseLayout({
 function RoomAgentBattleTableLayout({
   pot,
   communityCards,
+  visibleBoardCount,
   seats,
   winnerName,
   winningHand,
@@ -991,6 +1010,7 @@ function RoomAgentBattleTableLayout({
 }: {
   pot: number | null;
   communityCards: Card[];
+  visibleBoardCount?: number;
   seats: TableSeat[];
   winnerName?: string;
   winningHand?: string;
@@ -1002,6 +1022,7 @@ function RoomAgentBattleTableLayout({
         <RoomAgentBattleBroadcastLayout
           pot={pot}
           communityCards={communityCards}
+          visibleBoardCount={visibleBoardCount}
           seats={seats}
           winnerName={winnerName}
           winningHand={winningHand}
@@ -1012,6 +1033,7 @@ function RoomAgentBattleTableLayout({
         <RoomAgentBattleEllipseLayout
           pot={pot}
           communityCards={communityCards}
+          visibleBoardCount={visibleBoardCount}
           seats={seats}
           winnerName={winnerName}
           winningHand={winningHand}
@@ -1278,6 +1300,7 @@ export function PokerTable({
   fourPlayerLayout = false,
   spectatorMode = false,
   agentBattleMode = false,
+  agentBattleVisibleBoardCount,
   headsUpGuidedMode = false,
   showHumanVsAiBadge = false,
   roomLayout = false,
@@ -1393,6 +1416,7 @@ export function PokerTable({
           <RoomAgentBattleTableLayout
             pot={pot}
             communityCards={communityCards}
+            visibleBoardCount={agentBattleVisibleBoardCount}
             seats={seats}
             winnerName={winnerName}
             winningHand={winningHand}
@@ -1423,6 +1447,7 @@ export function PokerTable({
             ) : agentBattleMode ? (
               <SpectatorCommunityBoard
                 communityCards={communityCards}
+                visibleBoardCount={agentBattleVisibleBoardCount}
                 cardSize={boardCardSize}
                 winByFold={resultType === "fold"}
               />

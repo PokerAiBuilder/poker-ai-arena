@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 
 type ArenaActionBarProps = {
   onSimulateAgentBattle: () => void;
+  onReturnToHumanVsAi?: () => void;
   onPlayStepDemo?: () => void;
   onOpenMenu?: () => void;
   stepDemoActive?: boolean;
@@ -70,20 +71,24 @@ const bannerStyles: Record<
 > = {
   "start-hand":
     "border-[var(--arena-border)] bg-[var(--arena-blue)]/15 text-[var(--arena-cyan)]",
-  "your-turn":
-    "border-emerald-400/50 bg-emerald-950/80 text-emerald-300 shadow-[0_0_16px_rgba(16,185,129,0.25)] animate-pulse",
+  "your-turn": "arena-action-banner-your-turn animate-pulse",
   waiting:
     "border-cyan-400/40 bg-cyan-950/70 text-cyan-200 shadow-[0_0_14px_rgba(34,211,238,0.2)] animate-pulse",
-  "advance-street":
-    "border-emerald-400/50 bg-emerald-950/70 text-emerald-200 shadow-[0_0_16px_rgba(16,185,129,0.2)]",
+  "advance-street": "arena-action-banner-advance",
   "hand-complete":
     "border-[var(--arena-cyan)]/45 bg-[var(--arena-blue)]/20 text-[var(--arena-cyan)]",
   "all-in":
     "border-red-400/45 bg-red-950/65 text-red-200 shadow-[0_0_14px_rgba(239,68,68,0.18)]",
 };
 
+const actionPrimary = "arena-action-btn-primary shadow-arena-blue";
+const actionSecondary = "arena-action-btn-secondary";
+const actionReset = "arena-action-btn-reset";
+const modePillActive = "arena-action-mode-pill-active";
+
 export function ArenaActionBar({
   onSimulateAgentBattle,
+  onReturnToHumanVsAi,
   onPlayStepDemo,
   onOpenMenu,
   stepDemoActive = false,
@@ -230,23 +235,23 @@ export function ArenaActionBar({
                     : "AI AGENT BATTLE",
           actionHint: sharedLiveSpectator
             ? agentBattleSharedResultPause
-              ? "Next shared hand starts automatically."
+              ? "Next shared hand starts automatically. Tap Human vs AI to leave Agent Battle."
               : agentBattleReplayActive
                 ? (agentBattleActionHint ??
-                  "Shared spectator hand — live replay in sync with the arena.")
-                : "Join the shared AI arena to watch the current live hand."
+                  "Shared spectator hand — live replay in sync with the arena. Tap Human vs AI to return.")
+                : "Tap Human vs AI to return to your table."
             : agentBattleSharedResultPause
-              ? "Next shared hand starts automatically."
+              ? "Next shared hand starts automatically. Tap Human vs AI to leave Agent Battle."
               : agentBattleReplayActive
                 ? (agentBattleActionHint ??
-                  "Local replay — agents acting in sequence.")
+                  "Local replay — agents acting in sequence. Tap Human vs AI to return.")
               : agentBattleHasResult
                 ? agentBattleLocalFallback
-                  ? "Local replay result — join Agent Battle again or play vs PokerMaster."
-                  : "Spectator result — join Agent Battle again or play vs PokerMaster."
+                  ? "Local replay result — tap Human vs AI to return to your table."
+                  : "Spectator result — tap Human vs AI to return to your table."
                 : agentBattleLocalFallback
-                  ? "Local fallback — shared hand unavailable on this device."
-                  : "Spectator Mode — player actions are disabled while watching.",
+                  ? "Local fallback — tap Human vs AI to return to your table."
+                  : "Spectator Mode — tap Human vs AI to return to your table.",
         }
       : stepDemoGuidance ?? {
           phase: "start-hand",
@@ -345,11 +350,10 @@ export function ArenaActionBar({
           size={compact ? "default" : "lg"}
           variant="default"
           className={cn(
-            "arena-action-btn shadow-arena-blue",
+            "arena-action-btn",
+            actionPrimary,
             compact && mobileTap,
-            compact
-              ? "min-w-0 flex-1 border border-emerald-400/50 bg-emerald-600 text-white"
-              : "min-w-[9.5rem] border border-emerald-400/50 bg-emerald-600 text-white hover:bg-emerald-500 xl:min-w-[200px]",
+            compact ? "min-w-0 flex-1" : "min-w-[9.5rem] xl:min-w-[200px]",
             !compact &&
               !disabled &&
               guidance?.phase === "start-hand" &&
@@ -368,6 +372,7 @@ export function ArenaActionBar({
         <span
           className={cn(
             "arena-action-mode-pill",
+            modePillActive,
             compact && "min-w-[4.5rem] flex-1 justify-center max-md:min-w-0",
             !compact && "min-w-[7.5rem] xl:min-w-[8.5rem]",
           )}
@@ -411,6 +416,99 @@ export function ArenaActionBar({
     ));
   };
 
+  const renderReturnToHumanVsAiButton = (compact = false) => {
+    if (!onReturnToHumanVsAi) return null;
+    return (
+      <Button
+        type="button"
+        onClick={onReturnToHumanVsAi}
+        size={compact ? "default" : "lg"}
+        variant="default"
+        className={cn(
+          "arena-action-btn",
+          actionPrimary,
+          compact && mobileTap,
+          compact ? "min-w-0 flex-1" : "min-w-[9.5rem] xl:min-w-[200px]",
+        )}
+      >
+        <Users className="h-4 w-4 shrink-0" />
+        <span className="truncate">Human vs AI</span>
+      </Button>
+    );
+  };
+
+  const renderAgentBattleStatusPill = (compact = false) => {
+    if (agentBattleWatchingShared) {
+      return (
+        <span
+          className={cn(
+            "arena-action-mode-pill",
+            modePillActive,
+            compact && "min-w-0 flex-1 justify-center max-md:min-w-0",
+            !compact && "min-w-[7.5rem] xl:min-w-[8.5rem]",
+          )}
+          title="Shared live Agent Battle hand"
+        >
+          <Swords className="h-3.5 w-3.5 shrink-0 opacity-90" />
+          <span className="truncate">
+            {compact ? "Watching Shared" : "Watching Shared Battle"}
+          </span>
+        </span>
+      );
+    }
+    if (agentBattleReplayActive) {
+      return (
+        <span
+          className={cn(
+            "arena-action-mode-pill",
+            modePillActive,
+            compact && "min-w-0 flex-1 justify-center max-md:min-w-0",
+            !compact && "min-w-[7.5rem] xl:min-w-[8.5rem]",
+          )}
+          title="Local Agent Battle replay in progress"
+        >
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin opacity-90" />
+          <span className="truncate">{compact ? "Live replay" : "Live Agent Battle"}</span>
+        </span>
+      );
+    }
+    if (agentBattleLocalFallback && agentBattleSpectator) {
+      return (
+        <span
+          className={cn(
+            "arena-action-mode-pill text-[var(--arena-muted)]",
+            compact && "min-w-0 flex-1 justify-center max-md:min-w-0",
+          )}
+        >
+          Local replay
+        </span>
+      );
+    }
+    return null;
+  };
+
+  const renderSkipReplayButton = (compact = false) => {
+    if (!showSkipAgentBattleReplay) return null;
+    return (
+      <Button
+        type="button"
+        size={compact ? "default" : "lg"}
+        className={cn(
+          "arena-action-btn",
+          actionPrimary,
+          compact && mobileTap,
+          compact
+            ? "min-w-0 shrink-0 px-2.5"
+            : "min-w-[7.5rem] xl:min-w-[160px]",
+        )}
+        title="Skip local animations — shows final result on this device only"
+        onClick={onSkipAgentBattleReplay}
+      >
+        {compact ? "Skip" : "Skip animations"}
+      </Button>
+    );
+  };
+
   const renderMobileMenuButton = () =>
     onOpenMenu ? (
       <Button
@@ -433,19 +531,15 @@ export function ArenaActionBar({
       onClick={onSimulateAgentBattle}
       disabled={agentBattleDisabled}
       size="default"
-      variant={compact ? "outline" : "default"}
+      variant="outline"
       className={cn(
         "arena-action-btn",
         mobileTap,
         "min-w-0 flex-1",
-        compact
-          ? "border-[var(--arena-cyan)]/35 text-[var(--arena-text)] hover:bg-[var(--arena-blue)]/30"
-          : cn(
-              "border-2 border-[var(--arena-cyan)]/50 text-white shadow-arena-blue hover:brightness-110",
-              agentBattleReplayActive
-                ? "border-[var(--arena-border)] bg-[var(--arena-surface-2)]/90 opacity-70"
-                : "bg-[var(--arena-blue)]",
-            ),
+        agentBattleWatchingShared || agentBattleReplayActive
+          ? cn(actionSecondary, modePillActive)
+          : actionSecondary,
+        agentBattleReplayActive && "opacity-70",
       )}
       title={
         agentBattleReplayActive
@@ -537,6 +631,9 @@ export function ArenaActionBar({
             <>
               <div className="arena-controls-mobile">
                 <div className="arena-action-mobile-mode">
+                  {renderReturnToHumanVsAiButton(true)}
+                  {renderAgentBattleStatusPill(true)}
+                  {renderSkipReplayButton(true)}
                   {showAgentBattleDepletedUi && onResetAgentBattleStacks ? (
                     <Button
                       type="button"
@@ -544,29 +641,13 @@ export function ArenaActionBar({
                       className={cn(
                         "arena-action-btn",
                         mobileTap,
-                        "min-w-0 flex-1 border-2 border-[var(--arena-cyan)]/50 bg-[var(--arena-blue)] text-white",
+                        actionSecondary,
+                        "min-w-0 shrink-0 px-2.5",
                       )}
                       onClick={onResetAgentBattleStacks}
                     >
                       <RotateCcw className="h-4 w-4 shrink-0" />
-                      Reset stacks
-                    </Button>
-                  ) : (
-                    renderMobileAgentBattleButton(false)
-                  )}
-                  {showSkipAgentBattleReplay ? (
-                    <Button
-                      type="button"
-                      size="default"
-                      className={cn(
-                        "arena-action-btn",
-                        mobileTap,
-                        "min-w-0 shrink-0 border-2 border-[var(--arena-cyan)]/40 bg-[var(--arena-blue-bright)] px-2.5 text-white",
-                      )}
-                      title="Skip local animations — shows final result on this device only"
-                      onClick={onSkipAgentBattleReplay}
-                    >
-                      Skip
+                      Reset
                     </Button>
                   ) : null}
                   {renderMobileMenuButton()}
@@ -574,106 +655,21 @@ export function ArenaActionBar({
               </div>
 
               <div className="arena-controls-desktop-ab">
-                {onPlayStepDemo ? (
-                  <Button
-                    onClick={onPlayStepDemo}
-                    disabled={playStepDemoDisabled}
-                    size={compactSharedSpectatorBar ? "default" : "lg"}
-                    variant="outline"
-                    className={cn(
-                      "arena-action-btn border-emerald-400/40 text-emerald-100 hover:bg-emerald-950/40",
-                      compactSharedSpectatorBar
-                        ? "min-w-[9rem]"
-                        : "min-w-[10.5rem] xl:min-w-[200px]",
-                    )}
-                  >
-                    <Play className="h-4 w-4" />
-                    Play vs PokerMaster
-                  </Button>
-                ) : null}
+                {renderReturnToHumanVsAiButton(false)}
+                {renderAgentBattleStatusPill(false)}
+                {renderSkipReplayButton(false)}
                 {showAgentBattleDepletedUi && onResetAgentBattleStacks ? (
                   <Button
                     type="button"
                     size="lg"
                     className={cn(
-                      "h-11 min-w-[240px] border-2 border-[var(--arena-cyan)]/50 bg-[var(--arena-blue)] font-semibold text-white",
-                      "shadow-arena-blue hover:brightness-110",
+                      "arena-action-btn h-11 min-w-[240px]",
+                      actionSecondary,
                     )}
                     onClick={onResetAgentBattleStacks}
                   >
                     <RotateCcw className="h-4 w-4" />
                     Reset Agent Battle Stacks
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      onClick={onSimulateAgentBattle}
-                      disabled={agentBattleDisabled}
-                      size={compactSharedSpectatorBar ? "default" : "lg"}
-                      className={cn(
-                        "arena-action-btn border-2 border-[var(--arena-cyan)]/50 text-white",
-                        compactSharedSpectatorBar
-                          ? "min-w-[10rem]"
-                          : "min-w-[11rem] xl:min-w-[220px]",
-                        agentBattleReplayActive
-                          ? "cursor-not-allowed border-[var(--arena-border)] bg-[var(--arena-surface-2)]/90 opacity-70"
-                          : "bg-[var(--arena-blue)] shadow-arena-blue hover:brightness-110",
-                      )}
-                      title={
-                        agentBattleReplayActive
-                          ? "Replay in progress — use Skip animations or wait for the hand to finish."
-                          : "Spectator Mode — watch AI agents play a simulated hand"
-                      }
-                    >
-                      {loading && loadingMode === "agent-vs-agent" ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Joining...
-                        </>
-                      ) : agentBattleWatchingShared ? (
-                        <>
-                          <Swords className="h-4 w-4" />
-                          <span className="hidden xl:inline">Watching Shared Battle</span>
-                          <span className="xl:hidden">Watching</span>
-                        </>
-                      ) : agentBattleReplayActive ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Live Agent Battle
-                        </>
-                      ) : (
-                        <>
-                          <Swords className="h-4 w-4" />
-                          Join Agent Battle
-                        </>
-                      )}
-                    </Button>
-                    {showSkipAgentBattleReplay ? (
-                      <Button
-                        type="button"
-                        size="lg"
-                        className={cn(
-                          "arena-action-btn min-w-[7.5rem] border-2 border-[var(--arena-cyan)]/40 bg-[var(--arena-blue-bright)] text-white xl:min-w-[160px]",
-                          "shadow-arena-blue hover:brightness-110",
-                        )}
-                        title="Skip local animations — shows final result on this device only"
-                        onClick={onSkipAgentBattleReplay}
-                      >
-                        Skip animations
-                      </Button>
-                    ) : null}
-                  </>
-                )}
-                {headsUpStackDepleted && showDevResetStacks ? (
-                  <Button
-                    type="button"
-                    size="lg"
-                    variant="outline"
-                    className="h-11 min-w-[11rem] border-amber-500/40 text-amber-200 hover:bg-amber-500/10"
-                    onClick={onResetDemoStacks}
-                  >
-                    <RotateCcw className="mr-1.5 h-4 w-4" />
-                    Dev reset stacks
                   </Button>
                 ) : null}
                 {onOpenMenu ? (
@@ -705,11 +701,12 @@ export function ArenaActionBar({
                       <Button
                         type="button"
                         size="default"
-                        className={cn(
-                          "arena-action-flow-btn arena-action-btn",
-                          mobileTap,
-                          "min-w-0 flex-1 border-2 border-emerald-400/60 bg-emerald-600 font-bold text-white",
-                        )}
+                      className={cn(
+                        "arena-action-flow-btn arena-action-btn",
+                        mobileTap,
+                        actionPrimary,
+                        "min-w-0 flex-1",
+                      )}
                         onClick={handleNextStep}
                       >
                         {nextStep.label}
@@ -723,7 +720,8 @@ export function ArenaActionBar({
                         className={cn(
                           "arena-action-flow-btn arena-action-btn",
                           mobileTap,
-                          "min-w-0 flex-1 border-2 border-[var(--arena-cyan)]/50 bg-[var(--arena-blue)]/25 font-bold text-[var(--arena-cyan)]",
+                          actionReset,
+                          "min-w-0 flex-1",
                         )}
                         onClick={onStepDemoReset}
                       >
@@ -864,7 +862,7 @@ export function ArenaActionBar({
                 disabled={agentBattleDisabled}
                 size="lg"
                 variant="outline"
-                className="arena-action-btn min-w-[9rem] border-[var(--arena-border)] text-[var(--arena-text)] hover:bg-[var(--arena-blue)]/20"
+                className={cn("arena-action-btn min-w-[9rem]", actionSecondary)}
                 title={
                   agentBattleReplayActive
                     ? "Replay in progress — wait for the hand to finish."
@@ -895,8 +893,8 @@ export function ArenaActionBar({
                   type="button"
                   size="lg"
                   className={cn(
-                    "arena-action-btn min-w-[9rem] border-2 border-[var(--arena-cyan)]/40 bg-[var(--arena-blue-bright)] text-white",
-                    "shadow-arena-blue hover:brightness-110",
+                    "arena-action-btn min-w-[9rem]",
+                    actionPrimary,
                   )}
                   title="Skip local animations — shows final result on this device only"
                   onClick={onSkipAgentBattleReplay}
@@ -922,8 +920,8 @@ export function ArenaActionBar({
                 type="button"
                 size="lg"
                 className={cn(
-                  "arena-action-flow-btn arena-action-btn min-w-0 max-sm:min-w-[8.5rem] sm:min-w-[9.5rem] border-2 border-emerald-400/60 bg-emerald-600 font-bold text-white",
-                  "shadow-arena-blue hover:bg-emerald-500",
+                  "arena-action-flow-btn arena-action-btn min-w-0 max-sm:min-w-[8.5rem] sm:min-w-[9.5rem]",
+                  actionPrimary,
                 )}
                 onClick={handleNextStep}
               >
@@ -937,8 +935,8 @@ export function ArenaActionBar({
                 type="button"
                 size="lg"
                 className={cn(
-                  "arena-action-flow-btn arena-action-btn min-w-0 max-sm:min-w-[7.5rem] sm:min-w-[9rem] border-2 border-[var(--arena-cyan)]/50 bg-[var(--arena-blue)]/25 font-bold text-[var(--arena-cyan)]",
-                  "shadow-arena-blue hover:bg-[var(--arena-blue)]/40",
+                  "arena-action-flow-btn arena-action-btn min-w-0 max-sm:min-w-[7.5rem] sm:min-w-[9rem]",
+                  actionReset,
                 )}
                 onClick={onStepDemoReset}
               >
@@ -1073,7 +1071,7 @@ export function ArenaActionBar({
               disabled={agentBattleDisabled}
               size="lg"
               variant="outline"
-              className="arena-action-btn min-w-[160px] border-[var(--arena-border)] text-sm font-semibold text-[var(--arena-text)] hover:bg-[var(--arena-blue)]/20"
+              className={cn("arena-action-btn min-w-[160px] text-sm font-semibold", actionSecondary)}
               title={
                 agentBattleReplayActive
                   ? "Replay in progress — wait for the hand to finish."
@@ -1104,8 +1102,8 @@ export function ArenaActionBar({
                 type="button"
                 size="lg"
                 className={cn(
-                  "arena-action-btn min-w-[160px] border-2 border-[var(--arena-cyan)]/40 bg-[var(--arena-blue-bright)] text-sm font-semibold text-white",
-                  "shadow-arena-blue hover:brightness-110",
+                  "arena-action-btn min-w-[160px] text-sm font-semibold",
+                  actionPrimary,
                 )}
                 title="Skip local animations — shows final result on this device only"
                 onClick={onSkipAgentBattleReplay}
@@ -1140,13 +1138,13 @@ export function ArenaActionBar({
               "text-center text-xs leading-snug",
               compactSharedSpectatorBar ? "mt-1" : "mt-2 leading-relaxed",
               humanTurnActive
-                ? "text-emerald-300/90"
+                ? "text-[var(--arena-cyan)]/90"
                 : agentBattleSpectator
                   ? "text-[var(--arena-cyan)]/85"
                   : showStackDepletedUi
                     ? "text-[var(--arena-cyan)]/90"
                     : nextStepEnabled
-                    ? "font-medium text-emerald-200/90"
+                    ? "font-medium text-[var(--arena-cyan)]/85"
                     : "text-muted-foreground",
             )}
           >

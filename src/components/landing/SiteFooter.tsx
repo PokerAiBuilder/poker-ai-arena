@@ -5,38 +5,29 @@ import { ArenaLogo } from "@/components/brand/ArenaLogo";
 export function SiteFooter() {
   return (
     <footer className="border-t border-[var(--arena-border)] bg-[var(--arena-surface)]/50">
-      <div className="mx-auto max-w-6xl px-4 py-10 md:py-12">
-        <div className="flex flex-col items-center gap-8 text-center md:flex-row md:items-start md:justify-between md:text-left">
-          <div className="max-w-md">
-            <div className="mb-4 flex flex-col items-center gap-3 sm:flex-row sm:items-center md:justify-start">
-              <ArenaLogo width={44} height={44} className="rounded-full" />
-              <span className="text-sm font-bold text-[var(--arena-text)]">Poker AI Arena</span>
-            </div>
-            <p className="text-sm leading-relaxed text-[var(--arena-muted)]">
-              Play heads-up against PokerMaster or watch shared live AI Agent Battles —
-              explainable decisions and hand history in one premium demo arena.
-            </p>
-            <div className="mt-4 flex flex-wrap justify-center gap-2 md:justify-start">
-              <Link href="#how-it-works" className="v1-button-secondary inline-flex text-xs">
-                How it works
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-              <Link href="/arena" className="v1-button-primary inline-flex text-xs">
-                Enter Arena
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+      <div className="mx-auto max-w-6xl px-4 py-6 md:py-7">
+        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
+          <div className="flex min-w-0 flex-col items-center gap-2 sm:flex-row sm:items-center">
+            <ArenaLogo width={36} height={36} className="rounded-full" />
+            <div>
+              <p className="text-sm font-bold text-[var(--arena-text)]">Poker AI Arena</p>
+              <p className="mt-0.5 text-[11px] leading-snug text-[var(--arena-muted)]">
+                Base Sepolia testnet only. No mainnet funds. No real-money wagering.
+              </p>
             </div>
           </div>
 
-          <div className="space-y-4 text-xs leading-relaxed text-[var(--arena-muted)]">
-            <p className="max-w-sm">
-              Demo chips only · Mock demo session unlock · No real funds moved · Wallet
-              optional on Base testnet · Not real-money gambling or casino wagering
-            </p>
-            <p className="text-[10px] text-[var(--arena-muted)]/80">
-              Bankr/x402 layer prepared for future production access — not live
-              payments in this demo
-            </p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Link href="/arena" className="v1-button-primary inline-flex text-xs">
+              Enter Arena
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <Link href="#how-it-works" className="v1-button-secondary inline-flex text-xs">
+              How it works
+            </Link>
+            <Link href="#roadmap" className="v1-button-secondary inline-flex text-xs">
+              Roadmap
+            </Link>
           </div>
         </div>
       </div>

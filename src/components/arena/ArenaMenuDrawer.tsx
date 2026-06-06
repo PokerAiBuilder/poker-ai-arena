@@ -10,6 +10,7 @@ import { DemoDisclaimers } from "@/components/arena/DemoDisclaimers";
 import { AgentProfilesPanel } from "@/components/arena/AgentProfilesPanel";
 import { DemoHelpPanel } from "@/components/arena/DemoHelpPanel";
 import { HandHistoryPanel } from "@/components/arena/HandHistoryPanel";
+import { StakeSessionMenuSection } from "@/components/arena/StakeSessionMenuSection";
 import type { HandHistoryRecord } from "@/lib/arena/handHistory";
 import { Button } from "@/components/ui/button";
 import type { LeaderboardEntry, SessionStats } from "@/lib/analytics/types";
@@ -54,6 +55,15 @@ type ArenaMenuDrawerProps = {
   settledResultType?: HandResultDisplayType;
   humanCallAmount?: number;
   totalDecisions?: number;
+  stakeSessionActive?: boolean;
+  stakeCashedOut?: boolean;
+  currentHumanChips?: number;
+  startingChips?: number;
+  stakeAmount?: string;
+  handInProgress?: boolean;
+  cashingOut?: boolean;
+  payingStake?: boolean;
+  onCashOut?: () => void | Promise<void>;
 };
 
 const drawerTabs: { id: DrawerTab; label: string }[] = [
@@ -134,6 +144,15 @@ export function ArenaMenuDrawer({
   settledResultType,
   humanCallAmount,
   totalDecisions = 0,
+  stakeSessionActive = false,
+  stakeCashedOut = false,
+  currentHumanChips = 0,
+  startingChips = 0,
+  stakeAmount,
+  handInProgress = false,
+  cashingOut = false,
+  payingStake = false,
+  onCashOut,
 }: ArenaMenuDrawerProps) {
   const [tab, setTab] = useState<DrawerTab>("guide");
   const tabRefs = useRef<Map<DrawerTab, HTMLButtonElement>>(new Map());
@@ -232,6 +251,19 @@ export function ArenaMenuDrawer({
 
         <div className="arena-menu-scroll">
           <div className="arena-menu-panel">
+            <StakeSessionMenuSection
+              sessionActive={stakeSessionActive}
+              cashedOut={stakeCashedOut}
+              currentHumanChips={currentHumanChips}
+              startingChips={startingChips}
+              stakeAmount={stakeAmount}
+              handInProgress={handInProgress}
+              cashingOut={cashingOut}
+              payingStake={payingStake}
+              onCashOut={onCashOut}
+              className="mb-4"
+            />
+
             {tab === "guide" ? (
               <div className="space-y-4">
                 <DemoHelpPanel className="border-white/10 shadow-none" />

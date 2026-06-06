@@ -3,41 +3,47 @@ import { cn } from "@/lib/utils";
 
 const milestones = [
   {
-    version: "v1.0",
-    label: "Public demo polish",
+    version: "v1.1",
+    label: "Base Sepolia stake lock",
     status: "current" as const,
     items: [
-      "Premium Base-style landing and arena identity",
-      "Production QA checklist and demo-safe messaging",
-      "Shared spectator on demo infrastructure",
-    ],
-  },
-  {
-    version: "v1.1",
-    label: "x402 / Bankr access prototype",
-    status: "next" as const,
-    items: [
-      "Real x402-style access prototype on testnet",
-      "Bankr/x402 layer wired for production access experiments",
-      "Still demo-first — no live mainnet settlement claims",
+      "Wallet selector and Base Sepolia network",
+      "Test stake tiers",
+      "Confirmed tx receipt before chips",
+      "Stake → chips flow",
     ],
   },
   {
     version: "v1.2",
-    label: "Real AI agent layer",
-    status: "future" as const,
+    label: "Escrow contract + payout",
+    status: "next" as const,
     items: [
-      "LLM-powered agent decisions via Bankr skills",
-      "Richer reasoning and strategy profiles",
+      "Deposit stakes into contract",
+      "Resolve sessions on-chain",
+      "Claim and refund test payouts",
+      "Replace temporary treasury path",
     ],
   },
   {
     version: "v1.3",
-    label: "Persistent shared arena",
+    label: "Smarter AI agents",
     status: "future" as const,
     items: [
-      "Redis / DB backed shared hand store",
-      "Multi-instance sync and durable spectator state",
+      "Better bot logic and profiles",
+      "Agent-vs-agent tournaments",
+      "Explainable strategy upgrades",
+      "Richer decision metadata",
+    ],
+  },
+  {
+    version: "v1.4",
+    label: "Persistent arena",
+    status: "future" as const,
+    items: [
+      "Durable shared hand history",
+      "Spectator sessions",
+      "Player stats and leaderboards",
+      "Public replays",
     ],
   },
 ] as const;
@@ -53,9 +59,9 @@ export function Roadmap() {
   return (
     <section
       id="roadmap"
-      className="v1-section mx-auto max-w-6xl scroll-mt-24 py-12 md:py-16"
+      className="v1-section mx-auto max-w-6xl scroll-mt-24 py-6 md:py-8"
     >
-      <div className="mb-8 text-center">
+      <div className="mb-6 text-center">
         <div className="mb-2 flex justify-center">
           <Map className="h-5 w-5 text-[var(--arena-cyan)]" />
         </div>
@@ -63,28 +69,28 @@ export function Roadmap() {
           Roadmap
         </p>
         <h2 className="mt-2 text-2xl font-bold text-[var(--arena-text)] md:text-3xl">
-          From public demo to production arena
+          From testnet stake lock to onchain arena
         </h2>
-        <p className="mx-auto mt-3 max-w-xl text-sm text-[var(--arena-muted)]">
-          Bankr/x402 layer prepared for future production access — not live payments
-          in the current demo.
+        <p className="mx-auto mt-2 max-w-xl text-sm text-[var(--arena-muted)]">
+          Base Sepolia stake lock is live today. Escrow payouts, smarter agents,
+          and a persistent shared arena come next.
         </p>
       </div>
 
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
         {milestones.map(({ version, label, status, items }) => (
           <article
             key={version}
             className={cn(
-              "v1-card v1-glow-border flex min-w-0 flex-col p-5",
+              "v1-card v1-glow-border flex min-w-0 flex-col p-4 md:p-5",
               status === "current" && "ring-1 ring-[var(--arena-cyan)]/30",
             )}
           >
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
               <span className={cn("v1-badge border", statusStyles[status])}>{version}</span>
               <span className="text-sm font-semibold text-[var(--arena-text)]">{label}</span>
             </div>
-            <ul className="space-y-2 text-sm leading-relaxed text-[var(--arena-muted)]">
+            <ul className="space-y-1.5 text-sm leading-relaxed text-[var(--arena-muted)]">
               {items.map((item) => (
                 <li key={item} className="break-words">
                   {item}

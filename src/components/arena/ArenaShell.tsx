@@ -115,6 +115,7 @@ import { formatCommunityCardsForDebug } from "@/lib/arena/sharedAgentBattleTypes
 import { useAgentBattleTimelineReplay } from "@/hooks/useAgentBattleTimelineReplay";
 import {
   getHandResultDisplayType,
+  getVisibleBoardCount,
   isWinByFoldResult,
   pickLatestAgentBattleDecision,
   resolveSimulationWinningHandName,
@@ -1264,6 +1265,19 @@ export function ArenaShell() {
     [runSimulation],
   );
 
+  const handleReturnToHumanVsAi = useCallback(() => {
+    clearPokerMasterThinking();
+    clearAgentBattleSpectatorSession();
+    setPreferredSeatLayout("human-vs-ai");
+    setLoading(false);
+    setLoadingMode(null);
+    setError(null);
+    setSessionLog((prev) => [
+      ...prev,
+      createSessionLogEntry("Returned to Human vs AI."),
+    ]);
+  }, [clearPokerMasterThinking, clearAgentBattleSpectatorSession]);
+
   const handlePlayStepDemo = useCallback(() => {
     if (pokerMasterThinkingRef.current || transitionLockRef.current) return;
     if (!isArenaUnlocked) {
@@ -1868,28 +1882,57 @@ export function ArenaShell() {
       ? agentBattleReplayDisplay.pot
       : (result?.pot ?? null);
 
-  const agentBattleTableCommunityCards = useMemo(() => {
-    let cards: typeof stepDemo.communityCards;
-    if (isHeadsUpGuided) {
-      cards = stepDemo.communityCards;
-    } else if (agentBattleReplayDisplay) {
-      if (agentBattleReplayDisplay.communityCards.length > 0) {
-        cards = agentBattleReplayDisplay.communityCards;
-      } else {
-        cards = agentBattleReplay?.finalResult.communityCards ?? [];
-      }
-    } else if (isAgentBattleSpectatorEarly && result?.communityCards?.length) {
-      cards = result.communityCards;
-    } else {
-      cards = result?.communityCards ?? [];
+  const agentBattleVisibleBoardCount = useMemo(() => {
+    if (!isAgentBattleSpectatorEarly) return undefined;
+
+    if (agentBattleReplayDisplay?.showResult || agentBattleSharedResultPause) {
+      return 5;
     }
-    return cards.slice(0, 5);
+
+    if (agentBattleReplayDisplay) {
+      return getVisibleBoardCount({
+        visibleCount: agentBattleReplayDisplay.communityCards.length,
+        status: "playing",
+      });
+    }
+
+    if (agentBattleReplayActive) {
+      return 0;
+    }
+
+    if (result && !agentBattleReplay) {
+      return 5;
+    }
+
+    return 0;
+  }, [
+    isAgentBattleSpectatorEarly,
+    agentBattleReplayDisplay,
+    agentBattleSharedResultPause,
+    agentBattleReplayActive,
+    agentBattleReplay,
+    result,
+  ]);
+
+  const agentBattleTableCommunityCards = useMemo(() => {
+    if (isHeadsUpGuided) {
+      return stepDemo.communityCards.slice(0, 5);
+    }
+
+    if (!isAgentBattleSpectatorEarly) {
+      return result?.communityCards?.slice(0, 5) ?? [];
+    }
+
+    const fullBoard =
+      agentBattleReplay?.finalResult.communityCards ??
+      result?.communityCards ??
+      [];
+    return fullBoard.slice(0, 5);
   }, [
     isHeadsUpGuided,
     stepDemo.communityCards,
-    agentBattleReplayDisplay,
-    agentBattleReplay?.finalResult.communityCards,
     isAgentBattleSpectatorEarly,
+    agentBattleReplay?.finalResult.communityCards,
     result?.communityCards,
   ]);
 
@@ -2078,6 +2121,7 @@ export function ArenaShell() {
                 cashOutRecord={stakeSessionMeta?.cashOut ?? null}
                 pot={tablePot}
                 communityCards={agentBattleTableCommunityCards}
+                agentBattleVisibleBoardCount={agentBattleVisibleBoardCount}
                 seats={seats}
                 winnerName={
                   stepDemo.isActive
@@ -2171,6 +2215,7 @@ export function ArenaShell() {
       <ArenaActionBar
         className="relative z-30 shrink-0"
         onSimulateAgentBattle={handleSimulateAgentBattle}
+        onReturnToHumanVsAi={handleReturnToHumanVsAi}
         onPlayStepDemo={handlePlayStepDemo}
         onResetDemoStacks={handleResetDemoStacks}
         onOpenMenu={() => setMenuOpen(true)}
@@ -2261,6 +2306,17 @@ export function ArenaShell() {
               ? agentBattleReplayDisplay.visibleDecisionCount
               : aiDecisions.length
         }
+        stakeSessionActive={isArenaUnlocked}
+        stakeCashedOut={isStakeCashedOut}
+        currentHumanChips={currentHumanChips}
+        startingChips={lockedStartingChips}
+        stakeAmount={
+          stakeSessionMeta?.stakeAmount ?? paymentResult?.amount ?? selectedTestStake
+        }
+        handInProgress={handInProgress}
+        cashingOut={cashingOut}
+        payingStake={payingLock || payingMock}
+        onCashOut={handleCashOut}
       />
     </div>
   );

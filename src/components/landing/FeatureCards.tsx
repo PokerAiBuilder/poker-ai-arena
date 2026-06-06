@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Brain,
-  Clock,
   Radio,
   ScrollText,
   Shield,
@@ -19,13 +18,13 @@ type FeatureBlock = {
 
 const features: FeatureBlock[] = [
   {
-    icon: Clock,
+    icon: Users,
     title: "Human vs AI",
     bullets: [
-      "Live poker-room flow — you make poker decisions only",
-      "15-second timer with auto-check / auto-fold on timeout",
-      "Streets and result auto-advance; all-in auto-runout",
-      "PokerMaster reasoning in AI Decision (privacy guard before showdown)",
+      "Lock a Base Sepolia test stake and receive chips",
+      "Play heads-up against PokerMaster",
+      "Explainable AI decision panel",
+      "Hand history and result flow",
     ],
   },
   {
@@ -33,10 +32,10 @@ const features: FeatureBlock[] = [
     icon: Radio,
     title: "Shared Live Agent Battle",
     bullets: [
-      "Four AI agents on one server timeline — multiple viewers, same hand",
-      "Lifecycle: playing → result pause → auto next hand",
-      "Active agent highlight; full 5-card board at result",
-      "Skip animations is local only — does not change the simulated hand",
+      "Four AI personalities in one shared hand",
+      "Watch the same timeline and replay",
+      "Full board and result visibility",
+      "Designed for future agent tournaments",
     ],
   },
   {
@@ -61,12 +60,12 @@ const features: FeatureBlock[] = [
   },
   {
     icon: Wallet,
-    title: "Testnet Stake Flow",
+    title: "Base Sepolia stake flow",
     bullets: [
-      "Connect wallet → choose test stake → lock mock session",
-      "Base Sepolia testnet · test tokens only · no mainnet funds",
-      "Bankr/x402-ready layer for future production settlement",
-      "Mock stake lock today — escrow & payout receipt in later phases",
+      "Connect wallet and choose a test stake tier",
+      "Confirm a Base Sepolia test ETH transaction",
+      "Receive chips after tx confirmation",
+      "Escrow contract payout layer is next",
     ],
   },
 ];
@@ -100,14 +99,14 @@ const agents = [
 
 function FeaturePanel({ icon: Icon, title, bullets, id }: FeatureBlock) {
   return (
-    <article id={id} className="v1-card v1-glow-border min-w-0 scroll-mt-24 p-5 md:p-6">
-      <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--arena-border)] bg-[var(--arena-bg)]/80 text-[var(--arena-cyan)] shadow-arena-cyan">
+    <article id={id} className="v1-card v1-glow-border min-w-0 scroll-mt-24 p-4 md:p-5">
+      <div className="mb-3 flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--arena-border)] bg-[var(--arena-bg)]/80 text-[var(--arena-cyan)] shadow-arena-cyan">
           <Icon className="h-5 w-5" />
         </div>
         <h3 className="text-lg font-semibold text-[var(--arena-text)]">{title}</h3>
       </div>
-      <ul className="space-y-2.5 text-sm leading-relaxed text-[var(--arena-muted)]">
+      <ul className="space-y-2 text-sm leading-relaxed text-[var(--arena-muted)]">
         {bullets.map((line) => (
           <li key={line} className="flex gap-2 break-words">
             <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[var(--arena-blue-bright)]" />
@@ -129,7 +128,7 @@ function SectionHeading({
   description?: string;
 }) {
   return (
-    <div className="mb-8 text-center">
+    <div className="mb-6 text-center">
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--arena-cyan)]">
         {eyebrow}
       </p>
@@ -137,7 +136,7 @@ function SectionHeading({
         {title}
       </h2>
       {description ? (
-        <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-[var(--arena-muted)]">
+        <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-[var(--arena-muted)]">
           {description}
         </p>
       ) : null}
@@ -150,23 +149,23 @@ export function FeatureCards() {
     <>
       <section
         id="how-it-works"
-        className="v1-section mx-auto max-w-6xl scroll-mt-24 py-12 md:py-16"
+        className="v1-section mx-auto max-w-6xl scroll-mt-24 py-6 md:py-8"
       >
         <SectionHeading
           eyebrow="Product"
           title="One arena. Play or spectate."
-          description="Start a demo session on Base testnet, play heads-up against PokerMaster, or join the shared Agent Battle lane with explainable AI at every step."
+          description="Lock a Base Sepolia test stake, play heads-up against PokerMaster, or watch four AI agents battle on a shared live timeline."
         />
 
-        <div className="grid min-w-0 gap-4 md:grid-cols-2">
+        <div className="grid min-w-0 gap-3 md:grid-cols-2 md:gap-4">
           {features.slice(0, 2).map((feature) => (
             <FeaturePanel key={feature.title} {...feature} />
           ))}
         </div>
       </section>
 
-      <section className="v1-section mx-auto max-w-6xl py-8 md:py-12">
-        <div className="mb-6 flex items-center justify-center gap-2 md:justify-start">
+      <section className="v1-section mx-auto max-w-6xl py-4 md:py-6">
+        <div className="mb-4 flex items-center justify-center gap-2 md:justify-start">
           <Users className="h-5 w-5 text-[var(--arena-cyan)]" />
           <h2 className="text-xl font-bold text-[var(--arena-text)] md:text-2xl">
             AI Agent Profiles
@@ -177,24 +176,24 @@ export function FeatureCards() {
             <div
               key={name}
               className={cn(
-                "v1-card v1-glow-border overflow-hidden p-4 text-center transition-transform hover:-translate-y-0.5",
+                "v1-card v1-glow-border overflow-hidden p-3.5 text-center transition-transform hover:-translate-y-0.5 md:p-4",
                 "bg-gradient-to-b",
                 accent,
               )}
             >
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-[var(--arena-border)] bg-[var(--arena-bg)]/60 text-xs font-bold text-[var(--arena-cyan)] shadow-arena-blue">
+              <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-full border border-[var(--arena-border)] bg-[var(--arena-bg)]/60 text-xs font-bold text-[var(--arena-cyan)] shadow-arena-blue">
                 {name.slice(0, 2).toUpperCase()}
               </div>
               <p className="text-sm font-semibold text-[var(--arena-text)]">{name}</p>
-              <p className="mt-1 text-xs font-medium text-[var(--arena-cyan)]">{style}</p>
-              <p className="mt-2 text-[10px] leading-snug text-[var(--arena-muted)]">{trait}</p>
+              <p className="mt-0.5 text-xs font-medium text-[var(--arena-cyan)]">{style}</p>
+              <p className="mt-1.5 text-[10px] leading-snug text-[var(--arena-muted)]">{trait}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="v1-section mx-auto max-w-6xl py-8 md:py-12">
-        <div className="grid min-w-0 gap-4 md:grid-cols-2">
+      <section className="v1-section mx-auto max-w-6xl py-4 md:py-6">
+        <div className="grid min-w-0 gap-3 md:grid-cols-2 md:gap-4">
           {features.slice(2, 4).map((feature) => (
             <FeaturePanel key={feature.title} {...feature} />
           ))}
@@ -203,20 +202,20 @@ export function FeatureCards() {
 
       <section
         id="demo-guide"
-        className="v1-section mx-auto max-w-6xl scroll-mt-24 py-8 md:py-12"
+        className="v1-section mx-auto max-w-6xl scroll-mt-24 py-4 md:py-6"
       >
-        <div className="mb-6 flex items-center justify-center gap-2 md:justify-start">
+        <div className="mb-4 flex items-center justify-center gap-2 md:justify-start">
           <Shield className="h-5 w-5 text-[var(--arena-blue-bright)]" />
           <h2 className="text-xl font-bold text-[var(--arena-text)] md:text-2xl">
-            Testnet stake flow (mock)
+            Base Sepolia stake flow
           </h2>
         </div>
         <FeaturePanel {...features[4]!} />
-        <p className="mt-4 text-center text-xs leading-relaxed text-[var(--arena-muted)]">
-          Not real-money wagering. Test tokens only on Base Sepolia. Current flow
-          is a mock testnet stake session — no contracts, no mainnet funds.
-          Bankr/x402-ready layer for future production settlement — not live
-          today.
+        <p className="mt-3 text-center text-xs leading-relaxed text-[var(--arena-muted)]">
+          Current public build uses testnet stake lock receipts to the treasury
+          path. Escrow-based automated payouts are in development — not live
+          yet. Local mock session unlock remains available as a preview fallback
+          only. Not real-money wagering.
         </p>
       </section>
     </>

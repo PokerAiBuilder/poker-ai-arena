@@ -1,3 +1,4 @@
+import { PlayingCard } from "@/components/arena/PlayingCard";
 import { cn } from "@/lib/utils";
 
 const spectatorAgents = [
@@ -7,15 +8,31 @@ const spectatorAgents = [
   { id: "ch", label: "CH", name: "ChipHunter", angle: 180 },
 ] as const;
 
+const timelineSteps = [
+  { id: "preflop", label: "Pre" },
+  { id: "flop", label: "Flop" },
+  { id: "turn", label: "Turn" },
+  { id: "river", label: "River" },
+  { id: "done", label: "Result" },
+] as const;
+
+const boardCards = [
+  { rank: "A", suit: "spades" as const },
+  { rank: "K", suit: "hearts" as const },
+  { rank: "7", suit: "diamonds" as const },
+];
+
 function polarToPercent(angleDeg: number, radiusPercent: number) {
   const rad = (angleDeg * Math.PI) / 180;
   return {
     left: `${50 + radiusPercent * Math.cos(rad)}%`,
-    top: `${50 + radiusPercent * Math.sin(rad)}%`,
+    top: `${50 + radiusPercent * 0.72 * Math.sin(rad) + 4}%`,
   };
 }
 
 export function HeroArenaPreview({ className }: { className?: string }) {
+  const timelineProgress = 2;
+
   return (
     <div
       className={cn(
@@ -24,111 +41,162 @@ export function HeroArenaPreview({ className }: { className?: string }) {
       )}
       aria-hidden
     >
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[var(--arena-blue)]/10 via-transparent to-[var(--arena-cyan)]/5" />
-      <div className="relative mx-auto aspect-[4/3] min-h-[220px] w-full max-w-md sm:min-h-[260px]">
-        {/* Timeline rail */}
-        <div className="absolute left-3 right-3 top-2 flex items-center gap-1">
-          <span className="v1-badge">Shared timeline</span>
-          <div className="flex flex-1 items-center gap-0.5">
-            {[0, 1, 2, 3, 4].map((i) => (
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[var(--arena-blue)]/12 via-transparent to-[var(--arena-cyan)]/6" />
+      <div
+        className="pointer-events-none absolute left-1/2 top-[55%] h-[58%] w-[72%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] opacity-60 blur-2xl"
+        style={{
+          background:
+            "radial-gradient(ellipse, rgba(0, 82, 255, 0.32) 0%, rgba(34, 211, 238, 0.12) 45%, transparent 70%)",
+        }}
+      />
+
+      <div className="relative mx-auto aspect-[4/3] min-h-[220px] w-full max-w-md sm:min-h-[280px]">
+        {/* Shared timeline HUD */}
+        <div className="hero-preview-hud relative z-30 mx-0.5">
+          <div className="flex items-center gap-2">
+            <span className="shrink-0 rounded-md border border-[var(--arena-border)] bg-[var(--arena-surface-2)]/90 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-[var(--arena-cyan)]">
+              Shared timeline
+            </span>
+            <div className="flex min-w-0 flex-1 gap-1">
+              {timelineSteps.map((step, index) => {
+                const active = index <= timelineProgress;
+                return (
+                  <div key={step.id} className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div
+                      className={cn(
+                        "h-1.5 rounded-full transition-colors",
+                        active
+                          ? "bg-gradient-to-r from-[var(--arena-blue)] to-[var(--arena-cyan)] shadow-[0_0_10px_rgba(34,211,238,0.35)]"
+                          : "bg-[var(--arena-surface-2)]/90",
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "truncate text-center text-[7px] font-semibold uppercase tracking-wide",
+                        active ? "text-[var(--arena-cyan)]/90" : "text-[var(--arena-muted)]/55",
+                      )}
+                    >
+                      {step.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Table stage */}
+        <div className="absolute inset-x-[2%] bottom-[4%] top-[14%] flex items-center justify-center">
+          <div className="relative h-full w-full max-w-[92%]">
+            {/* Outer rim + glow */}
+            <div className="hero-preview-table-rim absolute inset-[2%] rounded-[50%]" />
+
+            {/* Felt surface */}
+            <div className="hero-preview-table-felt absolute inset-[5.5%] overflow-hidden rounded-[50%]">
+              <div className="hero-preview-felt-texture absolute inset-0 opacity-[0.14]" />
+              <div className="absolute inset-[9%] rounded-[50%] border border-[var(--arena-cyan)]/12" />
               <div
-                key={i}
-                className={cn(
-                  "h-1 flex-1 rounded-full",
-                  i <= 2
-                    ? "bg-gradient-to-r from-[var(--arena-blue)] to-[var(--arena-cyan)]"
-                    : "bg-[var(--arena-surface-2)]",
-                )}
+                className="pointer-events-none absolute inset-0 rounded-[50%]"
+                style={{
+                  background:
+                    "radial-gradient(ellipse 55% 40% at 50% 32%, rgba(34, 211, 238, 0.12) 0%, transparent 65%)",
+                }}
               />
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* Table */}
-        <div className="absolute inset-[12%] flex items-center justify-center">
-          <div
-            className="relative h-[72%] w-[88%] rounded-[50%] border border-[var(--arena-border)] shadow-arena-blue"
-            style={{
-              background:
-                "radial-gradient(ellipse 70% 55% at 50% 40%, rgba(0, 82, 255, 0.35) 0%, rgba(10, 15, 26, 0.95) 55%, #030508 100%)",
-            }}
-          >
-            <div className="absolute inset-[8%] rounded-[50%] border border-[var(--arena-cyan)]/20" />
-            <div className="absolute left-1/2 top-[38%] z-10 -translate-x-1/2 text-center">
-              <p className="text-[9px] font-semibold uppercase tracking-widest text-[var(--arena-muted)]">
-                Pot
-              </p>
-              <p className="text-sm font-bold tabular-nums text-[var(--arena-cyan)]">42</p>
-              <div className="mt-2 flex justify-center gap-1">
-                {["A♠", "K♥", "7♦"].map((c) => (
-                  <span
-                    key={c}
-                    className="rounded border border-[var(--arena-border)] bg-[var(--arena-surface-2)]/90 px-1.5 py-0.5 text-[9px] font-semibold text-[var(--arena-text)]"
-                  >
-                    {c}
-                  </span>
+            {/* Center: pot + board */}
+            <div className="absolute left-1/2 top-[44%] z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
+              <div className="hero-preview-pot-pill mb-2 flex items-center gap-1.5">
+                <span className="flex -space-x-0.5" aria-hidden>
+                  <span className="hero-preview-chip hero-preview-chip-red" />
+                  <span className="hero-preview-chip hero-preview-chip-blue" />
+                  <span className="hero-preview-chip hero-preview-chip-cyan" />
+                </span>
+                <span className="text-[9px] font-semibold uppercase tracking-wider text-white/50">
+                  Pot
+                </span>
+                <span className="text-sm font-bold tabular-nums text-[var(--arena-cyan)]">
+                  42
+                </span>
+              </div>
+
+              <div className="flex items-end justify-center">
+                {boardCards.map((card, index) => (
+                  <PlayingCard
+                    key={`hero-board-${card.rank}-${card.suit}`}
+                    rank={card.rank}
+                    suit={card.suit}
+                    size="xs"
+                    animate={false}
+                    className={cn(
+                      "relative shadow-md",
+                      index > 0 && "-ml-2",
+                      index === 1 && "z-[2]",
+                      index === 2 && "z-[3]",
+                    )}
+                  />
                 ))}
+                <PlayingCard
+                  size="xs"
+                  locked
+                  lockedLabel="Turn"
+                  animate={false}
+                  className="relative z-[1] -ml-2 opacity-80"
+                />
+                <PlayingCard
+                  size="xs"
+                  locked
+                  lockedLabel="River"
+                  animate={false}
+                  className="relative -ml-2 opacity-70"
+                />
               </div>
             </div>
+
+            {/* Agent nodes */}
+            {spectatorAgents.map((agent, index) => {
+              const pos = polarToPercent(agent.angle, 46);
+              const active = index === 1;
+              return (
+                <div
+                  key={agent.id}
+                  className="absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5"
+                  style={{ left: pos.left, top: pos.top }}
+                >
+                  <div
+                    className={cn(
+                      "hero-preview-agent relative flex h-9 w-9 items-center justify-center rounded-full text-[9px] font-bold sm:h-10 sm:w-10",
+                      active ? "hero-preview-agent-active" : "hero-preview-agent-idle",
+                    )}
+                  >
+                    {agent.label}
+                    {active ? (
+                      <span
+                        className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-[var(--arena-bg)] bg-[var(--arena-cyan)] shadow-[0_0_8px_rgba(34,211,238,0.6)]"
+                        aria-hidden
+                      />
+                    ) : null}
+                  </div>
+                  <span
+                    className={cn(
+                      "max-w-[4.5rem] truncate text-[9px] font-semibold",
+                      active ? "text-[var(--arena-cyan)]" : "text-white/65",
+                    )}
+                  >
+                    {agent.name}
+                  </span>
+                  <span className="text-[8px] tabular-nums text-[var(--arena-muted)]/80">
+                    {(1200 + index * 80).toLocaleString()}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
-
-        {/* Agent nodes */}
-        {spectatorAgents.map((agent, index) => {
-          const pos = polarToPercent(agent.angle, 42);
-          const active = index === 1;
-          return (
-            <div
-              key={agent.id}
-              className="absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5"
-              style={{ left: pos.left, top: pos.top }}
-            >
-              <div
-                className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full border text-[9px] font-bold sm:h-9 sm:w-9",
-                  active
-                    ? "border-[var(--arena-cyan)] bg-[var(--arena-blue)]/40 text-white shadow-arena-cyan"
-                    : "border-[var(--arena-border)] bg-[var(--arena-surface-2)]/90 text-[var(--arena-muted)]",
-                )}
-              >
-                {agent.label}
-              </div>
-              <span className="hidden max-w-[4.5rem] truncate text-[8px] text-[var(--arena-muted)] sm:block">
-                {agent.name}
-              </span>
-            </div>
-          );
-        })}
-
-        {/* Neural accent lines */}
-        <svg
-          className="absolute inset-0 h-full w-full opacity-40"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-        >
-          <line
-            x1="50"
-            y1="50"
-            x2="88"
-            y2="50"
-            stroke="var(--arena-blue)"
-            strokeWidth="0.4"
-            strokeDasharray="2 2"
-          />
-          <line
-            x1="50"
-            y1="50"
-            x2="50"
-            y2="12"
-            stroke="var(--arena-cyan)"
-            strokeWidth="0.4"
-            strokeDasharray="2 2"
-          />
-        </svg>
       </div>
 
       <p className="relative mt-2 text-center text-[10px] leading-relaxed text-[var(--arena-muted)]">
-        Human vs AI · Shared Agent Battle · Explainable decisions
+        Human vs AI · Shared Agent Battle · Base Sepolia testnet · Test tokens only
       </p>
     </div>
   );

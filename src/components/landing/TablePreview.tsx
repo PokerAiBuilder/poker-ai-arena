@@ -1,5 +1,4 @@
 import { PlayingCard } from "@/components/arena/PlayingCard";
-import { ChipStack } from "@/components/arena/ChipStack";
 import { cn } from "@/lib/utils";
 
 const boardCards = [
@@ -17,7 +16,7 @@ const previewAgents = [
     position: "top",
     stack: 1240,
     holeCards: null,
-    active: true,
+    active: false,
   },
   {
     name: "You",
@@ -35,9 +34,9 @@ const previewAgents = [
 function seatPosition(position: (typeof previewAgents)[number]["position"]) {
   switch (position) {
     case "top":
-      return "left-1/2 top-[6%] -translate-x-1/2";
+      return "left-1/2 top-[8%] -translate-x-1/2";
     case "bottom":
-      return "bottom-[5%] left-1/2 -translate-x-1/2";
+      return "bottom-[6%] left-1/2 -translate-x-1/2";
     default:
       return "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2";
   }
@@ -55,42 +54,47 @@ export function TablePreview() {
         </h2>
       </div>
 
-      <div className="relative overflow-hidden rounded-[2rem] border border-casino-gold/25 bg-[#050508] p-3 shadow-[0_32px_80px_rgba(0,0,0,0.65)] sm:p-4">
-        <div className="relative mx-auto aspect-[16/10] min-h-[260px] w-full max-w-4xl sm:min-h-[320px]">
-          <div className="absolute inset-[2%] rounded-[50%] border-4 border-[#3d2817] bg-gradient-to-b from-[#5c3d1e] to-[#2a1a0e] shadow-inner" />
+      <div className="v1-panel v1-glow-border relative overflow-hidden p-3 sm:p-4">
+        <div
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[60%] w-[65%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] opacity-40 blur-3xl"
+          style={{
+            background:
+              "radial-gradient(ellipse, rgba(0, 82, 255, 0.25) 0%, transparent 70%)",
+          }}
+        />
 
-          <div
-            className="absolute inset-[5%] overflow-hidden rounded-[50%] border-2 border-casino-gold/40 shadow-glow-green"
-            style={{
-              background:
-                "radial-gradient(ellipse 75% 60% at 50% 42%, #1fa864 0%, #0d5c36 42%, #063d24 100%)",
-            }}
-          >
-            <div
-              className="absolute inset-0 opacity-[0.12]"
-              style={{
-                backgroundImage:
-                  "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.15) 3px, rgba(0,0,0,0.15) 4px)",
-              }}
-            />
-            <div className="absolute inset-[12%] rounded-[50%] border border-white/10" />
+        <div className="relative mx-auto aspect-[16/10] min-h-[260px] w-full max-w-4xl sm:min-h-[320px]">
+          <div className="hero-preview-table-rim absolute inset-[2%] rounded-[50%]" />
+
+          <div className="hero-preview-table-felt absolute inset-[5.5%] overflow-hidden rounded-[50%]">
+            <div className="hero-preview-felt-texture absolute inset-0 opacity-[0.12]" />
+            <div className="absolute inset-[10%] rounded-[50%] border border-[var(--arena-cyan)]/10" />
           </div>
 
-          <div className="absolute left-1/2 top-[28%] z-[15] flex w-[min(92%,20rem)] -translate-x-1/2 flex-col items-center">
-            <ChipStack amount={42} size="md" label="Pot" className="mb-2 justify-center" />
-            <div className="flex items-end justify-center gap-1 sm:gap-1.5">
-              {boardCards.map((card, i) => (
+          <div className="absolute left-1/2 top-[40%] z-[15] flex w-[min(92%,20rem)] -translate-x-1/2 -translate-y-1/2 flex-col items-center">
+            <div className="hero-preview-pot-pill mb-2 flex items-center gap-1.5">
+              <span className="flex -space-x-0.5" aria-hidden>
+                <span className="hero-preview-chip hero-preview-chip-red" />
+                <span className="hero-preview-chip hero-preview-chip-blue" />
+              </span>
+              <span className="text-[8px] font-semibold uppercase tracking-wider text-white/45">
+                Pot
+              </span>
+              <span className="text-sm font-bold tabular-nums text-[var(--arena-cyan)]">42</span>
+            </div>
+            <div className="flex items-end justify-center">
+              {boardCards.map((card, index) => (
                 <PlayingCard
-                  key={`preview-board-${card.rank}-${card.suit}-${i}`}
+                  key={`preview-board-${card.rank}-${card.suit}-${index}`}
                   rank={card.rank}
                   suit={card.suit}
                   size="sm"
                   animate={false}
-                  className="relative z-[2]"
+                  className={cn("relative shadow-md", index > 0 && "-ml-2.5")}
                 />
               ))}
             </div>
-            <p className="mt-1.5 text-[8px] uppercase tracking-wider text-white/45">
+            <p className="mt-2 text-[8px] uppercase tracking-wider text-[var(--arena-muted)]/70">
               Flop · Turn · River
             </p>
           </div>
@@ -112,31 +116,36 @@ export function TablePreview() {
                       suit={card.suit}
                       size="xs"
                       animate={false}
-                      className="relative"
+                      className="relative shadow-sm"
                     />
                   ))}
                 </div>
               ) : null}
               <div
                 className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-full border-2 text-[10px] font-bold sm:h-10 sm:w-10",
-                  agent.active
-                    ? "border-emerald-400/60 bg-emerald-950/80 text-emerald-100 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
-                    : "border-white/20 bg-black/50 text-white/70",
+                  "hero-preview-agent flex h-9 w-9 items-center justify-center rounded-full text-[10px] font-bold sm:h-10 sm:w-10",
+                  agent.active ? "hero-preview-agent-active" : "hero-preview-agent-idle",
                 )}
               >
                 {agent.initials}
               </div>
-              <span className="text-[10px] font-medium text-white/85">{agent.name}</span>
-              <span className="text-[10px] text-casino-goldLight">
+              <span
+                className={cn(
+                  "text-[10px] font-medium",
+                  agent.active ? "text-[var(--arena-cyan)]" : "text-white/75",
+                )}
+              >
+                {agent.name}
+              </span>
+              <span className="text-[10px] tabular-nums text-[var(--arena-muted)]">
                 {agent.stack.toLocaleString()}
               </span>
             </div>
           ))}
         </div>
 
-        <div className="mt-3 rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-center text-xs leading-relaxed text-muted-foreground">
-          Live Human vs AI · Shared Agent Battle · Testnet stake flow · Test
+        <div className="relative mt-3 rounded-xl border border-[var(--arena-border)] bg-[var(--arena-surface-2)]/60 px-4 py-3 text-center text-xs leading-relaxed text-[var(--arena-muted)]">
+          Live Human vs AI · Shared Agent Battle · Base testnet stake flow · Test
           tokens only · No mainnet funds
         </div>
       </div>
