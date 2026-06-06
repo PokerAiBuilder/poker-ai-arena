@@ -300,8 +300,8 @@ export function ArenaMenuDrawer({
               <div className="space-y-4 rounded-2xl border border-white/10 bg-black/30 p-4">
                 <DemoDisclaimers className="justify-start" />
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  Session analytics and demo stacks are stored in localStorage on
-                  this device only.
+                  Session analytics and stake session data are stored in localStorage on
+                  this device only. Balances are stake- and hand-driven — not manually reset.
                 </p>
                 <p className="text-xs leading-relaxed text-violet-200/70">
                   Agent Battle uses a shared server timeline. Multiple viewers can

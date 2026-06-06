@@ -86,7 +86,7 @@ export function TableStats({
     },
     {
       label: "Stake Session",
-      value: sessionStatus === "unlocked" ? "Active (mock)" : "Not locked",
+      value: sessionStatus === "unlocked" ? "Stake locked" : "Not locked",
       icon: Lock,
       live: true,
     },

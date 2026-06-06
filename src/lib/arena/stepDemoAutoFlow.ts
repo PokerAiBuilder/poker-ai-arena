@@ -66,7 +66,8 @@ export const STEP_DEMO_AUTO_FLOW_HINTS: Record<StepDemoAutoFlowStatus, string> =
   auto_dealing_river: "Ready to deal river.",
   auto_showdown: "Ready for showdown.",
   hand_complete: "Hand complete — start a new hand.",
-  stack_depleted: "Stack depleted — reset demo stacks to continue.",
+  stack_depleted:
+    "No chips remaining — cash out or start a new test stake session from the side panel.",
 };
 
 function isHumanBettingTurn(state: StepDemoState): boolean {

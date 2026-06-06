@@ -43,6 +43,7 @@ Edit `.env.local`:
 |----------|------------|-------|
 | `NEXT_PUBLIC_CHAIN_ID` | `84532` | Base Sepolia |
 | `NEXT_PUBLIC_TESTNET_TREASURY_ADDRESS` | empty or `0x…` | Optional — when set, lock stake sends tier test ETH on Base Sepolia |
+| `NEXT_PUBLIC_TESTNET_ESCROW_ADDRESS` | empty or `0x…` | Optional — escrow scaffold; treasury lock remains active until wired |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | your ID | Optional |
 | `NEXT_PUBLIC_SITE_URL` | `https://…` | Production canonical URL for metadata / OG (recommended) |
 | `X402_ENTRY_FEE_USDC` | `0.01` | Mock display label only — not charged in demo mode |
@@ -73,6 +74,45 @@ npm start
 ```
 
 Fix any TypeScript or ESLint errors before deploying.
+
+---
+
+## Escrow contract (Base Sepolia testnet)
+
+Optional v1.2 scaffold — **testnet only**, not required for demo deploy.
+
+### Compile & test
+
+```bash
+npm install
+npm run contracts:compile
+npm run contracts:test
+```
+
+### Deploy to Base Sepolia
+
+1. Add to `.env.local` (never commit):
+
+```
+TESTNET_DEPLOYER_PRIVATE_KEY=0x...
+BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
+```
+
+2. Deploy:
+
+```bash
+npm run contracts:deploy:base-sepolia
+```
+
+3. Set in `.env.local` / Vercel:
+
+```
+NEXT_PUBLIC_TESTNET_ESCROW_ADDRESS=0x...
+```
+
+4. Restart dev server (`npm run dev`).
+
+**Note:** Until v1.2.0-b, **Lock Test Stake** still uses `NEXT_PUBLIC_TESTNET_TREASURY_ADDRESS` direct transfer. Cash-out remains mock.
 
 ---
 

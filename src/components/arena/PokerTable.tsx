@@ -21,6 +21,7 @@ import {
   getLockStakePhaseLabel,
   type LockStakePhase,
 } from "@/lib/stake/lockStakeFlow";
+import { getEscrowStatusLabel, isEscrowConfigured } from "@/lib/onchain/escrowContract";
 import { cn } from "@/lib/utils";
 
 export type TableSeat = {
@@ -1308,6 +1309,7 @@ export function PokerTable({
   const isPayingStake = payingLockStake || payingMockStake;
   const phaseLabel = getLockStakePhaseLabel(lockStakePhase);
   const showStakeActions = Boolean(onLockStake || onPayMock);
+  const escrowConfigured = isEscrowConfigured();
 
   return (
     <div
@@ -1553,6 +1555,21 @@ export function PokerTable({
                         : isConnected && onBaseSepolia
                           ? "Ready to lock test stake on Base Sepolia."
                           : "Connect wallet for testnet lock, or start a mock session."}
+                  </p>
+                ) : null}
+                {!stakeCashedOut ? (
+                  <p
+                    className={cn(
+                      "mt-2 rounded-lg border px-2.5 py-1.5 text-[10px]",
+                      escrowConfigured
+                        ? "border-violet-500/30 bg-violet-950/20 text-violet-100/90"
+                        : "border-white/10 bg-black/25 text-muted-foreground",
+                    )}
+                  >
+                    {getEscrowStatusLabel()}
+                    {escrowConfigured
+                      ? " · treasury lock remains active for now"
+                      : " · treasury lock remains active"}
                   </p>
                 ) : null}
               </>

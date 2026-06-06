@@ -1,6 +1,113 @@
 # Project status
 
-Last updated for **v1.1.0-d** — Base Sepolia transaction scaffold (testnet only).
+Last updated for **v1.2.0-a** — Base Sepolia escrow contract scaffold (testnet only).
+
+---
+
+## v1.2.0-a — escrow contract scaffold
+
+**Scope:** `TestStakeEscrow` Solidity contract + Hardhat tooling + frontend config scaffold. **No** mainnet, **no** real-money gambling, **no** replacement of working treasury lock tx yet, **no** on-chain cash-out, **no** poker / Agent Battle changes.
+
+### Contract (`contracts/TestStakeEscrow.sol`)
+
+| Function | Purpose |
+| -------- | ------- |
+| `depositStake(chipAmount)` payable | Receive test ETH; create session; emit `StakeDeposited` |
+| `getSession(sessionId)` | Read session struct |
+| `resolveSession(sessionId, result, payoutAmount)` | **Owner-only** testnet resolve (signature proof next) |
+| `claimPayout(sessionId)` | Player claims after resolve |
+| `emergencyRefund(sessionId)` | Owner anytime; player after `refundTimeout` |
+| `pause` / `unpause` | Owner |
+| `setRefundTimeout` | Owner |
+
+| Event | When |
+| ----- | ---- |
+| `StakeDeposited` | Deposit |
+| `SessionResolved` | Admin resolve |
+| `PayoutClaimed` | Player claim |
+| `Refunded` | Emergency refund |
+
+Security: **Ownable**, **Pausable**, **ReentrancyGuard**, checks-effects-interactions, custom errors.
+
+### App integration (scaffold only)
+
+| Env | Purpose |
+| --- | ------- |
+| `NEXT_PUBLIC_TESTNET_ESCROW_ADDRESS` | Escrow contract on Base Sepolia (optional) |
+| `NEXT_PUBLIC_TESTNET_TREASURY_ADDRESS` | Legacy treasury lock (still active) |
+| `TESTNET_DEPLOYER_PRIVATE_KEY` | Deploy script only — never commit |
+| `BASE_SEPOLIA_RPC_URL` | Hardhat deploy RPC |
+
+- `src/lib/onchain/escrowContract.ts` — ABI, `isEscrowConfigured()`, `sendEscrowDepositStakeTx()` (not primary lock path yet)
+- UI shows escrow configured / not deployed; **treasury tx lock unchanged**
+
+### Deploy (Base Sepolia)
+
+```bash
+npm install
+npm run contracts:compile
+npm run contracts:test
+# set TESTNET_DEPLOYER_PRIVATE_KEY + BASE_SEPOLIA_RPC_URL in .env.local
+npm run contracts:deploy:base-sepolia
+# set NEXT_PUBLIC_TESTNET_ESCROW_ADDRESS=<deployed>
+npm run dev
+```
+
+### Still mock / fallback
+
+- **Lock stake (production path):** treasury direct test ETH tx (v1.1.0-d)
+- **Cash-out:** mock withdrawal only
+- **Escrow deposit:** scaffold helper only — wired in v1.2.0-b+
+
+### Next steps
+
+| Version | Focus |
+| ------- | ----- |
+| **v1.2.0-b** | Wire escrow `depositStake` as primary lock path |
+| **v1.2.0-c** | On-chain `claimPayout` cash-out integration |
+
+**Build:** `npm run build` + `npm run contracts:test`
+
+---
+
+## v1.1.0-e — stake session UX polish
+
+**Scope:** Remove demo-era manual balance/reset controls from main UX; polish stake session panel copy and layout. **No** poker hand logic, stake-to-chips mapping, Base Sepolia lock tx, Agent Battle, cash-out logic, or escrow contract changes.
+
+### Removed from normal UX
+
+| Control | Change |
+| ------- | ------ |
+| **Reset Demo Stacks** | Removed from action bar in production |
+| **Reset stacks** (mobile) | Removed from production |
+| **Reset Stats** (menu) | Hidden in production — dev-only **Dev reset session** |
+| Manual stack refresh / balance update | Not exposed in user flow |
+
+### Product copy (balances are stake/tx driven)
+
+- Starting chips come from locked stake
+- Current chips update through hand results
+- Wallet balance updates from Base Sepolia transactions (on-chain lock path)
+- Cash out records current test balance; escrow payout comes next
+- When busted (0 chips): **Start New Test Stake Session** in side panel (replaces reset)
+
+### Dev-only reset (development builds)
+
+- **Dev reset stacks** — action bar when stacks depleted (`NODE_ENV=development`)
+- **Dev reset session** — Arena Menu leaderboard tab (clears analytics + session)
+
+### EntryFeePanel active session
+
+- Clearer session fields: stake, starting/current chips, settlement, lock tx + **View** Basescan link, lock tx status
+- No cramped tx hash display
+
+### Next steps
+
+| Version | Focus |
+| ------- | ----- |
+| **v1.2** | Escrow smart contract + on-chain payout tx |
+
+**Build:** `npm run build` (target for v1.1.0-e).
 
 ---
 
@@ -114,7 +221,7 @@ Ratio: **1,000 chips = $1.00 test balance** (used for estimated cash-out display
 ### Behavior
 
 - **Lock test stake** → `applyStakeStartingStacks()` sets human + PokerMaster stacks to tier `chipAmount`
-- **Reset Demo Stacks** → restores to locked stake starting chips (not hardcoded 1,000)
+- **Starting chips** fixed at lock time — current chips change only through hand results (no manual reset in production)
 - **Stake session meta** persisted in `localStorage` (`stakeSessionStorage.ts`) — restores unlocked state on refresh
 - **EntryFeePanel** shows stake, starting chips, current chips, estimated test balance
 - **Cash Out Test Chips** — implemented in v1.1.0-c (mock withdrawal)

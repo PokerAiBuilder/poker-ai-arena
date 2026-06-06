@@ -180,8 +180,9 @@ export function ArenaActionBar({
   const guidance: StepDemoGameplayGuidance | undefined = showStackDepletedUi
     ? {
         phase: "hand-complete",
-        banner: "STACK DEPLETED",
-        actionHint: "Stack depleted — reset demo stacks to continue.",
+        banner: "NO CHIPS LEFT",
+        actionHint:
+          "No chips remaining — cash out or start a new test stake session from the side panel.",
       }
     : useHeadsUpUi
       ? {
@@ -285,6 +286,11 @@ export function ArenaActionBar({
   const resetStacksEnabled = useHeadsUpUi
     ? stepDemoUi.resetStacksEnabled
     : showStackDepletedUi;
+
+  const showDevResetStacks =
+    process.env.NODE_ENV === "development" &&
+    Boolean(onResetDemoStacks) &&
+    resetStacksEnabled;
 
   const showHvaiPlayButton =
     Boolean(onPlayStepDemo) &&
@@ -658,16 +664,16 @@ export function ArenaActionBar({
                     ) : null}
                   </>
                 )}
-                {headsUpStackDepleted && onResetDemoStacks ? (
+                {headsUpStackDepleted && showDevResetStacks ? (
                   <Button
                     type="button"
                     size="lg"
                     variant="outline"
-                    className="h-11 min-w-[11rem] border-[var(--arena-cyan)]/40 text-[var(--arena-cyan)] hover:bg-[var(--arena-blue)]/15"
+                    className="h-11 min-w-[11rem] border-amber-500/40 text-amber-200 hover:bg-amber-500/10"
                     onClick={onResetDemoStacks}
                   >
                     <RotateCcw className="mr-1.5 h-4 w-4" />
-                    Reset Demo Stacks
+                    Dev reset stacks
                   </Button>
                 ) : null}
                 {onOpenMenu ? (
@@ -693,7 +699,7 @@ export function ArenaActionBar({
                 </div>
                 {(nextStepEnabled && nextStep && !resetStacksEnabled) ||
                 (newHandEnabled && onStepDemoReset) ||
-                (resetStacksEnabled && onResetDemoStacks) ? (
+                showDevResetStacks ? (
                   <div className="arena-action-mobile-mode">
                     {nextStepEnabled && nextStep && !resetStacksEnabled ? (
                       <Button
@@ -725,19 +731,19 @@ export function ArenaActionBar({
                         New Hand
                       </Button>
                     ) : null}
-                    {resetStacksEnabled && onResetDemoStacks ? (
+                    {showDevResetStacks ? (
                       <Button
                         type="button"
                         size="default"
                         className={cn(
                           "arena-action-flow-btn arena-action-btn",
                           mobileTap,
-                          "min-w-0 flex-1 border-2 border-[var(--arena-cyan)]/50 bg-[var(--arena-blue)]/25 font-bold text-[var(--arena-cyan)]",
+                          "min-w-0 flex-1 border-2 border-amber-500/40 bg-amber-950/30 font-bold text-amber-200",
                         )}
                         onClick={onResetDemoStacks}
                       >
                         <RotateCcw className="mr-1 h-4 w-4 shrink-0" />
-                        Reset stacks
+                        Dev reset stacks
                       </Button>
                     ) : null}
                   </div>
@@ -941,18 +947,18 @@ export function ArenaActionBar({
               </Button>
             ) : null}
 
-            {resetStacksEnabled && onResetDemoStacks ? (
+            {showDevResetStacks ? (
               <Button
                 type="button"
                 size="lg"
                 className={cn(
-                  "arena-action-flow-btn arena-action-btn min-w-0 max-sm:min-w-[8.5rem] sm:min-w-[11rem] border-2 border-[var(--arena-cyan)]/50 bg-[var(--arena-blue)]/25 font-bold text-[var(--arena-cyan)]",
-                  "shadow-arena-blue hover:bg-[var(--arena-blue)]/40",
+                  "arena-action-flow-btn arena-action-btn min-w-0 max-sm:min-w-[8.5rem] sm:min-w-[11rem] border-2 border-amber-500/40 bg-amber-950/30 font-bold text-amber-200",
+                  "hover:bg-amber-950/50",
                 )}
                 onClick={onResetDemoStacks}
               >
                 <RotateCcw className="mr-1.5 h-4 w-4" />
-                Reset Demo Stacks
+                Dev reset stacks
               </Button>
             ) : null}
                 </div>

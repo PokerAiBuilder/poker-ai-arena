@@ -52,7 +52,7 @@ const BANNERS: Record<StepDemoUiActionState, string> = {
   runout_ready: "ALL-IN",
   show_result_ready: "ALL-IN",
   hand_complete: "HAND COMPLETE",
-  stack_depleted: "STACK DEPLETED",
+  stack_depleted: "NO CHIPS LEFT",
 };
 
 const HINTS: Record<StepDemoUiActionState, string> = {
@@ -64,7 +64,8 @@ const HINTS: Record<StepDemoUiActionState, string> = {
   runout_ready: "All-in called — run out the board.",
   show_result_ready: "Ready for showdown.",
   hand_complete: "Hand complete — start a new hand.",
-  stack_depleted: "Stack depleted — reset demo stacks to continue.",
+  stack_depleted:
+    "No chips remaining — cash out or start a new test stake session from the side panel.",
 };
 
 function isHumanTurn(state: StepDemoState): boolean {

@@ -2,11 +2,12 @@ import { ListOrdered } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STAKE_FLOW_STEPS = [
-  "Connect wallet (optional for local preview) — Base Sepolia testnet",
+  "Connect wallet on Base Sepolia (optional mock session without wallet)",
   "Choose test stake — $0.10 / $0.25 / $0.50 / $1.00 test tiers",
-  "Lock test stake — mock session lock; no real transfer yet",
-  "Play vs PokerMaster — playable Human vs AI mode",
+  "Lock test stake — Base Sepolia test ETH transfer or mock session",
+  "Play vs PokerMaster — chips come from your locked stake",
   "Choose Fold / Call / Check / Raise on your turn",
+  "Current chips update through hand results — cash out when ready",
   "Try AI Agent Battle — full-board spectator simulation (watch only)",
   "Open Arena Menu for Action Log, stats, and full AI reasoning",
 ] as const;

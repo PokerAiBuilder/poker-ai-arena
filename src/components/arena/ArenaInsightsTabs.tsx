@@ -86,16 +86,18 @@ export function ArenaInsightsTabs({
       {activeTab === "leaderboard" ? (
         <div className="min-w-0 space-y-2">
           <Leaderboard entries={leaderboardEntries} highlightId={highlightId} embedded={embedded} />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-full border-white/10 text-xs"
-            onClick={onResetStats}
-          >
-            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-            Reset Stats
-          </Button>
+          {process.env.NODE_ENV === "development" ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full border-amber-500/30 text-xs text-amber-200/90"
+              onClick={onResetStats}
+            >
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+              Dev reset session
+            </Button>
+          ) : null}
         </div>
       ) : null}
 

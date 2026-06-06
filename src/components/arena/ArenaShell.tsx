@@ -1022,11 +1022,17 @@ export function ArenaShell() {
 
   const beginNewStakeSession = useCallback(() => {
     clearStakeSessionMeta();
+    clearPokerMasterThinking();
+    resetAutoFlowSession();
     setStakeSessionMeta(null);
     setPaymentResult(null);
     setPaymentError(null);
     setLockStakePhase("idle");
-  }, []);
+    setStepDemo(createInitialStepDemoState());
+    setSessionStacks(createInitialSessionStacks());
+    setResult(null);
+    setError(null);
+  }, [clearPokerMasterThinking, resetAutoFlowSession]);
 
   const handleCashOut = useCallback(async () => {
     if (!stakeSessionMeta || !isStakeSessionActive(stakeSessionMeta)) return;
@@ -1266,7 +1272,7 @@ export function ArenaShell() {
     }
     const readyStacks = sanitizeSessionStacks(sessionStacks);
     if (!canStartHeadsUpHand(readyStacks)) {
-      setError("One player is out of chips — reset demo stacks to continue.");
+      setError("One player is out of chips — start a new test stake session from the side panel.");
       return;
     }
     clearPokerMasterThinking();

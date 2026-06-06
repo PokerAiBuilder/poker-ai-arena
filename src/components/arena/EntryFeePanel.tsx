@@ -23,6 +23,11 @@ import {
   getShortAddress,
 } from "@/lib/onchain/baseSepolia";
 import {
+  getEscrowExplorerAddressUrl,
+  getEscrowStatusLabel,
+  isEscrowConfigured,
+} from "@/lib/onchain/escrowContract";
+import {
   DEFAULT_TEST_STAKE,
   formatStakeToChipsLine,
   formatTestBalance,
@@ -106,6 +111,8 @@ export function EntryFeePanel({
     stakeSessionMeta?.explorerUrl ??
     (lockTxHash ? getBaseSepoliaExplorerTxUrl(lockTxHash) : undefined);
   const lockSettlement = stakeSessionMeta?.lockSettlement ?? "mock";
+  const escrowConfigured = isEscrowConfigured();
+  const escrowExplorerUrl = getEscrowExplorerAddressUrl();
 
   const isCashedOut = isStakeSessionCashedOut(stakeSessionMeta);
   const isActive = !isCashedOut && paymentResult?.success === true;
@@ -321,6 +328,37 @@ export function EntryFeePanel({
               )}
             </div>
 
+            <div
+              className={cn(
+                "rounded-lg border px-2.5 py-2 text-[10px]",
+                escrowConfigured
+                  ? "border-violet-500/30 bg-violet-950/20 text-violet-100/90"
+                  : "border-white/10 bg-black/25 text-muted-foreground",
+              )}
+            >
+              <p>{getEscrowStatusLabel()}</p>
+              {escrowConfigured && escrowExplorerUrl ? (
+                <a
+                  href={escrowExplorerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-flex items-center gap-0.5 text-[9px] text-violet-300 hover:underline"
+                >
+                  View contract on Basescan
+                  <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-70" />
+                </a>
+              ) : null}
+              {!escrowConfigured ? (
+                <p className="mt-1 text-[9px] leading-relaxed opacity-80">
+                  Treasury direct lock remains active until escrow deposit is wired.
+                </p>
+              ) : (
+                <p className="mt-1 text-[9px] leading-relaxed opacity-80">
+                  Escrow deposit path coming next — treasury lock remains active for now.
+                </p>
+              )}
+            </div>
+
             <TestStakePicker
               value={selectedStake}
               onChange={onStakeChange ?? (() => undefined)}
@@ -513,69 +551,73 @@ export function EntryFeePanel({
           <>
             <dl
               className={cn(
-                "space-y-1 rounded-lg border border-white/10 bg-black/30",
-                compact ? "p-2" : "p-2.5",
+                "space-y-1.5 rounded-lg border border-white/10 bg-black/30",
+                compact ? "p-2" : "p-3",
               )}
             >
-              <div className="flex justify-between gap-2 text-[11px]">
+              <div className="flex justify-between gap-3 text-[11px]">
                 <dt className="text-muted-foreground">Selected stake</dt>
                 <dd className="min-w-0 truncate text-right font-semibold text-white">
                   {tier.usdLabel}
                 </dd>
               </div>
-              <div className="flex justify-between gap-2 text-[11px]">
+              <div className="flex justify-between gap-3 text-[11px]">
                 <dt className="text-muted-foreground">Starting chips</dt>
                 <dd className="min-w-0 truncate text-right text-white">
                   {resolvedStartingChips.toLocaleString()}
                 </dd>
               </div>
-              <div className="flex justify-between gap-2 text-[11px]">
+              <div className="flex justify-between gap-3 text-[11px]">
                 <dt className="text-muted-foreground">Current chips</dt>
                 <dd className="min-w-0 truncate text-right font-semibold text-[var(--arena-cyan)]">
                   {currentHumanChips.toLocaleString()}
                 </dd>
               </div>
-              <div className="flex justify-between gap-2 text-[11px]">
+              <div className="flex justify-between gap-3 text-[11px]">
                 <dt className="text-muted-foreground">Est. test balance</dt>
                 <dd className="min-w-0 truncate text-right text-white">
                   {formatTestBalance(currentHumanChips)}
                 </dd>
               </div>
-              <div className="flex justify-between gap-2 text-[11px]">
+              <div className="flex justify-between gap-3 text-[11px]">
                 <dt className="shrink-0 text-muted-foreground">Network</dt>
-                <dd className="min-w-0 truncate text-right text-white">
-                  Base Sepolia
-                </dd>
+                <dd className="min-w-0 truncate text-right text-white">Base Sepolia</dd>
               </div>
-              <div className="flex justify-between gap-2 text-[11px]">
+              <div className="flex justify-between gap-3 text-[11px]">
                 <dt className="shrink-0 text-muted-foreground">Payment asset</dt>
                 <dd className="min-w-0 truncate text-right text-white">
                   {tier.testPaymentLabel}
                 </dd>
               </div>
-              <div className="flex justify-between gap-2 text-[11px]">
+              <div className="flex justify-between gap-3 text-[11px]">
                 <dt className="shrink-0 text-muted-foreground">Settlement</dt>
                 <dd className="min-w-0 truncate text-right text-[var(--arena-cyan)]">
                   {getLockSettlementLabel(lockSettlement)}
                 </dd>
               </div>
               {lockTxHash ? (
-                <div className="flex justify-between gap-2 text-[11px]">
+                <div className="flex items-center justify-between gap-3 border-t border-white/5 pt-2 text-[11px]">
                   <dt className="shrink-0 text-muted-foreground">Lock tx</dt>
-                  <dd className="min-w-0 truncate text-right">
+                  <dd className="min-w-0">
                     {lockExplorerUrl ? (
                       <a
                         href={lockExplorerUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-0.5 font-mono text-[9px] text-[var(--arena-cyan)] hover:underline"
+                        className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-[var(--arena-cyan)]/25 bg-[var(--arena-cyan)]/5 px-2 py-1 font-mono text-[10px] text-[var(--arena-cyan)] hover:bg-[var(--arena-cyan)]/10"
                         title={lockTxHash}
                       >
-                        {formatTxHash(lockTxHash)}
-                        <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-70" />
+                        <span className="truncate">{formatTxHash(lockTxHash)}</span>
+                        <span className="shrink-0 font-sans text-[9px] font-medium uppercase tracking-wide">
+                          View
+                        </span>
+                        <ExternalLink className="h-3 w-3 shrink-0 opacity-80" />
                       </a>
                     ) : (
-                      <span className="font-mono text-[9px] text-white/75">
+                      <span
+                        className="font-mono text-[10px] text-white/75"
+                        title={lockTxHash}
+                      >
                         {formatTxHash(lockTxHash)}
                       </span>
                     )}
@@ -584,14 +626,23 @@ export function EntryFeePanel({
               ) : null}
               {stakeSessionMeta?.lockTxStatus &&
               stakeSessionMeta.lockTxStatus !== "mock" ? (
-                <div className="flex justify-between gap-2 text-[11px]">
+                <div className="flex justify-between gap-3 text-[11px]">
                   <dt className="shrink-0 text-muted-foreground">Lock tx status</dt>
-                  <dd className="min-w-0 truncate text-right capitalize text-white/80">
+                  <dd className="min-w-0 truncate text-right capitalize text-emerald-300/90">
                     {stakeSessionMeta.lockTxStatus}
                   </dd>
                 </div>
               ) : null}
             </dl>
+
+            <p className="text-[9px] leading-relaxed text-muted-foreground">
+              Starting chips come from your locked stake. Current chips update through
+              hand results.
+              {lockSettlement === "base-sepolia-test-tx"
+                ? " Wallet balance updates from Base Sepolia transactions."
+                : null}{" "}
+              Cash out records current test balance; escrow payout comes next.
+            </p>
 
             <Button
               type="button"
@@ -618,12 +669,12 @@ export function EntryFeePanel({
               </p>
             ) : currentHumanChips <= 0 ? (
               <p className="text-[9px] leading-relaxed text-muted-foreground">
-                No chips left to cash out.
+                No chips left to cash out. Start a new test stake session below.
               </p>
             ) : isConnected ? (
               <p className="text-[9px] leading-relaxed text-muted-foreground">
-                Cash out records your current test balance for the connected
-                wallet. On-chain payout comes in the escrow phase.
+                Cash out records your current test balance for the connected wallet.
+                Escrow payout comes next.
                 {address ? (
                   <>
                     {" "}
@@ -637,10 +688,21 @@ export function EntryFeePanel({
             ) : (
               <p className="text-[9px] leading-relaxed text-muted-foreground">
                 Connect wallet to set your escrow payout target. Cash out still
-                records your test balance locally — on-chain payout comes in the
-                escrow phase.
+                records your test balance locally — escrow payout comes next.
               </p>
             )}
+
+            {currentHumanChips <= 0 && !handInProgress && !cashingOut ? (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={isPaying}
+                className="w-full text-[11px]"
+                onClick={() => onBeginNewStakeSession?.()}
+              >
+                Start New Test Stake Session
+              </Button>
+            ) : null}
 
             {(paymentResult.receiptId || lockTxHash) &&
             lockSettlement === "mock" ? (
