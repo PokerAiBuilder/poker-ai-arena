@@ -6,6 +6,8 @@ import {
   isBaseSepolia,
   isTestnetTreasuryConfigured,
 } from "@/lib/onchain/baseSepolia";
+import { isEscrowConfigured } from "@/lib/onchain/escrowContract";
+import { isLockStakePathConfigured } from "@/lib/stake/lockTestStakeTx";
 import { switchToBaseSepoliaWithAddChain } from "@/lib/onchain/switchBaseSepolia";
 
 export function useTestnetStakeNetwork() {
@@ -16,8 +18,10 @@ export function useTestnetStakeNetwork() {
   const onBaseSepolia = isBaseSepolia(chainId);
   const wrongNetwork = isConnected && !onBaseSepolia;
   const treasuryConfigured = isTestnetTreasuryConfigured();
+  const escrowConfigured = isEscrowConfigured();
+  const lockPathConfigured = isLockStakePathConfigured();
   const canSendLockTx =
-    isConnected && onBaseSepolia && treasuryConfigured && Boolean(address);
+    isConnected && onBaseSepolia && lockPathConfigured && Boolean(address);
 
   const switchToBaseSepolia = useCallback(async () => {
     await switchToBaseSepoliaWithAddChain(switchChainAsync);
@@ -30,6 +34,8 @@ export function useTestnetStakeNetwork() {
     onBaseSepolia,
     wrongNetwork,
     treasuryConfigured,
+    escrowConfigured,
+    lockPathConfigured,
     canSendLockTx,
     switchToBaseSepolia,
     isSwitching,

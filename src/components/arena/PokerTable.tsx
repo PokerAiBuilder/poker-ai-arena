@@ -22,7 +22,7 @@ import {
   getLockStakePhaseLabel,
   type LockStakePhase,
 } from "@/lib/stake/lockStakeFlow";
-import { getEscrowStatusLabel, isEscrowConfigured } from "@/lib/onchain/escrowContract";
+import { getEscrowLockPathHint } from "@/lib/onchain/escrowContract";
 import { cn } from "@/lib/utils";
 
 export type TableSeat = {
@@ -1323,6 +1323,8 @@ export function PokerTable({
     onBaseSepolia,
     wrongNetwork,
     treasuryConfigured,
+    escrowConfigured,
+    lockPathConfigured,
     canSendLockTx,
     switchToBaseSepolia,
     isSwitching,
@@ -1332,7 +1334,6 @@ export function PokerTable({
   const isPayingStake = payingLockStake || payingMockStake;
   const phaseLabel = getLockStakePhaseLabel(lockStakePhase);
   const showStakeActions = Boolean(onLockStake || onPayMock);
-  const escrowConfigured = isEscrowConfigured();
 
   return (
     <div
@@ -1529,27 +1530,40 @@ export function PokerTable({
                           "Local preview / no wallet connected"}
                       </dd>
                     </div>
-                    <div className="flex justify-between gap-2">
-                      <dt className="text-muted-foreground">Mock withdrawal receipt</dt>
-                      <dd
-                        className="max-w-[7rem] truncate font-mono text-[9px] text-white/75"
-                        title={cashOutRecord.mockWithdrawalId}
-                      >
-                        {cashOutRecord.mockWithdrawalId}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <dt className="text-muted-foreground">No transfer yet</dt>
-                      <dd className="text-white/80">No on-chain transfer yet</dd>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <dt className="text-muted-foreground">Future payout target</dt>
-                      <dd className="text-right text-emerald-300/90">
-                        {cashOutRecord.walletAddress
-                          ? "Connected wallet"
-                          : "Connect wallet for next session"}
-                      </dd>
-                    </div>
+                    {cashOutRecord.claimTxHash ? (
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">Claim tx</dt>
+                        <dd className="max-w-[7rem] truncate font-mono text-[9px] text-violet-200">
+                          {cashOutRecord.claimTxHash}
+                        </dd>
+                      </div>
+                    ) : cashOutRecord.mockWithdrawalId ? (
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">Mock withdrawal receipt</dt>
+                        <dd
+                          className="max-w-[7rem] truncate font-mono text-[9px] text-white/75"
+                          title={cashOutRecord.mockWithdrawalId}
+                        >
+                          {cashOutRecord.mockWithdrawalId}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {cashOutRecord.settlement === "escrow-claim" ? (
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">On-chain payout</dt>
+                        <dd className="text-emerald-300/90">Claimed from escrow</dd>
+                      </div>
+                    ) : cashOutRecord.settlement === "treasury-record" ? (
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">Treasury payout</dt>
+                        <dd className="text-amber-200/90">Not automated</dd>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">Transfer</dt>
+                        <dd className="text-white/80">Mock — no on-chain transfer</dd>
+                      </div>
+                    )}
                   </dl>
                 ) : null}
               </>
@@ -1576,7 +1590,9 @@ export function PokerTable({
                     {wrongNetwork
                       ? "Switch to Base Sepolia to lock a test stake."
                       : isConnected && onBaseSepolia && canSendLockTx
-                        ? "MetaMask will ask you to confirm a Base Sepolia test ETH transfer."
+                        ? escrowConfigured
+                          ? "Your wallet will ask you to confirm a Base Sepolia escrow deposit."
+                          : "Your wallet will ask you to confirm a Base Sepolia test ETH transfer."
                         : isConnected && onBaseSepolia
                           ? "Ready to lock test stake on Base Sepolia."
                           : "Connect wallet for testnet lock, or start a mock session."}
@@ -1591,10 +1607,7 @@ export function PokerTable({
                         : "border-white/10 bg-black/25 text-muted-foreground",
                     )}
                   >
-                    {getEscrowStatusLabel()}
-                    {escrowConfigured
-                      ? " · treasury lock remains active for now"
-                      : " · treasury lock remains active"}
+                    {getEscrowLockPathHint()}
                   </p>
                 ) : null}
               </>
@@ -1667,7 +1680,7 @@ export function PokerTable({
                       type="button"
                       size="lg"
                       className="v1-button-primary w-full"
-                      disabled={isPayingStake || !treasuryConfigured}
+                      disabled={isPayingStake || !canSendLockTx}
                       onClick={onLockStake}
                     >
                       {payingLockStake ? (
@@ -1723,9 +1736,9 @@ export function PokerTable({
                     </Button>
                   </>
                 )}
-                {isConnected && onBaseSepolia && !treasuryConfigured && !stakeCashedOut ? (
+                {isConnected && onBaseSepolia && !lockPathConfigured && !stakeCashedOut ? (
                   <p className="text-[10px] leading-relaxed text-amber-200/85">
-                    Treasury address not configured — cannot send testnet stake
+                    Escrow and treasury are not configured — cannot send testnet stake
                     transaction. Use Start Mock Test Session for local preview.
                   </p>
                 ) : null}
@@ -1737,7 +1750,9 @@ export function PokerTable({
                 <p className="text-[10px] leading-relaxed text-[var(--arena-muted)]">
                   Base Sepolia · test tokens only · no mainnet funds
                   {canSendLockTx && !stakeCashedOut
-                    ? " · confirm test ETH transfer in MetaMask"
+                    ? escrowConfigured
+                      ? " · confirm escrow deposit in your wallet"
+                      : " · confirm test ETH transfer in your wallet"
                     : " · mock session available as fallback"}
                 </p>
                 {paymentError ? (

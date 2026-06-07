@@ -7,6 +7,7 @@ import {
   formatTestStakeLabel,
   type TestStakeAmount,
 } from "@/lib/stake/testnetStake";
+import type { LockSettlement } from "@/lib/stake/stakeSessionStorage";
 import { cn } from "@/lib/utils";
 
 type StakeSessionMenuSectionProps = {
@@ -15,6 +16,7 @@ type StakeSessionMenuSectionProps = {
   currentHumanChips: number;
   startingChips: number;
   stakeAmount?: TestStakeAmount | string;
+  lockSettlement?: LockSettlement;
   handInProgress: boolean;
   cashingOut: boolean;
   payingStake?: boolean;
@@ -28,18 +30,30 @@ export function StakeSessionMenuSection({
   currentHumanChips,
   startingChips,
   stakeAmount,
+  lockSettlement = "mock",
   handInProgress,
   cashingOut,
   payingStake = false,
   onCashOut,
   className,
 }: StakeSessionMenuSectionProps) {
+  const isEscrow = lockSettlement === "escrow-deposit";
+  const isTreasury = lockSettlement === "base-sepolia-test-tx";
+
   const canCashOut =
     sessionActive &&
-    currentHumanChips > 0 &&
     !handInProgress &&
     !cashingOut &&
-    !payingStake;
+    !payingStake &&
+    (isEscrow ? true : currentHumanChips > 0);
+
+  const cashOutLabel = isEscrow
+    ? currentHumanChips <= 0
+      ? "Close Escrow Session"
+      : "Claim Escrow Payout"
+    : isTreasury
+      ? "Close Treasury Session"
+      : "Mock Cash Out";
 
   return (
     <section
@@ -105,7 +119,7 @@ export function StakeSessionMenuSection({
             ) : (
               <>
                 <Wallet className="h-3.5 w-3.5 shrink-0" />
-                Cash Out Test Balance To Wallet
+                {cashOutLabel}
               </>
             )}
           </Button>
@@ -114,14 +128,21 @@ export function StakeSessionMenuSection({
             <p className="mt-2 text-[10px] leading-relaxed text-amber-200/85">
               Finish the current hand before cashing out.
             </p>
-          ) : currentHumanChips <= 0 ? (
+          ) : isEscrow && currentHumanChips <= 0 ? (
             <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-              No chips left to cash out.
+              No payout available — close escrow session.
+            </p>
+          ) : isTreasury ? (
+            <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+              Treasury payout not automated — records balance locally.
+            </p>
+          ) : isEscrow ? (
+            <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+              Claim escrow payout after session resolve.
             </p>
           ) : (
             <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-              Cash out records your current test balance. Escrow payout comes
-              next.
+              Mock cash out — records balance locally.
             </p>
           )}
         </>

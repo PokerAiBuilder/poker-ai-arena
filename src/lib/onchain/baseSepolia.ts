@@ -60,9 +60,12 @@ export function isTestnetTreasuryConfigured(): boolean {
   return getTestnetTreasuryAddress() !== null;
 }
 
+import type { LockSettlement } from "@/lib/stake/stakeSessionStorage";
+
 export function getLockSettlementLabel(
-  settlement?: "mock" | "base-sepolia-test-tx",
+  settlement?: LockSettlement,
 ): string {
-  if (settlement === "base-sepolia-test-tx") return "Base Sepolia test tx";
+  if (settlement === "escrow-deposit") return "Escrow deposit";
+  if (settlement === "base-sepolia-test-tx") return "Treasury test tx";
   return "Mock test stake lock";
 }

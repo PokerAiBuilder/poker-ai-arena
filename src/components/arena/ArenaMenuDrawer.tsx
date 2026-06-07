@@ -60,6 +60,7 @@ type ArenaMenuDrawerProps = {
   currentHumanChips?: number;
   startingChips?: number;
   stakeAmount?: string;
+  lockSettlement?: import("@/lib/stake/stakeSessionStorage").LockSettlement;
   handInProgress?: boolean;
   cashingOut?: boolean;
   payingStake?: boolean;
@@ -149,6 +150,7 @@ export function ArenaMenuDrawer({
   currentHumanChips = 0,
   startingChips = 0,
   stakeAmount,
+  lockSettlement = "mock",
   handInProgress = false,
   cashingOut = false,
   payingStake = false,
@@ -257,6 +259,7 @@ export function ArenaMenuDrawer({
               currentHumanChips={currentHumanChips}
               startingChips={startingChips}
               stakeAmount={stakeAmount}
+              lockSettlement={lockSettlement}
               handInProgress={handInProgress}
               cashingOut={cashingOut}
               payingStake={payingStake}

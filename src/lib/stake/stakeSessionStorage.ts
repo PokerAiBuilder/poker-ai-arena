@@ -6,16 +6,32 @@ export type StakeSessionStatus = "active" | "cashed_out";
 
 export type LockTxStatus = "pending" | "confirmed" | "failed" | "mock";
 
-export type LockSettlement = "mock" | "base-sepolia-test-tx";
+export type LockSettlement = "mock" | "base-sepolia-test-tx" | "escrow-deposit";
+
+export type ClaimStatus =
+  | "none"
+  | "pending"
+  | "confirmed"
+  | "failed"
+  | "not-applicable";
+
+export type CashOutSettlement =
+  | "mock withdrawal"
+  | "escrow-claim"
+  | "escrow-zero-payout"
+  | "treasury-record";
 
 export type StakeCashOutRecord = {
   cashedOutAt: string;
   cashOutChips: number;
   cashOutTestBalance: number;
-  mockWithdrawalId: string;
+  mockWithdrawalId?: string;
   walletAddress?: string;
   network: "base-sepolia";
-  settlement: "mock withdrawal";
+  settlement: CashOutSettlement;
+  claimTxHash?: string;
+  claimExplorerUrl?: string;
+  claimedEthAmount?: string;
 };
 
 export type StakeSessionMeta = {
@@ -28,7 +44,16 @@ export type StakeSessionMeta = {
   lockTxStatus?: LockTxStatus;
   lockSettlement?: LockSettlement;
   treasuryAddress?: string;
+  escrowAddress?: string;
+  escrowSessionId?: string;
+  walletAddress?: string;
   explorerUrl?: string;
+  escrowResolved?: boolean;
+  escrowResult?: string;
+  escrowPayoutAmount?: string;
+  escrowResolveTxHash?: string;
+  escrowClaimTxHash?: string;
+  claimStatus?: ClaimStatus;
 };
 
 function generateMockWithdrawalId(): string {
@@ -51,12 +76,57 @@ export function createMockCashOutRecord(
   };
 }
 
+export function createTreasuryCashOutRecord(
+  chips: number,
+  testBalance: number,
+  walletAddress?: string,
+): StakeCashOutRecord {
+  return {
+    cashedOutAt: new Date().toISOString(),
+    cashOutChips: chips,
+    cashOutTestBalance: testBalance,
+    walletAddress,
+    network: "base-sepolia",
+    settlement: "treasury-record",
+  };
+}
+
+export function createEscrowCashOutRecord(
+  chips: number,
+  testBalance: number,
+  walletAddress: string | undefined,
+  options: {
+    claimTxHash?: string;
+    claimExplorerUrl?: string;
+    claimedEthAmount?: string;
+    zeroPayout?: boolean;
+  },
+): StakeCashOutRecord {
+  return {
+    cashedOutAt: new Date().toISOString(),
+    cashOutChips: chips,
+    cashOutTestBalance: testBalance,
+    walletAddress,
+    network: "base-sepolia",
+    settlement: options.zeroPayout ? "escrow-zero-payout" : "escrow-claim",
+    claimTxHash: options.claimTxHash,
+    claimExplorerUrl: options.claimExplorerUrl,
+    claimedEthAmount: options.claimedEthAmount,
+  };
+}
+
 function normalizeStakeSessionMeta(raw: StakeSessionMeta): StakeSessionMeta {
   return {
     ...raw,
     status: raw.status ?? "active",
-    lockTxStatus: raw.lockTxStatus ?? (raw.lockSettlement === "base-sepolia-test-tx" ? "pending" : "mock"),
+    lockTxStatus:
+      raw.lockTxStatus ??
+      (raw.lockSettlement === "base-sepolia-test-tx" ||
+      raw.lockSettlement === "escrow-deposit"
+        ? "pending"
+        : "mock"),
     lockSettlement: raw.lockSettlement ?? "mock",
+    claimStatus: raw.claimStatus ?? "none",
   };
 }
 

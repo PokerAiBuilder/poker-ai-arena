@@ -132,20 +132,25 @@ import {
 import {
   clearStakeSessionMeta,
   createMockCashOutRecord,
+  createTreasuryCashOutRecord,
   isStakeSessionActive,
   isStakeSessionCashedOut,
   loadStakeSessionMeta,
   saveStakeSessionMeta,
   type StakeSessionMeta,
 } from "@/lib/stake/stakeSessionStorage";
-import { sendLockTestStakeTx } from "@/lib/stake/lockTestStakeTx";
+import {
+  performEscrowCashOut,
+  performEscrowResolveOnly,
+  type EscrowCashOutPhase,
+} from "@/lib/stake/escrowCashOutFlow";
+import { sendLockTestStakeTx, isLockStakePathConfigured } from "@/lib/stake/lockTestStakeTx";
 import {
   isUserRejectedTransactionError,
   type LockStakePhase,
 } from "@/lib/stake/lockStakeFlow";
 import {
   getBaseSepoliaExplorerTxUrl,
-  getTestnetTreasuryAddress,
   isBaseSepolia,
 } from "@/lib/onchain/baseSepolia";
 import type { GameAction, GameMode, SimulationResult } from "@/lib/poker/types";
@@ -256,6 +261,9 @@ export function ArenaShell() {
     null,
   );
   const [cashingOut, setCashingOut] = useState(false);
+  const [resolvingEscrow, setResolvingEscrow] = useState(false);
+  const [escrowCashOutPhase, setEscrowCashOutPhase] =
+    useState<EscrowCashOutPhase | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [sessionLog, setSessionLog] = useState<GameAction[]>([]);
   const [stepDemo, setStepDemo] = useState<StepDemoState>(createInitialStepDemoState);
@@ -901,16 +909,23 @@ export function ArenaShell() {
         return;
       }
 
-      if (!getTestnetTreasuryAddress()) {
+      if (!isLockStakePathConfigured()) {
         setPaymentError(
-          "Treasury address not configured — cannot send testnet stake transaction.",
+          "Escrow and treasury are not configured — cannot send testnet stake transaction.",
         );
         setPayingLock(false);
         return;
       }
 
       try {
-        const { hash, lockTxStatus, treasuryAddress } = await sendLockTestStakeTx(
+        const {
+          hash,
+          lockTxStatus,
+          lockSettlement,
+          treasuryAddress,
+          escrowAddress,
+          escrowSessionId,
+        } = await sendLockTestStakeTx(
           stakeAmount,
           address,
           chain!.id,
@@ -925,8 +940,11 @@ export function ArenaShell() {
           status: "active",
           lockTxHash: hash,
           lockTxStatus,
-          lockSettlement: "base-sepolia-test-tx",
+          lockSettlement,
           treasuryAddress,
+          escrowAddress,
+          escrowSessionId,
+          walletAddress: address,
           explorerUrl,
         };
         const paymentData: X402PaymentResult = {
@@ -1041,26 +1059,22 @@ export function ArenaShell() {
       setPaymentError("Finish the current hand before cashing out.");
       return;
     }
+
+    const lockSettlement = stakeSessionMeta.lockSettlement ?? "mock";
     const chips = currentHumanChips;
-    if (chips <= 0) {
+    const startingChips =
+      stakeSessionMeta.startingChips ?? lockedStartingChips;
+
+    if (lockSettlement !== "escrow-deposit" && chips <= 0) {
       setPaymentError("No chips available to cash out.");
       return;
     }
 
     setCashingOut(true);
+    setEscrowCashOutPhase(null);
     setPaymentError(null);
 
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 350));
-
-      const testBalance = chipsToTestBalance(chips);
-      const cashOut = createMockCashOutRecord(chips, testBalance, address);
-      const meta: StakeSessionMeta = {
-        ...stakeSessionMeta,
-        status: "cashed_out",
-        cashOut,
-      };
-
+    const finishCashOut = (meta: StakeSessionMeta, logMessage: string) => {
       saveStakeSessionMeta(meta);
       setStakeSessionMeta(meta);
       setPaymentResult(null);
@@ -1069,23 +1083,130 @@ export function ArenaShell() {
       setError(null);
       clearPokerMasterThinking();
       resetAutoFlowSession();
+      setSessionLog((prev) => [...prev, createSessionLogEntry(logMessage)]);
+    };
 
-      setSessionLog((prev) => [
-        ...prev,
-        createSessionLogEntry(
-          `Mock cash out — ${chips.toLocaleString()} chips (${formatTestBalanceAmount(testBalance)}) to wallet on Base Sepolia. Receipt ${cashOut.mockWithdrawalId}.`,
-        ),
-      ]);
+    try {
+      if (lockSettlement === "escrow-deposit") {
+        const { meta, logMessage } = await performEscrowCashOut(
+          stakeSessionMeta,
+          chips,
+          startingChips,
+          address,
+          chain?.id,
+          (phase) => setEscrowCashOutPhase(phase),
+        );
+        finishCashOut(meta, logMessage);
+        return;
+      }
+
+      if (lockSettlement === "base-sepolia-test-tx") {
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        const testBalance = chipsToTestBalance(chips);
+        const cashOut = createTreasuryCashOutRecord(
+          chips,
+          testBalance,
+          address,
+        );
+        finishCashOut(
+          {
+            ...stakeSessionMeta,
+            status: "cashed_out",
+            cashOut,
+          },
+          `Treasury session closed — ${chips.toLocaleString()} chips recorded locally. Treasury payout not automated.`,
+        );
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      const testBalance = chipsToTestBalance(chips);
+      const cashOut = createMockCashOutRecord(chips, testBalance, address);
+      finishCashOut(
+        {
+          ...stakeSessionMeta,
+          status: "cashed_out",
+          cashOut,
+        },
+        `Mock cash out — ${chips.toLocaleString()} chips (${formatTestBalanceAmount(testBalance)}) recorded locally. Receipt ${cashOut.mockWithdrawalId}.`,
+      );
+    } catch (err) {
+      if (isUserRejectedTransactionError(err)) {
+        setPaymentError("Transaction rejected in wallet.");
+        setSessionLog((prev) => [
+          ...prev,
+          createErrorLogEntry("Cash-out transaction rejected in wallet."),
+        ]);
+      } else {
+        const message =
+          err instanceof Error ? err.message : "Cash-out failed";
+        setPaymentError(message);
+        setSessionLog((prev) => [...prev, createErrorLogEntry(message)]);
+      }
     } finally {
       setCashingOut(false);
+      setEscrowCashOutPhase(null);
     }
   }, [
     stakeSessionMeta,
     handInProgress,
     currentHumanChips,
+    lockedStartingChips,
     address,
+    chain?.id,
     clearPokerMasterThinking,
     resetAutoFlowSession,
+  ]);
+
+  const handleResolveEscrow = useCallback(async () => {
+    if (!stakeSessionMeta || !isStakeSessionActive(stakeSessionMeta)) return;
+    if (stakeSessionMeta.lockSettlement !== "escrow-deposit") return;
+    if (!address) {
+      setPaymentError("Connect wallet to resolve escrow session.");
+      return;
+    }
+    if (handInProgress) {
+      setPaymentError("Finish the current hand before resolving.");
+      return;
+    }
+
+    setResolvingEscrow(true);
+    setPaymentError(null);
+
+    try {
+      const startingChips =
+        stakeSessionMeta.startingChips ?? lockedStartingChips;
+      const updated = await performEscrowResolveOnly(
+        stakeSessionMeta,
+        currentHumanChips,
+        startingChips,
+        address,
+      );
+      saveStakeSessionMeta(updated);
+      setStakeSessionMeta(updated);
+      setSessionLog((prev) => [
+        ...prev,
+        createSessionLogEntry(
+          `Escrow session #${updated.escrowSessionId} resolved on Base Sepolia. Payout ${updated.escrowPayoutAmount ?? "0"} wei.`,
+        ),
+      ]);
+    } catch (err) {
+      if (isUserRejectedTransactionError(err)) {
+        setPaymentError("Resolve transaction rejected in wallet.");
+      } else {
+        const message =
+          err instanceof Error ? err.message : "Escrow resolve failed";
+        setPaymentError(message);
+      }
+    } finally {
+      setResolvingEscrow(false);
+    }
+  }, [
+    stakeSessionMeta,
+    address,
+    handInProgress,
+    currentHumanChips,
+    lockedStartingChips,
   ]);
 
   const runSimulation = useCallback(
@@ -2160,10 +2281,13 @@ export function ArenaShell() {
                 onPayMock={payMockEntryFee}
                 onBeginNewStakeSession={beginNewStakeSession}
                 onCashOut={handleCashOut}
+                onResolveEscrow={handleResolveEscrow}
                 payingLock={payingLock}
                 payingMock={payingMock}
                 lockStakePhase={lockStakePhase}
                 cashingOut={cashingOut}
+                resolvingEscrow={resolvingEscrow}
+                escrowCashOutPhase={escrowCashOutPhase}
                 error={paymentError}
                 selectedStake={selectedTestStake}
                 onStakeChange={setSelectedTestStake}
@@ -2313,6 +2437,7 @@ export function ArenaShell() {
         stakeAmount={
           stakeSessionMeta?.stakeAmount ?? paymentResult?.amount ?? selectedTestStake
         }
+        lockSettlement={stakeSessionMeta?.lockSettlement ?? "mock"}
         handInProgress={handInProgress}
         cashingOut={cashingOut}
         payingStake={payingLock || payingMock}
