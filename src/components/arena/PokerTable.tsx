@@ -1322,7 +1322,7 @@ export function PokerTable({
       {showHumanVsAiBadge ? (
         <Badge
           variant="secondary"
-          className="absolute left-5 top-5 z-[35] max-w-[220px] border-[var(--arena-cyan)]/40 bg-[var(--arena-surface-2)]/95 text-center text-[9px] font-medium leading-snug text-[var(--arena-cyan)]"
+          className="absolute left-3 top-3 z-[35] max-w-[220px] border-[var(--arena-cyan)]/40 bg-[var(--arena-surface-2)]/95 text-center text-[9px] font-medium leading-snug text-[var(--arena-cyan)] md:left-5 md:top-5 max-md:hidden"
         >
           Human vs AI — current hand
         </Badge>
