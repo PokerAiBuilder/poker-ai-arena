@@ -7,11 +7,8 @@ type DemoDisclaimersProps = {
 
 export function DemoDisclaimers({ className, compact = false }: DemoDisclaimersProps) {
   const items = [
-    "Test tokens only",
-    "Base Sepolia testnet",
-    "No mainnet funds",
-    "Mock test stake session",
-    "Not real-money wagering",
+    "Base Sepolia testnet only · no mainnet funds",
+    "Mock session · local preview only",
   ] as const;
 
   return (

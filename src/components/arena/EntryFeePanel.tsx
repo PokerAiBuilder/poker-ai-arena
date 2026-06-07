@@ -6,7 +6,6 @@ import {
   ExternalLink,
   Loader2,
   Lock,
-  ShieldCheck,
   Unlock,
   Wallet,
 } from "lucide-react";
@@ -18,15 +17,11 @@ import type { X402PaymentResult } from "@/lib/bankr/x402Client";
 import { useTestnetStakeNetwork } from "@/hooks/useTestnetStakeNetwork";
 import {
   formatTxHash,
-  getBaseSepoliaExplorerAddressUrl,
   getBaseSepoliaExplorerTxUrl,
   getLockSettlementLabel,
   getShortAddress,
 } from "@/lib/onchain/baseSepolia";
 import {
-  getEscrowExplorerAddressUrl,
-  getEscrowLockPathHint,
-  getEscrowStatusLabel,
   getEscrowTxUrl,
   isEscrowDevMode,
 } from "@/lib/onchain/escrowContract";
@@ -34,7 +29,6 @@ import type { EscrowCashOutPhase } from "@/lib/stake/escrowCashOutFlow";
 import {
   DEFAULT_TEST_STAKE,
   formatStakeToChipsLine,
-  formatTestBalance,
   formatTestBalanceAmount,
   getTestStakeTier,
   type TestStakeAmount,
@@ -93,7 +87,7 @@ export function EntryFeePanel({
   error,
   selectedStake = DEFAULT_TEST_STAKE,
   onStakeChange,
-  startingChips,
+  startingChips: _startingChips,
   currentHumanChips = 0,
   handInProgress = false,
   compact = false,
@@ -104,8 +98,6 @@ export function EntryFeePanel({
     isConnected,
     onBaseSepolia,
     wrongNetwork,
-    treasuryConfigured,
-    escrowConfigured,
     lockPathConfigured,
     canSendLockTx,
     switchToBaseSepolia,
@@ -123,11 +115,6 @@ export function EntryFeePanel({
     stakeSessionMeta?.explorerUrl ??
     (lockTxHash ? getBaseSepoliaExplorerTxUrl(lockTxHash) : undefined);
   const lockSettlement = stakeSessionMeta?.lockSettlement ?? "mock";
-  const escrowExplorerUrl = getEscrowExplorerAddressUrl();
-  const escrowSessionExplorerUrl =
-    stakeSessionMeta?.escrowAddress
-      ? getBaseSepoliaExplorerAddressUrl(stakeSessionMeta.escrowAddress)
-      : escrowExplorerUrl;
   const isEscrowDeposit = lockSettlement === "escrow-deposit";
   const isTreasuryLock = lockSettlement === "base-sepolia-test-tx";
   const isMockLock = lockSettlement === "mock";
@@ -141,11 +128,6 @@ export function EntryFeePanel({
   const stakeAmount =
     stakeSessionMeta?.stakeAmount ?? paymentResult?.amount ?? selectedStake;
   const tier = getTestStakeTier(stakeAmount);
-  const resolvedStartingChips =
-    startingChips ??
-    stakeSessionMeta?.startingChips ??
-    paymentResult?.chipAmount ??
-    tier.chipAmount;
 
   const canCashOut =
     isActive &&
@@ -178,13 +160,13 @@ export function EntryFeePanel({
   const phaseLabel = getLockStakePhaseLabel(lockStakePhase);
   const phaseTone =
     lockStakePhase === "locked"
-      ? "border-emerald-500/30 bg-emerald-950/25 text-emerald-100/90"
+      ? "arena-status-success"
       : lockStakePhase === "rejected" || lockStakePhase === "failed"
         ? "border-red-500/30 bg-red-950/25 text-red-200/90"
         : "border-[var(--arena-cyan)]/30 bg-[var(--arena-blue)]/10 text-[var(--arena-cyan)]";
 
   const panelTone = isCashedOut
-    ? "border-emerald-500/40 shadow-emerald-900/20"
+    ? "border-[var(--arena-cyan)]/35 shadow-[0_0_24px_rgba(34,211,238,0.08)]"
     : isActive
       ? "border-[var(--arena-cyan)]/40 shadow-arena-cyan"
       : "border-[var(--arena-border)] shadow-arena-blue";
@@ -201,7 +183,7 @@ export function EntryFeePanel({
         className={cn(
           "border-b border-white/5 px-3 py-2",
           isCashedOut
-            ? "bg-emerald-950/30"
+            ? "arena-status-success-bg"
             : isActive
               ? "bg-[var(--arena-blue)]/10"
               : "bg-[var(--arena-surface-2)]/50",
@@ -210,7 +192,7 @@ export function EntryFeePanel({
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1.5">
             {isCashedOut ? (
-              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[var(--arena-cyan)]" />
             ) : isActive ? (
               <Unlock className="h-3.5 w-3.5 shrink-0 text-[var(--arena-cyan)]" />
             ) : (
@@ -228,7 +210,7 @@ export function EntryFeePanel({
             variant={isCashedOut ? "default" : isActive ? "default" : "secondary"}
             className={cn(
               "shrink-0 text-[9px]",
-              isCashedOut && "bg-emerald-600/80",
+              isCashedOut && "arena-badge-pill-active border-[var(--arena-cyan)]/40 bg-[var(--arena-blue)]/20",
             )}
           >
             {isCashedOut
@@ -243,32 +225,30 @@ export function EntryFeePanel({
       <div className={cn(compact ? "space-y-1.5 p-2" : "space-y-3 p-4", "text-xs")}>
         {isCashedOut && cashOut ? (
           <>
-            <p className="text-[10px] leading-relaxed text-emerald-200/85">
+            <p className="text-[10px] leading-relaxed text-[var(--arena-cyan)]/85">
               {cashOut.settlement === "escrow-claim"
-                ? "Escrow payout claimed on Base Sepolia — test ETH sent to your wallet."
+                ? "Payout claimed."
                 : cashOut.settlement === "escrow-zero-payout"
-                  ? "Escrow session closed — no payout available for this session."
+                  ? "Session closed."
                   : cashOut.settlement === "treasury-record"
-                    ? "Treasury session closed locally. Treasury payout not automated."
-                    : cashOut.walletAddress
-                      ? "Mock cash out recorded for your connected wallet — no on-chain transfer."
-                      : "Mock cash out recorded locally — no wallet connected."}
+                    ? "Session closed."
+                    : "Mock session closed."}
             </p>
             <dl
               className={cn(
-                "space-y-1 rounded-lg border border-emerald-500/25 bg-emerald-950/20",
+                "space-y-1 rounded-lg border border-[var(--arena-cyan)]/20 bg-[var(--arena-blue)]/10 arena-status-success",
                 compact ? "p-2" : "p-2.5",
               )}
             >
               <div className="flex justify-between gap-2 text-[11px]">
-                <dt className="text-muted-foreground">Chips cashed out</dt>
+                <dt className="text-muted-foreground">Chips</dt>
                 <dd className="font-semibold text-white">
                   {cashOut.cashOutChips.toLocaleString()}
                 </dd>
               </div>
               <div className="flex justify-between gap-2 text-[11px]">
                 <dt className="text-muted-foreground">Test balance</dt>
-                <dd className="font-semibold text-emerald-300">
+                <dd className="font-semibold text-[var(--arena-cyan)]">
                   {formatTestBalanceAmount(cashOut.cashOutTestBalance)}
                 </dd>
               </div>
@@ -291,7 +271,7 @@ export function EntryFeePanel({
               ) : null}
               {cashOut.settlement === "mock withdrawal" && cashOut.mockWithdrawalId ? (
                 <div className="flex justify-between gap-2 text-[11px]">
-                  <dt className="text-muted-foreground">Mock withdrawal receipt</dt>
+                  <dt className="text-muted-foreground">Receipt</dt>
                   <dd
                     className="max-w-[6.5rem] truncate font-mono text-[9px] text-white/80"
                     title={cashOut.mockWithdrawalId}
@@ -308,7 +288,7 @@ export function EntryFeePanel({
                       href={cashOut.claimExplorerUrl ?? getEscrowTxUrl(cashOut.claimTxHash)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex max-w-full items-center gap-1 font-mono text-[9px] text-violet-200 hover:underline"
+                      className="inline-flex max-w-full items-center gap-1 font-mono text-[9px] text-[var(--arena-cyan)] hover:underline"
                       title={cashOut.claimTxHash}
                     >
                       {formatTxHash(cashOut.claimTxHash)}
@@ -320,7 +300,7 @@ export function EntryFeePanel({
               {cashOut.claimedEthAmount ? (
                 <div className="flex justify-between gap-2 text-[11px]">
                   <dt className="text-muted-foreground">Claimed</dt>
-                  <dd className="font-semibold text-emerald-300">
+                  <dd className="font-semibold text-[var(--arena-cyan)]">
                     {cashOut.claimedEthAmount} ETH
                   </dd>
                 </div>
@@ -329,7 +309,7 @@ export function EntryFeePanel({
               stakeSessionMeta.claimStatus !== "none" ? (
                 <div className="flex justify-between gap-2 text-[11px]">
                   <dt className="text-muted-foreground">Claim status</dt>
-                  <dd className="capitalize text-emerald-300/90">
+                  <dd className="capitalize text-[var(--arena-cyan)]/90">
                     {stakeSessionMeta.claimStatus === "not-applicable"
                       ? "No payout"
                       : stakeSessionMeta.claimStatus}
@@ -337,11 +317,7 @@ export function EntryFeePanel({
                 </div>
               ) : null}
               <div className="flex justify-between gap-2 text-[11px]">
-                <dt className="text-muted-foreground">Network</dt>
-                <dd className="text-white">Base Sepolia</dd>
-              </div>
-              <div className="flex justify-between gap-2 text-[11px]">
-                <dt className="text-muted-foreground">Cashed out</dt>
+                <dt className="text-muted-foreground">Closed</dt>
                 <dd className="text-[9px] text-white/70">
                   {new Date(cashOut.cashedOutAt).toLocaleString(undefined, {
                     dateStyle: "short",
@@ -356,81 +332,30 @@ export function EntryFeePanel({
               className="v1-button-primary w-full"
               size={compact ? "default" : "lg"}
             >
-              Choose New Test Stake Session
+              New Stake Session
             </Button>
           </>
         ) : !isActive ? (
           <>
-            {compact ? (
-              <p className="text-[10px] leading-relaxed text-muted-foreground">
-                Stake converts to starting chips. Pay with test ETH on Base
-                Sepolia{canSendLockTx ? " — confirm in your wallet" : ""}.
-              </p>
-            ) : (
-              <p className="leading-relaxed text-muted-foreground">
-                Connect wallet → choose stake → lock test stake. Your stake
-                becomes the Human vs AI chip stack for this session.
-              </p>
-            )}
-
-            <div
+            <p
               className={cn(
-                "rounded-lg border px-2.5 py-2 text-[10px]",
-                wrongNetwork
-                  ? "border-amber-500/30 bg-amber-500/10 text-amber-100/90"
-                  : isConnected && onBaseSepolia
-                    ? "border-emerald-500/30 bg-emerald-950/25 text-emerald-100/90"
-                    : "border-white/10 bg-black/25 text-muted-foreground",
+                "leading-relaxed text-muted-foreground",
+                compact ? "text-[10px]" : "text-sm",
               )}
             >
-              {wrongNetwork ? (
-                <p>Switch to Base Sepolia to lock a test stake with your wallet.</p>
-              ) : isConnected && onBaseSepolia && canSendLockTx ? (
-                <p>
-                  {escrowConfigured
-                    ? "Your wallet will ask you to confirm a Base Sepolia escrow deposit."
-                    : "Your wallet will ask you to confirm a Base Sepolia test ETH transfer."}
-                </p>
-              ) : isConnected && onBaseSepolia ? (
-                <p>Ready to lock test stake on Base Sepolia.</p>
-              ) : (
-                <p>
-                  Connect wallet for the Base Sepolia testnet path, or use mock
-                  session for local preview.
-                </p>
-              )}
-            </div>
-
-            <div
-              className={cn(
-                "rounded-lg border px-2.5 py-2 text-[10px]",
-                escrowConfigured
-                  ? "border-violet-500/30 bg-violet-950/20 text-violet-100/90"
-                  : "border-white/10 bg-black/25 text-muted-foreground",
-              )}
-            >
-              <p>
-                {escrowConfigured
-                  ? getEscrowLockPathHint()
-                  : getEscrowStatusLabel()}
+              Choose stake. Confirm escrow deposit. Play with chips.
+            </p>
+            {!compact ? (
+              <p className="text-[9px] text-muted-foreground">
+                Base Sepolia testnet only · no mainnet funds
               </p>
-              {escrowConfigured && escrowExplorerUrl ? (
-                <a
-                  href={escrowExplorerUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 inline-flex items-center gap-0.5 text-[9px] text-violet-300 hover:underline"
-                >
-                  View contract on Basescan
-                  <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-70" />
-                </a>
-              ) : null}
-              {!escrowConfigured ? (
-                <p className="mt-1 text-[9px] leading-relaxed opacity-80">
-                  {getEscrowLockPathHint()}
-                </p>
-              ) : null}
-            </div>
+            ) : null}
+
+            {wrongNetwork ? (
+              <div className="arena-panel-warn">
+                <p>Switch to Base Sepolia to lock stake.</p>
+              </div>
+            ) : null}
 
             <TestStakePicker
               value={selectedStake}
@@ -446,7 +371,7 @@ export function EntryFeePanel({
               )}
             >
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Stake converts to chips
+                Stake → chips
               </p>
               <p
                 className={cn(
@@ -455,16 +380,6 @@ export function EntryFeePanel({
                 )}
               >
                 {formatStakeToChipsLine(selectedStake)}
-              </p>
-              <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
-                {tier.testPaymentLabel} on Base Sepolia
-                {canSendLockTx
-                  ? escrowConfigured
-                    ? " · sends test ETH to escrow contract"
-                    : " · sends test ETH to testnet treasury"
-                  : isConnected && onBaseSepolia && !lockPathConfigured
-                    ? " · escrow/treasury not configured for on-chain lock"
-                    : " · use mock session for local preview"}
               </p>
             </div>
 
@@ -500,7 +415,7 @@ export function EntryFeePanel({
                       Starting mock session…
                     </>
                   ) : (
-                    "Start Mock Test Session"
+                    "Mock session"
                   )}
                 </Button>
               </div>
@@ -534,7 +449,7 @@ export function EntryFeePanel({
                       Starting mock session…
                     </>
                   ) : (
-                    "Start Mock Test Session"
+                    "Mock session"
                   )}
                 </Button>
               </div>
@@ -558,7 +473,7 @@ export function EntryFeePanel({
                       Starting mock session…
                     </>
                   ) : (
-                    "Start Mock Test Session"
+                    "Mock session"
                   )}
                 </Button>
               </div>
@@ -566,8 +481,7 @@ export function EntryFeePanel({
 
             {isConnected && onBaseSepolia && !lockPathConfigured ? (
               <p className="text-[9px] leading-relaxed text-amber-200/85">
-                Escrow and treasury are not configured — cannot send testnet stake
-                transaction. Use Start Mock Test Session for local preview.
+                On-chain lock unavailable. Use mock session.
               </p>
             ) : null}
 
@@ -582,51 +496,13 @@ export function EntryFeePanel({
               </p>
             ) : null}
 
-            {canSendLockTx ? (
-              <p className="text-[9px] leading-relaxed text-muted-foreground">
-                {escrowConfigured
-                  ? "Your wallet will ask you to confirm a Base Sepolia escrow deposit"
-                  : "Your wallet will ask you to confirm a Base Sepolia test ETH transfer"}{" "}
-                ({tier.testPaymentLabel})
-                {escrowConfigured
-                  ? " to the configured escrow contract."
-                  : " to the configured testnet treasury."}{" "}
-                Testnet only — never mainnet.
-              </p>
-            ) : !isConnected ? (
-              <p className="text-center text-[9px] leading-relaxed text-muted-foreground">
-                Connect wallet for on-chain test stake lock · mock session works
-                without wallet for local preview
-              </p>
-            ) : null}
-
-            {compact ? (
-              canSendLockTx ? (
-                <p className="text-[9px] leading-relaxed text-emerald-200/75">
-                  Base Sepolia test ETH transfer — confirm in your wallet.
-                </p>
-              ) : (
-                <p className="text-[9px] leading-relaxed text-amber-200/75">
-                  No mainnet funds · mock testnet only.
-                </p>
-              )
-            ) : canSendLockTx ? (
-              <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2.5">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-                <p className="text-[10px] leading-relaxed text-emerald-200/80">
-                  Lock Test Stake sends a small test ETH payment on Base Sepolia
-                  {escrowConfigured ? " to the escrow contract" : ""}. Confirm
-                  the transaction in your wallet to start your session.
-                </p>
+            <details className="arena-details-muted rounded-lg border border-white/5 bg-black/15 px-2.5 py-2">
+              <summary>Details</summary>
+              <div className="mt-2 space-y-1.5 text-[9px] leading-relaxed text-muted-foreground">
+                <p>Base Sepolia testnet only · no mainnet funds</p>
+                {!canSendLockTx ? <p>Mock session · local preview only</p> : null}
               </div>
-            ) : (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-                <p className="text-[10px] leading-relaxed text-amber-200/80">
-                  Mock testnet stake only — no contracts, no real transfer.
-                </p>
-              </div>
-            )}
+            </details>
           </>
         ) : (
           <>
@@ -637,37 +513,15 @@ export function EntryFeePanel({
               )}
             >
               <div className="flex justify-between gap-3 text-[11px]">
-                <dt className="text-muted-foreground">Selected stake</dt>
+                <dt className="text-muted-foreground">Stake</dt>
                 <dd className="min-w-0 truncate text-right font-semibold text-white">
                   {tier.usdLabel}
                 </dd>
               </div>
               <div className="flex justify-between gap-3 text-[11px]">
-                <dt className="text-muted-foreground">Starting chips</dt>
-                <dd className="min-w-0 truncate text-right text-white">
-                  {resolvedStartingChips.toLocaleString()}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-3 text-[11px]">
-                <dt className="text-muted-foreground">Current chips</dt>
+                <dt className="text-muted-foreground">Chips</dt>
                 <dd className="min-w-0 truncate text-right font-semibold text-[var(--arena-cyan)]">
                   {currentHumanChips.toLocaleString()}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-3 text-[11px]">
-                <dt className="text-muted-foreground">Est. test balance</dt>
-                <dd className="min-w-0 truncate text-right text-white">
-                  {formatTestBalance(currentHumanChips)}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-3 text-[11px]">
-                <dt className="shrink-0 text-muted-foreground">Network</dt>
-                <dd className="min-w-0 truncate text-right text-white">Base Sepolia</dd>
-              </div>
-              <div className="flex justify-between gap-3 text-[11px]">
-                <dt className="shrink-0 text-muted-foreground">Payment asset</dt>
-                <dd className="min-w-0 truncate text-right text-white">
-                  {tier.testPaymentLabel}
                 </dd>
               </div>
               <div className="flex justify-between gap-3 text-[11px]">
@@ -707,37 +561,9 @@ export function EntryFeePanel({
                   </dd>
                 </div>
               ) : null}
-              {isEscrowDeposit && stakeSessionMeta?.escrowAddress ? (
-                <div className="flex items-center justify-between gap-3 text-[11px]">
-                  <dt className="shrink-0 text-muted-foreground">Escrow</dt>
-                  <dd className="min-w-0">
-                    {escrowSessionExplorerUrl ? (
-                      <a
-                        href={escrowSessionExplorerUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-violet-400/25 bg-violet-500/5 px-2 py-1 font-mono text-[10px] text-violet-200 hover:bg-violet-500/10"
-                        title={stakeSessionMeta.escrowAddress}
-                      >
-                        <span className="truncate">
-                          {getShortAddress(stakeSessionMeta.escrowAddress)}
-                        </span>
-                        <span className="shrink-0 font-sans text-[9px] font-medium uppercase tracking-wide">
-                          View
-                        </span>
-                        <ExternalLink className="h-3 w-3 shrink-0 opacity-80" />
-                      </a>
-                    ) : (
-                      <span className="font-mono text-[10px] text-white/75">
-                        {getShortAddress(stakeSessionMeta.escrowAddress)}
-                      </span>
-                    )}
-                  </dd>
-                </div>
-              ) : null}
               {isEscrowDeposit && stakeSessionMeta?.escrowSessionId ? (
                 <div className="flex justify-between gap-3 text-[11px]">
-                  <dt className="shrink-0 text-muted-foreground">Session</dt>
+                  <dt className="shrink-0 text-muted-foreground">Escrow session</dt>
                   <dd className="min-w-0 truncate text-right font-mono text-white/85">
                     #{stakeSessionMeta.escrowSessionId}
                   </dd>
@@ -746,10 +572,8 @@ export function EntryFeePanel({
               {stakeSessionMeta?.lockTxStatus &&
               stakeSessionMeta.lockTxStatus !== "mock" ? (
                 <div className="flex justify-between gap-3 text-[11px]">
-                  <dt className="shrink-0 text-muted-foreground">
-                    {isEscrowDeposit ? "Deposit status" : "Lock tx status"}
-                  </dt>
-                  <dd className="min-w-0 truncate text-right capitalize text-emerald-300/90">
+                  <dt className="shrink-0 text-muted-foreground">Status</dt>
+                  <dd className="min-w-0 truncate text-right capitalize text-[var(--arena-cyan)]/90">
                     {stakeSessionMeta.lockTxStatus}
                   </dd>
                 </div>
@@ -757,25 +581,23 @@ export function EntryFeePanel({
             </dl>
 
             <p className="text-[9px] leading-relaxed text-muted-foreground">
-              Starting chips come from your locked stake. Current chips update through
-              hand results.
               {isTreasuryLock
-                ? " Treasury payout not automated — cash out records balance locally."
+                ? "Treasury fallback · automated payout unavailable"
                 : isEscrowDeposit
-                  ? " Stake is held in escrow until resolve and claim."
-                  : " Mock cash out records balance locally."}
+                  ? "Stake is held in escrow until result resolution."
+                  : "Mock session · local preview only"}
             </p>
 
             {isEscrowDeposit ? (
-              <div className="rounded-lg border border-violet-500/25 bg-violet-950/20 px-2.5 py-2 text-[10px] text-violet-100/90">
-                <p className="font-medium">Escrow cash-out</p>
-                <p className="mt-1 leading-relaxed opacity-90">
-                  {stakeSessionMeta?.escrowResolved
-                    ? "Session resolved — claim payout from escrow to your wallet."
-                    : isEscrowDevMode()
-                      ? "Resolve test session first (dev owner), then claim payout."
-                      : "Awaiting session resolution before claim."}
+              <div className="arena-panel-info">
+                <p className="leading-relaxed opacity-90">
+                  Resolve result, then claim payout.
                 </p>
+                {showDevResolve && !stakeSessionMeta?.escrowResolved ? (
+                  <p className="mt-1 text-[9px] opacity-80">
+                    Dev resolve required in this build.
+                  </p>
+                ) : null}
                 {stakeSessionMeta?.escrowResolveTxHash ? (
                   <p className="mt-1 font-mono text-[9px] opacity-80">
                     Resolve tx:{" "}
@@ -783,7 +605,7 @@ export function EntryFeePanel({
                       href={getEscrowTxUrl(stakeSessionMeta.escrowResolveTxHash)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-violet-200 hover:underline"
+                      className="text-[var(--arena-cyan)] hover:underline"
                     >
                       {formatTxHash(stakeSessionMeta.escrowResolveTxHash)}
                     </a>
@@ -795,7 +617,7 @@ export function EntryFeePanel({
                     variant="outline"
                     size="sm"
                     disabled={resolvingEscrow || handInProgress || !isConnected}
-                    className="mt-2 h-7 w-full border-violet-400/30 text-[10px]"
+                    className="mt-2 h-7 w-full border-[var(--arena-cyan)]/30 text-[10px] text-[var(--arena-cyan)]"
                     onClick={() => onResolveEscrow?.()}
                   >
                     {resolvingEscrow ? (
@@ -804,16 +626,11 @@ export function EntryFeePanel({
                         Resolving…
                       </>
                     ) : (
-                      "Resolve test session (dev owner)"
+                      "Resolve Session"
                     )}
                   </Button>
                 ) : null}
               </div>
-            ) : isTreasuryLock ? (
-              <p className="rounded-lg border border-amber-500/25 bg-amber-950/20 px-2.5 py-2 text-[10px] text-amber-100/90">
-                Treasury payout not automated — cash out records your test balance
-                locally only.
-              </p>
             ) : null}
 
             <Button
@@ -838,42 +655,22 @@ export function EntryFeePanel({
                 <>
                   <Wallet className="h-3.5 w-3.5 shrink-0" />
                   {isMockLock
-                    ? "Mock Cash Out"
+                    ? "Mock cash out"
                     : isTreasuryLock
-                      ? "Close Treasury Session"
+                      ? "Close Session"
                       : currentHumanChips <= 0
-                        ? "Close Escrow Session"
-                        : "Claim Escrow Payout"}
+                        ? "Close Session"
+                        : "Claim Payout"}
                 </>
               )}
             </Button>
             {handInProgress ? (
               <p className="text-[9px] leading-relaxed text-amber-200/80">
-                Finish the current hand before cashing out.
-              </p>
-            ) : isEscrowDeposit && currentHumanChips <= 0 ? (
-              <p className="text-[9px] leading-relaxed text-muted-foreground">
-                No payout available for this session — close to end the escrow session.
-              </p>
-            ) : isEscrowDeposit && !stakeSessionMeta?.escrowResolved && !isEscrowDevMode() ? (
-              <p className="text-[9px] leading-relaxed text-muted-foreground">
-                Escrow session must be resolved before claim.
+                Finish the hand first.
               </p>
             ) : isEscrowDeposit && !isConnected ? (
               <p className="text-[9px] leading-relaxed text-muted-foreground">
-                Connect wallet on Base Sepolia to claim escrow payout.
-              </p>
-            ) : isTreasuryLock ? (
-              <p className="text-[9px] leading-relaxed text-muted-foreground">
-                Records current test balance locally. No on-chain treasury payout.
-              </p>
-            ) : isMockLock && isConnected ? (
-              <p className="text-[9px] leading-relaxed text-muted-foreground">
-                Mock cash out — records balance locally, no on-chain transfer.
-              </p>
-            ) : isMockLock ? (
-              <p className="text-[9px] leading-relaxed text-muted-foreground">
-                Mock cash out — records balance locally without wallet.
+                Connect wallet to claim payout.
               </p>
             ) : null}
 
@@ -885,7 +682,7 @@ export function EntryFeePanel({
                 className="w-full text-[11px]"
                 onClick={() => onBeginNewStakeSession?.()}
               >
-                Start New Test Stake Session
+                New Stake Session
               </Button>
             ) : null}
 

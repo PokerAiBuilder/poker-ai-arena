@@ -7,6 +7,9 @@ export const AGENT_BATTLE_ELLIPSE_MIN_PX = 1536;
 
 const ELLIPSE_MEDIA = `(min-width: ${AGENT_BATTLE_ELLIPSE_MIN_PX}px)`;
 
+/** Set true locally when debugging AB broadcast vs ellipse breakpoint. */
+const ENABLE_AB_LAYOUT_DEBUG = false;
+
 export type AgentBattleLayoutMode = "broadcast" | "ellipse";
 
 function AgentBattleLayoutDebugLabel({ layout }: { layout: AgentBattleLayoutMode }) {
@@ -54,7 +57,7 @@ export function AgentBattleResponsiveShell({
 
   return (
     <div className="relative h-full min-h-0 w-full">
-      {process.env.NODE_ENV !== "production" ? (
+      {ENABLE_AB_LAYOUT_DEBUG && process.env.NODE_ENV === "development" ? (
         <AgentBattleLayoutDebugLabel layout={layout} />
       ) : null}
       {layout === "ellipse" ? ellipse : broadcast}

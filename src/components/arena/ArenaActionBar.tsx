@@ -251,7 +251,7 @@ export function ArenaActionBar({
                   : "Spectator result — tap Human vs AI to return to your table."
                 : agentBattleLocalFallback
                   ? "Local fallback — tap Human vs AI to return to your table."
-                  : "Spectator Mode — tap Human vs AI to return to your table.",
+                  : "Spectator — tap Human vs AI to return."
         }
       : stepDemoGuidance ?? {
           phase: "start-hand",
@@ -273,7 +273,7 @@ export function ArenaActionBar({
         ? humanActions.disabledHint
         : guidance?.actionHint ??
           (agentBattleSpectator
-            ? "Spectator Mode — player actions are disabled while watching."
+            ? "Player actions disabled while watching."
             : humanActions?.disabledHint);
 
   const nextStep = useHeadsUpUi ? stepDemoUi.nextStep : guidance?.nextStep;
@@ -493,9 +493,11 @@ export function ArenaActionBar({
       <Button
         type="button"
         size={compact ? "default" : "lg"}
+        variant="outline"
         className={cn(
           "arena-action-btn",
-          actionPrimary,
+          actionSecondary,
+          modePillActive,
           compact && mobileTap,
           compact
             ? "min-w-0 shrink-0 px-2.5"
@@ -546,7 +548,7 @@ export function ArenaActionBar({
           ? "Replay in progress — wait for the hand to finish."
           : controlsDisabled
             ? actionHint ?? "Start a hand first or wait for your turn."
-            : "Spectator Mode — watch AI agents play a simulated hand"
+            : "Watching AI agents play"
       }
     >
       {loading && loadingMode === "agent-vs-agent" ? (
@@ -576,8 +578,8 @@ export function ArenaActionBar({
   return (
     <div
       className={cn(
-        "shrink-0 border-t border-[var(--arena-border)] bg-[var(--arena-surface)]/95 backdrop-blur-xl",
-        "shadow-[0_-8px_32px_rgba(0,82,255,0.08)]",
+        "shrink-0 border-t border-[var(--arena-border)]/50 bg-[var(--arena-surface)]/90 backdrop-blur-xl",
+        "shadow-[0_-4px_24px_rgba(0,82,255,0.06)]",
         agentBattleSpectator && "border-[var(--arena-cyan)]/20",
         className,
       )}
@@ -589,7 +591,7 @@ export function ArenaActionBar({
         )}
       >
         {humanTurnActive ? (
-          <div className="mb-1.5 flex justify-center">
+          <div className="arena-action-banner-slot mb-1.5 flex justify-center">
             <span
               className={cn(
                 "rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]",
@@ -602,25 +604,28 @@ export function ArenaActionBar({
                 : null}
             </span>
           </div>
-        ) : showGuidanceBanner && guidance.phase ? (
+        ) : (
           <div
             className={cn(
-              "flex justify-center",
+              "arena-action-banner-slot flex justify-center",
               compactSharedSpectatorBar ? "mb-1.5" : "mb-2",
             )}
+            aria-hidden={!showGuidanceBanner || !guidance?.phase}
           >
-            <span
-              className={cn(
-                "rounded-full border px-3 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]",
-                agentBattleSpectator
-                  ? spectatorBannerClass
-                  : bannerStyles[guidance.phase],
-              )}
-            >
-              {guidance.banner}
-            </span>
+            {showGuidanceBanner && guidance.phase ? (
+              <span
+                className={cn(
+                  "rounded-full border px-3 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]",
+                  agentBattleSpectator
+                    ? spectatorBannerClass
+                    : bannerStyles[guidance.phase],
+                )}
+              >
+                {guidance.banner}
+              </span>
+            ) : null}
           </div>
-        ) : null}
+        )}
 
         <div
           className={cn(
@@ -862,13 +867,19 @@ export function ArenaActionBar({
                 disabled={agentBattleDisabled}
                 size="lg"
                 variant="outline"
-                className={cn("arena-action-btn min-w-[9rem]", actionSecondary)}
+                className={cn(
+                  "arena-action-btn min-w-[9rem]",
+                  actionSecondary,
+                  (agentBattleWatchingShared || agentBattleReplayActive) &&
+                    modePillActive,
+                  agentBattleReplayActive && "opacity-85",
+                )}
                 title={
                   agentBattleReplayActive
                     ? "Replay in progress — wait for the hand to finish."
                     : controlsDisabled
                       ? actionHint ?? "Start a hand first or wait for your turn."
-                      : "Spectator Mode — watch AI agents play a simulated hand"
+                      : "Watching AI agents play"
                 }
               >
                 {loading && loadingMode === "agent-vs-agent" ? (
@@ -894,7 +905,8 @@ export function ArenaActionBar({
                   size="lg"
                   className={cn(
                     "arena-action-btn min-w-[9rem]",
-                    actionPrimary,
+                    actionSecondary,
+                    modePillActive,
                   )}
                   title="Skip local animations — shows final result on this device only"
                   onClick={onSkipAgentBattleReplay}
@@ -1071,13 +1083,19 @@ export function ArenaActionBar({
               disabled={agentBattleDisabled}
               size="lg"
               variant="outline"
-              className={cn("arena-action-btn min-w-[160px] text-sm font-semibold", actionSecondary)}
+              className={cn(
+                "arena-action-btn min-w-[160px] text-sm font-semibold",
+                actionSecondary,
+                (agentBattleWatchingShared || agentBattleReplayActive) &&
+                  modePillActive,
+                agentBattleReplayActive && "opacity-85",
+              )}
               title={
                 agentBattleReplayActive
                   ? "Replay in progress — wait for the hand to finish."
                   : controlsDisabled
                     ? actionHint ?? "Start a hand first or wait for your turn."
-                    : "Spectator Mode — watch AI agents play a simulated hand"
+                    : "Watching AI agents play"
               }
             >
               {loading && loadingMode === "agent-vs-agent" ? (
@@ -1103,7 +1121,8 @@ export function ArenaActionBar({
                 size="lg"
                 className={cn(
                   "arena-action-btn min-w-[160px] text-sm font-semibold",
-                  actionPrimary,
+                  actionSecondary,
+                  modePillActive,
                 )}
                 title="Skip local animations — shows final result on this device only"
                 onClick={onSkipAgentBattleReplay}
@@ -1132,25 +1151,35 @@ export function ArenaActionBar({
           >
             {error}
           </p>
-        ) : actionHint ? (
-          <p
-            className={cn(
-              "text-center text-xs leading-snug",
-              compactSharedSpectatorBar ? "mt-1" : "mt-2 leading-relaxed",
-              humanTurnActive
-                ? "text-[var(--arena-cyan)]/90"
-                : agentBattleSpectator
-                  ? "text-[var(--arena-cyan)]/85"
-                  : showStackDepletedUi
-                    ? "text-[var(--arena-cyan)]/90"
-                    : nextStepEnabled
-                    ? "font-medium text-[var(--arena-cyan)]/85"
-                    : "text-muted-foreground",
-            )}
-          >
-            {actionHint}
-          </p>
         ) : null}
+
+        <div
+          className={cn(
+            "arena-action-hint-slot text-center text-xs leading-snug",
+            compactSharedSpectatorBar ? "mt-1" : "mt-2",
+            !actionHint && "arena-action-hint-slot--empty",
+          )}
+          aria-hidden={!actionHint}
+        >
+          {actionHint ? (
+            <p
+              className={cn(
+                "line-clamp-2",
+                humanTurnActive
+                  ? "text-[var(--arena-cyan)]/90"
+                  : agentBattleSpectator
+                    ? "text-[var(--arena-cyan)]/85"
+                    : showStackDepletedUi
+                      ? "text-[var(--arena-cyan)]/90"
+                      : nextStepEnabled
+                        ? "font-medium text-[var(--arena-cyan)]/85"
+                        : "text-muted-foreground",
+              )}
+            >
+              {actionHint}
+            </p>
+          ) : null}
+        </div>
       </div>
     </div>
   );

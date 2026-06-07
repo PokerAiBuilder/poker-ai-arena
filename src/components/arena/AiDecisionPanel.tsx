@@ -76,13 +76,13 @@ export function AiDecisionPanel({
     return (
       <div
         className={cn(
-          "glass-panel-arena shrink-0 rounded-xl border border-[var(--arena-gold-accent)]/25 shadow-[0_0_20px_rgba(250,204,21,0.08)]",
+          "glass-panel-arena arena-ai-decision-panel shrink-0 rounded-xl border border-[var(--arena-cyan)]/25",
           compact ? "p-2" : "p-4",
           className,
         )}
       >
         <div className="flex items-center gap-1.5">
-          <Trophy className="h-3.5 w-3.5 text-[var(--arena-gold-accent)]" />
+          <Trophy className="h-3.5 w-3.5 text-[var(--arena-gold-accent)]/80" />
           <h3 className="text-xs font-semibold text-[var(--arena-cyan)]">Hand Result</h3>
         </div>
         <p
@@ -115,7 +115,7 @@ export function AiDecisionPanel({
     return (
       <div
         className={cn(
-          "glass-panel-arena shrink-0 rounded-xl border border-cyan-500/25 shadow-[0_0_24px_rgba(34,211,238,0.08)]",
+          "glass-panel-arena arena-ai-decision-panel shrink-0 rounded-xl border border-cyan-500/25 shadow-[0_0_24px_rgba(34,211,238,0.08)]",
           compact ? "p-2" : "p-4",
           className,
         )}
@@ -158,8 +158,9 @@ export function AiDecisionPanel({
     return (
       <div
         className={cn(
-          "glass-panel-arena shrink-0 rounded-xl border border-white/10 shadow-lg",
-          compact ? "p-2" : "p-4",
+          "glass-panel-arena arena-ai-decision-panel shrink-0 rounded-xl border border-white/10 shadow-lg",
+          compact && "arena-menu-card border-[var(--arena-cyan)]/14 shadow-none",
+          compact ? "p-2.5" : "p-4",
           className,
         )}
       >
@@ -170,25 +171,11 @@ export function AiDecisionPanel({
         <p
           className={cn(
             "leading-snug text-muted-foreground",
-            compact ? "mt-1.5 line-clamp-3 text-[10px]" : "mt-3 text-xs",
+            compact ? "mt-1.5 text-[10px]" : "mt-3 text-xs",
           )}
         >
-          {guidedHand
-            ? "PokerMaster decisions will appear here during the hand."
-            : spectatorMode
-              ? "Latest agent decision appears here during AI Agent Battle."
-              : "Run a full-hand simulation to see the latest AI reasoning."}
+          AI reasoning appears during active decisions.
         </p>
-        {spectatorMode && compact ? (
-          <p className="mt-1 text-[9px] leading-none text-white/35">
-            Spectator Mode — full agent sequence in Action Log.
-          </p>
-        ) : null}
-        {!guidedHand && !spectatorMode && !compact ? (
-          <p className="mt-1 text-[10px] text-white/40">
-            Latest decision from Agent Battle or full-hand simulation.
-          </p>
-        ) : null}
       </div>
     );
   }
@@ -210,14 +197,61 @@ export function AiDecisionPanel({
   return (
     <div
       className={cn(
-        "glass-panel-arena shrink-0 rounded-xl border border-cyan-500/20 shadow-[0_0_24px_rgba(34,211,238,0.06)]",
+        "glass-panel-arena arena-ai-decision-panel shrink-0 rounded-xl border border-cyan-500/20 shadow-[0_0_24px_rgba(34,211,238,0.06)]",
+        compact && "arena-menu-card border-[var(--arena-cyan)]/14 shadow-none",
         className,
       )}
     >
+      {compact ? (
+        <div className="space-y-2 p-2.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="rounded-md border border-[var(--arena-cyan)]/30 bg-[var(--arena-blue)]/12 px-2 py-0.5 text-[11px] font-bold uppercase text-[var(--arena-cyan)]">
+              {actionLabel}
+            </span>
+            {displayDecision.amount != null ? (
+              <span className="text-[11px] text-[var(--arena-cyan)]">
+                {displayDecision.action === "raise" || displayDecision.action === "all-in"
+                  ? `+${displayDecision.amount} chips`
+                  : `${displayDecision.amount} chips`}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="space-y-0.5">
+            <div className="flex justify-between text-[9px] text-muted-foreground">
+              <span>Confidence</span>
+              <span>{confidencePct}%</span>
+            </div>
+            <div className="h-1 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-[var(--arena-blue-bright)] transition-all"
+                style={{ width: `${confidencePct}%` }}
+              />
+            </div>
+          </div>
+
+          {hasContext ? (
+            <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-white/5 bg-black/20 p-1.5">
+              {displayDecision.handLabel != null ? (
+                <ContextCell label="Hand" value={displayDecision.handLabel} />
+              ) : null}
+              <ContextCell label="Board" value={displayDecision.boardLabel ?? "—"} />
+              {displayDecision.pressureLabel ? (
+                <ContextCell label="Pressure" value={displayDecision.pressureLabel} />
+              ) : null}
+            </div>
+          ) : null}
+
+          <p className="line-clamp-1 text-[10px] leading-snug text-white/65">
+            {displayDecision.reasoning}
+          </p>
+        </div>
+      ) : (
+        <>
       <div
         className={cn(
           "border-b border-white/5 bg-cyan-500/5",
-          compact ? "px-2 py-1.5" : "px-4 py-3",
+          "px-4 py-3",
         )}
       >
         <div className="flex items-center justify-between gap-2">
@@ -329,17 +363,19 @@ export function AiDecisionPanel({
 
         {guidedHand && compact ? (
           <p className="text-[9px] leading-none text-white/35">
-            Full reasoning in Action Log.
+            More detail in Action Log.
           </p>
         ) : null}
 
-        {totalDecisions > 1 && !spectatorMode && !guidedHand && !compact ? (
+        {totalDecisions > 1 && !spectatorMode && !guidedHand ? (
           <p className="text-[9px] leading-none text-white/35">
             +{totalDecisions - 1} earlier decision
-            {totalDecisions - 1 === 1 ? "" : "s"} — see Action Log
+            {totalDecisions - 1 === 1 ? "" : "s"} — see History
           </p>
         ) : null}
       </div>
+        </>
+      )}
     </div>
   );
 }

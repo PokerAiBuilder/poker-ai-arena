@@ -64,20 +64,20 @@ export function AgentAvatar({
     <div
       title={hoverTitle}
       className={cn(
-        "arena-seat-panel relative z-[2] flex flex-col items-center gap-0.5 rounded-xl border-2 bg-black/50 px-1.5 py-1 backdrop-blur-md transition-[border-color,box-shadow,opacity]",
+        "arena-seat-panel relative z-[2] flex flex-col items-center gap-0.5 rounded-xl border bg-black/45 px-1.5 py-1 backdrop-blur-md transition-[border-color,box-shadow,opacity]",
         compact && "h-[5.5rem] w-[4.75rem] min-w-[4.75rem] max-h-[5.5rem]",
-        !compact && "w-[6rem] min-w-[6rem] min-h-[5.5rem]",
+        !compact && "h-[5.5rem] w-[6rem] min-w-[6rem] max-h-[5.5rem]",
         isActive &&
-          "border-cyan-400/55 shadow-[0_0_18px_rgba(34,211,238,0.22)]",
+          "border-cyan-400/45 shadow-[0_0_12px_rgba(34,211,238,0.16)]",
         isWinner &&
-          "border-[var(--arena-gold-accent)]/80 shadow-[0_0_24px_rgba(212,175,55,0.35)]",
+          "border-[var(--arena-gold-accent)]/55 shadow-[0_0_16px_rgba(212,175,55,0.18)]",
         !isActive &&
           !isWinner &&
           (isFolded
             ? readableFold
-              ? "border-white/15 opacity-90"
+              ? "border-white/12 opacity-90"
               : "border-white/10 opacity-65"
-            : "border-white/10"),
+            : "border-[rgb(34_211_238_/_0.12)]"),
         isIdle && !isWinner && !isFolded && "opacity-80",
         className,
       )}
@@ -86,7 +86,7 @@ export function AgentAvatar({
         className={cn(
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 bg-gradient-to-br from-slate-800 to-slate-950 text-sm font-bold",
           isWinner &&
-            "border-[var(--arena-gold-accent)] text-[var(--arena-gold-accent)] shadow-[0_0_16px_rgba(212,175,55,0.4)]",
+            "border-[var(--arena-gold-accent)]/60 text-[var(--arena-gold-accent)] shadow-[0_0_10px_rgba(212,175,55,0.22)]",
           !isWinner && isActive && "border-cyan-400/60",
           !isWinner && !isActive && "border-white/20",
           isFolded && (readableFold ? "grayscale-[0.35]" : "grayscale"),

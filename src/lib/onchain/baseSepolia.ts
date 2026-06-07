@@ -66,6 +66,6 @@ export function getLockSettlementLabel(
   settlement?: LockSettlement,
 ): string {
   if (settlement === "escrow-deposit") return "Escrow deposit";
-  if (settlement === "base-sepolia-test-tx") return "Treasury test tx";
-  return "Mock test stake lock";
+  if (settlement === "base-sepolia-test-tx") return "Treasury fallback";
+  return "Mock session";
 }

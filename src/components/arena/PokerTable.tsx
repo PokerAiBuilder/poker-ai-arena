@@ -22,7 +22,6 @@ import {
   getLockStakePhaseLabel,
   type LockStakePhase,
 } from "@/lib/stake/lockStakeFlow";
-import { getEscrowLockPathHint } from "@/lib/onchain/escrowContract";
 import { cn } from "@/lib/utils";
 
 export type TableSeat = {
@@ -358,31 +357,20 @@ function WinnerBanner({
     return (
       <div
         className={cn(
-          "relative z-[30] w-full max-w-[min(100%,14rem)] rounded-md border",
-          "border-[var(--arena-cyan)]/55 bg-[var(--arena-surface)]/95",
-          "shadow-[0_0_20px_rgba(34,211,238,0.15)] px-2 py-1 text-center backdrop-blur-md animate-fade-in",
+          "arena-winner-banner arena-winner-banner--ab-compact",
+          spectator && "pointer-events-none",
         )}
       >
-        <p
-          className={cn(
-            "text-[7px] font-semibold uppercase leading-none tracking-[0.14em]",
-            spectator ? "text-[var(--arena-cyan)]" : "text-[var(--arena-muted)]",
-          )}
-        >
-          {spectator ? "Agent Battle" : "Result"}
+        <p className="text-[6px] font-semibold uppercase leading-none tracking-[0.12em] text-[var(--arena-muted)]">
+          {spectator ? "Result" : "Hand result"}
         </p>
-        <p className="mt-0.5 text-[11px] font-bold leading-tight text-[var(--arena-gold-accent)]">
+        <p className="mt-0.5 text-[10px] font-bold leading-tight text-[var(--arena-gold-accent)]/85">
           {winnerName}
         </p>
-        <p className="text-[8px] leading-tight text-white/75">
-          {isFoldWin ? "Win by fold" : "Showdown"}
-          {!isFoldWin && winningHand ? ` · ${winningHand}` : ""}
+        <p className="text-[7px] leading-tight text-white/65">
+          {isFoldWin ? "Win by fold" : winningHand ?? "Showdown"}
+          {pot != null ? ` · Pot ${pot.toLocaleString()}` : ""}
         </p>
-        {pot != null ? (
-          <p className="text-[8px] font-semibold leading-tight text-[var(--arena-cyan)]">
-            Pot {pot.toLocaleString()}
-          </p>
-        ) : null}
       </div>
     );
   }
@@ -390,37 +378,22 @@ function WinnerBanner({
   return (
     <div
       className={cn(
-        "relative z-[30] w-full max-w-[min(100%,18rem)] rounded-xl border-2 border-[var(--arena-cyan)]/50",
-        "bg-gradient-to-b from-[var(--arena-surface)]/95 to-black/80 text-center shadow-[0_0_24px_rgba(34,211,238,0.12)] backdrop-blur-md animate-fade-in",
-        compact ? "px-2.5 py-2" : "mt-2 px-3 py-3 sm:px-4",
+        "arena-winner-banner max-w-[min(100%,16rem)]",
+        compact ? "px-2.5 py-2" : "mt-1 px-3 py-2.5 sm:px-4",
       )}
     >
-      <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[var(--arena-muted)]">
+      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--arena-muted)]">
         Hand result
       </p>
-      <p className="mt-1 text-[10px] uppercase tracking-wider text-white/60">Winner</p>
-      <p className="text-base font-bold leading-tight text-[var(--arena-gold-accent)] sm:text-lg">
+      <p className="mt-1 text-sm font-bold leading-tight text-[var(--arena-gold-accent)]/90 sm:text-base">
         {winnerName}
       </p>
-      <p className="mt-1.5 text-[10px] uppercase tracking-wider text-white/50">
-        Result type
+      <p className="mt-1 text-[10px] text-white/75">
+        {isFoldWin ? "Win by fold" : winningHand ?? "Showdown"}
       </p>
-      <p className="text-[11px] font-medium text-white/85">
-        {isFoldWin ? "Win by fold" : "Showdown"}
-      </p>
-      {!isFoldWin && winningHand ? (
-        <p className="mt-1 text-xs font-medium leading-snug text-[var(--arena-text)] sm:text-sm">
-          {winningHand}
-        </p>
-      ) : null}
-      {isFoldWin ? (
-        <p className="mt-0.5 text-[10px] text-white/45">
-          No hand ranking — opponent folded.
-        </p>
-      ) : null}
       {pot != null ? (
-        <p className="mt-1.5 text-xs font-semibold text-[var(--arena-cyan)]">
-          Pot won: {pot.toLocaleString()} chips
+        <p className="mt-1 text-[10px] font-semibold text-[var(--arena-cyan)]">
+          Pot {pot.toLocaleString()}
         </p>
       ) : null}
     </div>
@@ -554,33 +527,37 @@ function AgentBattleActiveHighlight({
   seat: TableSeat;
   children: React.ReactNode;
 }) {
-  if (!seat.activeHighlight) return <>{children}</>;
-
-  const label = seat.activeHighlight === "thinking" ? "Thinking" : "Acting";
+  const label = seat.activeHighlight
+    ? seat.activeHighlight === "thinking"
+      ? "Thinking"
+      : "Acting"
+    : null;
 
   return (
-    <div className="relative">
+    <div className="arena-seat-highlight-wrap">
+      {label ? (
+        <span
+          className={cn(
+            "arena-seat-highlight-badge",
+            seat.activeHighlight === "thinking"
+              ? "border-cyan-400/35 bg-cyan-950/80 text-cyan-200/90"
+              : "border-[var(--arena-blue-bright)]/40 bg-[var(--arena-blue)]/20 text-[var(--arena-cyan)]",
+          )}
+        >
+          {label}
+        </span>
+      ) : null}
       <div
         className={cn(
-          "pointer-events-none absolute -inset-1.5 rounded-2xl border-2",
+          "arena-seat-highlight-inner",
           seat.activeHighlight === "thinking" &&
-            "animate-pulse border-cyan-400/90 shadow-[0_0_22px_rgba(34,211,238,0.45)]",
+            "animate-pulse border-cyan-400/45 shadow-[0_0_12px_rgba(34,211,238,0.18)]",
           seat.activeHighlight === "acting" &&
-            "border-[var(--arena-blue-bright)]/90 shadow-[0_0_20px_rgba(0,82,255,0.4)]",
-        )}
-        aria-hidden
-      />
-      <span
-        className={cn(
-          "absolute -top-2.5 left-1/2 z-[4] -translate-x-1/2 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-[0.14em]",
-          seat.activeHighlight === "thinking"
-            ? "border-cyan-400/50 bg-cyan-950/95 text-cyan-200"
-            : "border-[var(--arena-blue-bright)]/50 bg-[var(--arena-blue)]/25 text-[var(--arena-cyan)]",
+            "border-[var(--arena-blue-bright)]/55 shadow-[0_0_12px_rgba(0,82,255,0.2)]",
         )}
       >
-        {label}
-      </span>
-      {children}
+        {children}
+      </div>
     </div>
   );
 }
@@ -598,7 +575,7 @@ function AgentBattleSeatRow({
   const isSpectator = seat.status === "idle" && !seat.revealCards;
 
   const avatar = (
-    <div className="flex w-[3.25rem] shrink-0 items-center justify-center">
+    <div className="arena-seat-panel-slot shrink-0">
       <AgentBattleActiveHighlight seat={seat}>
         <AgentAvatar
           name={seat.name}
@@ -613,9 +590,9 @@ function AgentBattleSeatRow({
           className={cn(
             isSpectator && "opacity-90",
             seat.activeHighlight === "thinking" &&
-              "border-cyan-400/70 shadow-[0_0_18px_rgba(34,211,238,0.35)]",
+              "border-cyan-400/50 shadow-[0_0_12px_rgba(34,211,238,0.2)]",
             seat.activeHighlight === "acting" &&
-              "border-[var(--arena-blue-bright)]/70 shadow-[0_0_16px_rgba(0,82,255,0.35)]",
+              "border-[var(--arena-blue-bright)]/50 shadow-[0_0_10px_rgba(0,82,255,0.22)]",
           )}
         />
       </AgentBattleActiveHighlight>
@@ -676,8 +653,9 @@ function AgentBattleSideSeat({
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <AgentBattleActiveHighlight seat={seat}>
-        <AgentAvatar
+      <div className="arena-seat-panel-slot shrink-0">
+        <AgentBattleActiveHighlight seat={seat}>
+          <AgentAvatar
           name={seat.name}
           avatar={seat.avatar}
           strategy={seat.strategy}
@@ -690,12 +668,13 @@ function AgentBattleSideSeat({
           className={cn(
             "scale-[0.88]",
             seat.activeHighlight === "thinking" &&
-              "border-cyan-400/70 shadow-[0_0_18px_rgba(34,211,238,0.35)]",
+              "border-cyan-400/50 shadow-[0_0_12px_rgba(34,211,238,0.2)]",
             seat.activeHighlight === "acting" &&
-              "border-[var(--arena-blue-bright)]/70 shadow-[0_0_16px_rgba(0,82,255,0.35)]",
+              "border-[var(--arena-blue-bright)]/50 shadow-[0_0_10px_rgba(0,82,255,0.22)]",
           )}
         />
-      </AgentBattleActiveHighlight>
+        </AgentBattleActiveHighlight>
+      </div>
       <div
         className={cn(
           "flex scale-90 gap-0.5",
@@ -1322,8 +1301,6 @@ export function PokerTable({
     isConnected,
     onBaseSepolia,
     wrongNetwork,
-    treasuryConfigured,
-    escrowConfigured,
     lockPathConfigured,
     canSendLockTx,
     switchToBaseSepolia,
@@ -1357,10 +1334,13 @@ export function PokerTable({
 
       {spectatorMode ? (
         <Badge
-          variant="secondary"
-          className="absolute right-3 top-3 z-[35] max-w-[11.5rem] border-[var(--arena-blue-bright)]/40 bg-[var(--arena-surface-2)]/95 text-center text-[8px] font-medium leading-snug text-[var(--arena-text)] sm:right-5 sm:top-5 sm:max-w-[13rem] sm:text-[9px]"
+          variant="outline"
+          className="pointer-events-none absolute right-2 top-2 z-[28] max-w-[9rem] border-white/10 bg-black/35 px-1.5 py-0.5 text-center text-[6px] font-normal leading-snug text-white/45 backdrop-blur-sm sm:right-3 sm:top-3 sm:max-w-[10.5rem] sm:text-[7px]"
         >
-          Spectator Mode — all agent cards visible
+          <span className="hidden min-[480px]:inline">
+            Spectator Mode — all agent cards visible
+          </span>
+          <span className="min-[480px]:hidden">Spectator</span>
         </Badge>
       ) : null}
 
@@ -1492,14 +1472,14 @@ export function PokerTable({
           <div
             className={cn(
               "mx-4 max-w-sm rounded-2xl v1-panel v1-glow-border px-6 py-5 text-center backdrop-blur-md",
-              stakeCashedOut && "border-emerald-500/35",
+              stakeCashedOut && "border-[var(--arena-cyan)]/35",
             )}
           >
             {stakeCashedOut ? (
               <>
                 <div className="flex items-center justify-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                  <p className="text-sm font-semibold text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4 text-[var(--arena-cyan)]" />
+                  <p className="text-sm font-semibold text-[var(--arena-cyan)]">
                     Test Balance Cashed Out
                   </p>
                 </div>
@@ -1507,7 +1487,7 @@ export function PokerTable({
                   Start a new test stake session to play again.
                 </p>
                 {cashOutRecord ? (
-                  <dl className="mt-3 space-y-1 rounded-lg border border-emerald-500/25 bg-emerald-950/25 p-2.5 text-left text-[10px]">
+                  <dl className="mt-3 space-y-1 rounded-lg border border-[var(--arena-cyan)]/20 bg-[var(--arena-blue)]/10 p-2.5 text-left text-[10px]">
                     <div className="flex justify-between gap-2">
                       <dt className="text-muted-foreground">Chips cashed out</dt>
                       <dd className="font-semibold text-white">
@@ -1516,7 +1496,7 @@ export function PokerTable({
                     </div>
                     <div className="flex justify-between gap-2">
                       <dt className="text-muted-foreground">Test balance</dt>
-                      <dd className="font-semibold text-emerald-300">
+                        <dd className="font-semibold text-[var(--arena-cyan)]">
                         {formatTestBalanceAmount(cashOutRecord.cashOutTestBalance)}
                       </dd>
                     </div>
@@ -1539,7 +1519,7 @@ export function PokerTable({
                       </div>
                     ) : cashOutRecord.mockWithdrawalId ? (
                       <div className="flex justify-between gap-2">
-                        <dt className="text-muted-foreground">Mock withdrawal receipt</dt>
+                        <dt className="text-muted-foreground">Receipt</dt>
                         <dd
                           className="max-w-[7rem] truncate font-mono text-[9px] text-white/75"
                           title={cashOutRecord.mockWithdrawalId}
@@ -1551,17 +1531,17 @@ export function PokerTable({
                     {cashOutRecord.settlement === "escrow-claim" ? (
                       <div className="flex justify-between gap-2">
                         <dt className="text-muted-foreground">On-chain payout</dt>
-                        <dd className="text-emerald-300/90">Claimed from escrow</dd>
+                        <dd className="text-[var(--arena-cyan)]/90">Claimed from escrow</dd>
                       </div>
                     ) : cashOutRecord.settlement === "treasury-record" ? (
                       <div className="flex justify-between gap-2">
-                        <dt className="text-muted-foreground">Treasury payout</dt>
-                        <dd className="text-amber-200/90">Not automated</dd>
+                        <dt className="text-muted-foreground">Treasury fallback</dt>
+                        <dd className="text-amber-200/90">Automated payout unavailable</dd>
                       </div>
                     ) : (
                       <div className="flex justify-between gap-2">
-                        <dt className="text-muted-foreground">Transfer</dt>
-                        <dd className="text-white/80">Mock — no on-chain transfer</dd>
+                        <dt className="text-muted-foreground">Settlement</dt>
+                        <dd className="text-white/80">Mock session · local preview only</dd>
                       </div>
                     )}
                   </dl>
@@ -1573,41 +1553,16 @@ export function PokerTable({
                   Lock Test Stake
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Choose stake — it becomes your starting chip stack. Pay with test
-                  ETH on Base Sepolia.
+                  Choose stake. Confirm escrow deposit. Play with chips.
                 </p>
                 {!stakeCashedOut ? (
-                  <p
-                    className={cn(
-                      "mt-2 rounded-lg border px-2.5 py-1.5 text-[10px]",
-                      wrongNetwork
-                        ? "border-amber-500/30 bg-amber-500/10 text-amber-100/90"
-                        : isConnected && onBaseSepolia
-                          ? "border-emerald-500/30 bg-emerald-950/25 text-emerald-100/90"
-                          : "border-white/10 bg-black/25 text-muted-foreground",
-                    )}
-                  >
-                    {wrongNetwork
-                      ? "Switch to Base Sepolia to lock a test stake."
-                      : isConnected && onBaseSepolia && canSendLockTx
-                        ? escrowConfigured
-                          ? "Your wallet will ask you to confirm a Base Sepolia escrow deposit."
-                          : "Your wallet will ask you to confirm a Base Sepolia test ETH transfer."
-                        : isConnected && onBaseSepolia
-                          ? "Ready to lock test stake on Base Sepolia."
-                          : "Connect wallet for testnet lock, or start a mock session."}
+                  <p className="mt-2 text-[9px] text-muted-foreground">
+                    Base Sepolia testnet only · no mainnet funds
                   </p>
                 ) : null}
-                {!stakeCashedOut ? (
-                  <p
-                    className={cn(
-                      "mt-2 rounded-lg border px-2.5 py-1.5 text-[10px]",
-                      escrowConfigured
-                        ? "border-violet-500/30 bg-violet-950/20 text-violet-100/90"
-                        : "border-white/10 bg-black/25 text-muted-foreground",
-                    )}
-                  >
-                    {getEscrowLockPathHint()}
+                {wrongNetwork && !stakeCashedOut ? (
+                  <p className="mt-2 rounded-lg border px-2.5 py-1.5 text-[10px] arena-panel-warn">
+                    Switch to Base Sepolia to lock stake.
                   </p>
                 ) : null}
               </>
@@ -1635,7 +1590,7 @@ export function PokerTable({
                     disabled={isPayingStake}
                     onClick={() => onBeginNewStakeSession?.()}
                   >
-                    Choose New Test Stake Session
+                    Choose New Stake Session
                   </Button>
                 ) : wrongNetwork ? (
                   <>
@@ -1670,7 +1625,7 @@ export function PokerTable({
                           Starting mock session…
                         </>
                       ) : (
-                        "Start Mock Test Session"
+                        "Mock session"
                       )}
                     </Button>
                   </>
@@ -1706,7 +1661,7 @@ export function PokerTable({
                           Starting mock session…
                         </>
                       ) : (
-                        "Start Mock Test Session"
+                        "Mock session"
                       )}
                     </Button>
                   </>
@@ -1731,15 +1686,14 @@ export function PokerTable({
                           Starting mock session…
                         </>
                       ) : (
-                        "Start Mock Test Session"
+                        "Mock session"
                       )}
                     </Button>
                   </>
                 )}
                 {isConnected && onBaseSepolia && !lockPathConfigured && !stakeCashedOut ? (
                   <p className="text-[10px] leading-relaxed text-amber-200/85">
-                    Escrow and treasury are not configured — cannot send testnet stake
-                    transaction. Use Start Mock Test Session for local preview.
+                    On-chain lock unavailable. Use mock session.
                   </p>
                 ) : null}
                 {phaseLabel && lockStakePhase !== "idle" && !stakeCashedOut ? (
@@ -1747,14 +1701,6 @@ export function PokerTable({
                     {phaseLabel}
                   </p>
                 ) : null}
-                <p className="text-[10px] leading-relaxed text-[var(--arena-muted)]">
-                  Base Sepolia · test tokens only · no mainnet funds
-                  {canSendLockTx && !stakeCashedOut
-                    ? escrowConfigured
-                      ? " · confirm escrow deposit in your wallet"
-                      : " · confirm test ETH transfer in your wallet"
-                    : " · mock session available as fallback"}
-                </p>
                 {paymentError ? (
                   <p className="text-[10px] text-red-400">{paymentError}</p>
                 ) : null}

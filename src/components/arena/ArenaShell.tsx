@@ -2115,7 +2115,7 @@ export function ArenaShell() {
     <div className="arena-shell arena-shell-v1 relative bg-[var(--arena-bg)]">
       <div className="arena-v1-atmosphere" aria-hidden />
 
-      <header className="arena-header-bar relative z-20 shrink-0 border-b border-[var(--arena-border)] bg-[var(--arena-surface)]/90 backdrop-blur-xl">
+      <header className="arena-header-bar relative z-20 shrink-0 border-b border-[var(--arena-border)]/60 bg-[var(--arena-surface)]/85 backdrop-blur-xl">
         <div className="mx-auto flex h-full max-w-[1400px] items-center justify-between gap-2 px-3 sm:px-4">
           <Button
             asChild
@@ -2148,39 +2148,42 @@ export function ArenaShell() {
         </div>
       </header>
 
-      <div className="arena-badge-bar relative z-10 shrink-0 border-b border-[var(--arena-border)] bg-[var(--arena-surface)]/60 px-2 py-1.5 sm:px-3">
+      <div className="arena-badge-bar relative z-10 shrink-0 border-b border-[var(--arena-border)]/50 bg-[var(--arena-surface)]/45 px-2 py-1.5 sm:px-3">
         <div className="arena-badge-strip">
           <Badge
             variant="outline"
-            className="shrink-0 gap-1 border-[var(--arena-border)] bg-[var(--arena-surface-2)]/90 text-[10px] text-[var(--arena-cyan)] sm:text-xs"
+            className={cn(
+              "arena-badge-pill shrink-0 sm:text-xs",
+              isArenaUnlocked && !isStakeCashedOut && "arena-badge-pill-active",
+            )}
           >
             <Sparkles className="h-3 w-3 shrink-0" />
             <span className="max-w-[7.5rem] truncate sm:max-w-none">
               {isStakeCashedOut ? (
                 <>
                   <span className="sm:hidden">Cashed out</span>
-                  <span className="hidden sm:inline">Test balance cashed out</span>
+                  <span className="hidden sm:inline">Cashed out</span>
                 </>
               ) : isArenaUnlocked ? (
                 <>
                   <span className="sm:hidden">Staked</span>
-                  <span className="hidden sm:inline">Test stake session active</span>
+                  <span className="hidden sm:inline">Stake active</span>
                 </>
               ) : (
                 <>
                   <span className="sm:hidden">Lock stake</span>
-                  <span className="hidden sm:inline">Lock test stake to play</span>
+                  <span className="hidden sm:inline">Lock stake to play</span>
                 </>
               )}
             </span>
           </Badge>
           {result && !stepDemo.isActive && !agentBattleReplayActive ? (
-            <Badge variant="secondary" className="shrink-0 text-[10px] sm:text-xs">
-              Hand #{result.handNumber}
+            <Badge variant="outline" className="arena-badge-pill-muted shrink-0 sm:text-xs">
+              #{result.handNumber}
             </Badge>
           ) : agentBattleReplay?.finalResult ? (
-            <Badge variant="secondary" className="shrink-0 text-[10px] sm:text-xs">
-              Hand #{agentBattleReplay.finalResult.handNumber}
+            <Badge variant="outline" className="arena-badge-pill-muted shrink-0 sm:text-xs">
+              #{agentBattleReplay.finalResult.handNumber}
             </Badge>
           ) : null}
           <SharedAgentBattleStatus
@@ -2192,8 +2195,8 @@ export function ArenaShell() {
           <Badge
             variant="outline"
             className={cn(
-              "shrink-0 gap-1 border-[var(--arena-border)] bg-[var(--arena-surface-2)]/80 text-[10px] text-[var(--arena-text)] sm:text-xs",
-              activeGameMode === "agent-vs-agent" && "border-[var(--arena-cyan)]/40 text-[var(--arena-cyan)]",
+              "arena-badge-pill shrink-0 sm:text-xs",
+              activeGameMode === "agent-vs-agent" && "arena-badge-pill-active",
             )}
           >
             {activeGameMode === "agent-vs-agent" ? (
@@ -2204,19 +2207,8 @@ export function ArenaShell() {
             {gameModeLabel(activeGameMode)}
           </Badge>
           {analytics.sessionStats.totalGames > 0 ? (
-            <Badge variant="secondary" className="shrink-0 text-[10px] sm:text-xs">
-              <span className="max-sm:hidden sm:inline md:hidden">
-                {analytics.sessionStats.totalGames} games
-              </span>
-              <span className="sm:hidden">{analytics.sessionStats.totalGames}g</span>
-              <span className="hidden md:inline">
-                {analytics.sessionStats.totalGames} games tracked
-              </span>
-            </Badge>
-          ) : null}
-          {!isArenaUnlocked && !isStakeCashedOut ? (
-            <Badge variant="secondary" className="shrink-0 text-[10px] sm:text-xs">
-              Test stake required
+            <Badge variant="outline" className="arena-badge-pill-muted shrink-0 sm:text-xs">
+              {analytics.sessionStats.totalGames} games
             </Badge>
           ) : null}
         </div>
@@ -2269,36 +2261,36 @@ export function ArenaShell() {
           </div>
         </div>
 
-        <aside className="arena-sidebar">
-          <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain">
-            <div className="flex min-h-0 flex-col gap-1.5">
-              <EntryFeePanel
+        <aside className="arena-sidebar gap-1.5">
+          <EntryFeePanel
+            compact
+            className="shrink-0"
+            paymentResult={paymentResult}
+            stakeSessionMeta={stakeSessionMeta}
+            onLockStake={lockTestStake}
+            onPayMock={payMockEntryFee}
+            onBeginNewStakeSession={beginNewStakeSession}
+            onCashOut={handleCashOut}
+            onResolveEscrow={handleResolveEscrow}
+            payingLock={payingLock}
+            payingMock={payingMock}
+            lockStakePhase={lockStakePhase}
+            cashingOut={cashingOut}
+            resolvingEscrow={resolvingEscrow}
+            escrowCashOutPhase={escrowCashOutPhase}
+            error={paymentError}
+            selectedStake={selectedTestStake}
+            onStakeChange={setSelectedTestStake}
+            startingChips={lockedStartingChips}
+            currentHumanChips={currentHumanChips}
+            handInProgress={handInProgress}
+          />
+          <div className="arena-sidebar-scroll min-h-0 flex-1">
+            {isArenaUnlocked ? (
+              <AiDecisionPanel
                 compact
-                className="min-h-0 shrink-0"
-                paymentResult={paymentResult}
-                stakeSessionMeta={stakeSessionMeta}
-                onLockStake={lockTestStake}
-                onPayMock={payMockEntryFee}
-                onBeginNewStakeSession={beginNewStakeSession}
-                onCashOut={handleCashOut}
-                onResolveEscrow={handleResolveEscrow}
-                payingLock={payingLock}
-                payingMock={payingMock}
-                lockStakePhase={lockStakePhase}
-                cashingOut={cashingOut}
-                resolvingEscrow={resolvingEscrow}
-                escrowCashOutPhase={escrowCashOutPhase}
-                error={paymentError}
-                selectedStake={selectedTestStake}
-                onStakeChange={setSelectedTestStake}
-                startingChips={lockedStartingChips}
-                currentHumanChips={currentHumanChips}
-                handInProgress={handInProgress}
-              />
-              {isArenaUnlocked ? (
-                <AiDecisionPanel
-                  compact
-                  latest={latestAiDecision}
+                className="arena-sidebar-decision"
+                latest={latestAiDecision}
                   handSettled={agentBattleHandSettled}
                   settledWinnerName={
                     agentBattleHandSettled
@@ -2325,8 +2317,7 @@ export function ArenaShell() {
                         : aiDecisions.length
                   }
                 />
-              ) : null}
-            </div>
+            ) : null}
           </div>
           <ArenaMenuTrigger
             onClick={() => setMenuOpen(true)}
@@ -2396,6 +2387,7 @@ export function ArenaShell() {
         agentBattleMode={isAgentBattleSpectator && !stepDemo.isActive}
         leaderboardEntries={analytics.leaderboard}
         highlightId={stepDemo.winner?.id ?? result?.winner.id}
+        connectedWalletAddress={isConnected ? address : undefined}
         sessionStats={analytics.sessionStats}
         sessionStatus={isArenaUnlocked ? "unlocked" : "locked"}
         paymentMode={paymentResult?.mode ?? null}
@@ -2438,6 +2430,7 @@ export function ArenaShell() {
           stakeSessionMeta?.stakeAmount ?? paymentResult?.amount ?? selectedTestStake
         }
         lockSettlement={stakeSessionMeta?.lockSettlement ?? "mock"}
+        escrowResolved={stakeSessionMeta?.escrowResolved ?? false}
         handInProgress={handInProgress}
         cashingOut={cashingOut}
         payingStake={payingLock || payingMock}

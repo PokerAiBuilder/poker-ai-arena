@@ -18,6 +18,7 @@ type ArenaInsightsTabsProps = {
   agentBattleMode?: boolean;
   leaderboardEntries: LeaderboardEntry[];
   highlightId?: string;
+  connectedWalletAddress?: string;
   sessionStats: SessionStats;
   sessionStatus: "locked" | "unlocked";
   paymentMode: X402PaymentMode | null;
@@ -32,8 +33,8 @@ type ArenaInsightsTabsProps = {
 
 const tabLabels: Record<InsightsTab, string> = {
   log: "Action Log",
-  leaderboard: "Leaderboard",
-  stats: "Session Stats",
+  leaderboard: "Local Leaderboard",
+  stats: "Local Session Stats",
 };
 
 export function ArenaInsightsTabs({
@@ -41,6 +42,7 @@ export function ArenaInsightsTabs({
   agentBattleMode = false,
   leaderboardEntries,
   highlightId,
+  connectedWalletAddress,
   sessionStats,
   sessionStatus,
   paymentMode,
@@ -85,7 +87,12 @@ export function ArenaInsightsTabs({
 
       {activeTab === "leaderboard" ? (
         <div className="min-w-0 space-y-2">
-          <Leaderboard entries={leaderboardEntries} highlightId={highlightId} embedded={embedded} />
+          <Leaderboard
+            entries={leaderboardEntries}
+            highlightId={highlightId}
+            connectedWalletAddress={connectedWalletAddress}
+            embedded={embedded}
+          />
           {process.env.NODE_ENV === "development" ? (
             <Button
               type="button"

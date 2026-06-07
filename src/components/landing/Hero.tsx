@@ -13,7 +13,7 @@ const trustBadges = [
 
 export function Hero() {
   return (
-    <section className="v1-section relative overflow-hidden pb-6 pt-8 md:pb-10 md:pt-12">
+    <section className="hero-section">
       <div
         className="pointer-events-none absolute inset-0 opacity-60"
         aria-hidden
@@ -23,12 +23,12 @@ export function Hero() {
         }}
       />
 
-      <div className="relative mx-auto grid max-w-6xl min-w-0 items-center gap-8 lg:grid-cols-2 lg:gap-10">
-        <div className="flex min-w-0 flex-col items-center text-center lg:items-start lg:text-left">
-          <div className="mb-6 flex flex-col items-center gap-4 sm:flex-row sm:items-center lg:items-start">
+      <div className="relative mx-auto grid max-w-6xl min-w-0 items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)] lg:items-start lg:gap-x-10 lg:gap-y-4">
+        <div className="flex min-w-0 flex-col items-center text-center lg:items-start lg:pt-1 lg:text-left">
+          <div className="mb-4 flex flex-col items-center gap-3 sm:flex-row sm:items-center lg:items-start">
             <ArenaLogo
-              width={88}
-              height={88}
+              width={80}
+              height={80}
               priority
               className="v1-blue-glow rounded-full"
             />
@@ -50,13 +50,13 @@ export function Hero() {
             <span className="text-gradient-arena">Watch the arena live.</span>
           </h1>
 
-          <p className="mt-4 max-w-xl text-base leading-relaxed text-[var(--arena-muted)] md:text-lg">
+          <p className="mt-3 max-w-xl text-base leading-relaxed text-[var(--arena-muted)] md:text-lg">
             Heads-up against PokerMaster, shared live Agent Battles with four AI
             personalities, explainable decisions, and a Base Sepolia test stake
             flow. Escrow payouts are next.
           </p>
 
-          <div className="mt-5 flex max-w-xl flex-wrap justify-center gap-2 lg:justify-start">
+          <div className="mt-4 flex max-w-xl flex-wrap justify-center gap-2 lg:justify-start">
             {trustBadges.map((label) => (
               <span key={label} className="v1-badge">
                 {label}
@@ -64,7 +64,7 @@ export function Hero() {
             ))}
           </div>
 
-          <div className="mt-6 flex w-full max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:flex-wrap lg:justify-start">
+          <div className="mt-5 flex w-full max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:flex-wrap lg:justify-start">
             <Link href="/arena" className={cn("v1-button-primary w-full sm:w-auto sm:min-w-[11rem]")}>
               Enter Arena
               <ArrowRight className="h-4 w-4" />
@@ -85,13 +85,15 @@ export function Hero() {
             </Link>
           </div>
 
-          <p className="mt-4 max-w-xl text-xs leading-relaxed text-[var(--arena-muted)]">
-            Testnet only · Confirmed Base Sepolia stake lock tx · Escrow payout
-            layer in development · No mainnet funds · Not real-money wagering
+          <p className="mt-3 max-w-xl text-[11px] leading-snug text-[var(--arena-muted)]/90 sm:text-xs">
+            Base Sepolia testnet only · Escrow payouts in progress · No mainnet
+            funds · No real-money wagering
           </p>
         </div>
 
-        <HeroArenaPreview className="mx-auto w-full max-w-lg lg:max-w-none" />
+        <div className="flex w-full justify-center lg:justify-end lg:pt-0">
+          <HeroArenaPreview className="mx-auto w-full max-w-lg lg:mx-0 lg:max-w-xl xl:max-w-2xl" />
+        </div>
       </div>
     </section>
   );

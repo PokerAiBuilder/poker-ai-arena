@@ -26,7 +26,7 @@ function polarToPercent(angleDeg: number, radiusPercent: number) {
   const rad = (angleDeg * Math.PI) / 180;
   return {
     left: `${50 + radiusPercent * Math.cos(rad)}%`,
-    top: `${50 + radiusPercent * 0.72 * Math.sin(rad) + 4}%`,
+    top: `${50 + radiusPercent * 0.72 * Math.sin(rad) + 2}%`,
   };
 }
 
@@ -36,21 +36,21 @@ export function HeroArenaPreview({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "v1-panel v1-glow-border relative overflow-hidden p-3 sm:p-4",
+        "hero-preview-panel v1-panel v1-glow-border relative overflow-hidden p-3 sm:p-4 lg:p-4",
         className,
       )}
       aria-hidden
     >
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[var(--arena-blue)]/12 via-transparent to-[var(--arena-cyan)]/6" />
       <div
-        className="pointer-events-none absolute left-1/2 top-[55%] h-[58%] w-[72%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] opacity-60 blur-2xl"
+        className="pointer-events-none absolute left-1/2 top-[48%] h-[62%] w-[76%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] opacity-55 blur-2xl"
         style={{
           background:
             "radial-gradient(ellipse, rgba(0, 82, 255, 0.32) 0%, rgba(34, 211, 238, 0.12) 45%, transparent 70%)",
         }}
       />
 
-      <div className="relative mx-auto aspect-[4/3] min-h-[220px] w-full max-w-md sm:min-h-[280px]">
+      <div className="relative mx-auto aspect-[4/3] min-h-[240px] w-full max-w-md sm:min-h-[280px] lg:min-h-[320px] lg:max-w-none xl:min-h-[360px]">
         {/* Shared timeline HUD */}
         <div className="hero-preview-hud relative z-30 mx-0.5">
           <div className="flex items-center gap-2">
@@ -86,13 +86,13 @@ export function HeroArenaPreview({ className }: { className?: string }) {
         </div>
 
         {/* Table stage */}
-        <div className="absolute inset-x-[2%] bottom-[4%] top-[14%] flex items-center justify-center">
-          <div className="relative h-full w-full max-w-[92%]">
+        <div className="absolute inset-x-[1%] bottom-[1%] top-[10%] flex items-center justify-center">
+          <div className="relative h-full w-full max-w-[94%]">
             {/* Outer rim + glow */}
-            <div className="hero-preview-table-rim absolute inset-[2%] rounded-[50%]" />
+            <div className="hero-preview-table-rim absolute inset-[1.5%] rounded-[50%]" />
 
             {/* Felt surface */}
-            <div className="hero-preview-table-felt absolute inset-[5.5%] overflow-hidden rounded-[50%]">
+            <div className="hero-preview-table-felt absolute inset-[5%] overflow-hidden rounded-[50%]">
               <div className="hero-preview-felt-texture absolute inset-0 opacity-[0.14]" />
               <div className="absolute inset-[9%] rounded-[50%] border border-[var(--arena-cyan)]/12" />
               <div
@@ -105,7 +105,7 @@ export function HeroArenaPreview({ className }: { className?: string }) {
             </div>
 
             {/* Center: pot + board */}
-            <div className="absolute left-1/2 top-[44%] z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
+            <div className="absolute left-1/2 top-[42%] z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
               <div className="hero-preview-pot-pill mb-2 flex items-center gap-1.5">
                 <span className="flex -space-x-0.5" aria-hidden>
                   <span className="hero-preview-chip hero-preview-chip-red" />
@@ -155,7 +155,7 @@ export function HeroArenaPreview({ className }: { className?: string }) {
 
             {/* Agent nodes */}
             {spectatorAgents.map((agent, index) => {
-              const pos = polarToPercent(agent.angle, 46);
+              const pos = polarToPercent(agent.angle, 47);
               const active = index === 1;
               return (
                 <div
@@ -165,7 +165,7 @@ export function HeroArenaPreview({ className }: { className?: string }) {
                 >
                   <div
                     className={cn(
-                      "hero-preview-agent relative flex h-9 w-9 items-center justify-center rounded-full text-[9px] font-bold sm:h-10 sm:w-10",
+                      "hero-preview-agent relative flex h-9 w-9 items-center justify-center rounded-full text-[9px] font-bold sm:h-10 sm:w-10 lg:h-11 lg:w-11 lg:text-[10px]",
                       active ? "hero-preview-agent-active" : "hero-preview-agent-idle",
                     )}
                   >
@@ -179,13 +179,13 @@ export function HeroArenaPreview({ className }: { className?: string }) {
                   </div>
                   <span
                     className={cn(
-                      "max-w-[4.5rem] truncate text-[9px] font-semibold",
+                      "max-w-[4.5rem] truncate text-[9px] font-semibold lg:text-[10px]",
                       active ? "text-[var(--arena-cyan)]" : "text-white/65",
                     )}
                   >
                     {agent.name}
                   </span>
-                  <span className="text-[8px] tabular-nums text-[var(--arena-muted)]/80">
+                  <span className="text-[8px] tabular-nums text-[var(--arena-muted)]/80 lg:text-[9px]">
                     {(1200 + index * 80).toLocaleString()}
                   </span>
                 </div>
@@ -195,7 +195,7 @@ export function HeroArenaPreview({ className }: { className?: string }) {
         </div>
       </div>
 
-      <p className="relative mt-2 text-center text-[10px] leading-relaxed text-[var(--arena-muted)]">
+      <p className="relative mt-1.5 text-center text-[10px] leading-relaxed text-[var(--arena-muted)]">
         Human vs AI · Shared Agent Battle · Base Sepolia testnet · Test tokens only
       </p>
     </div>

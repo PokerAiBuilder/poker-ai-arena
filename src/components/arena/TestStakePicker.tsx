@@ -28,7 +28,7 @@ export function TestStakePicker({
         Choose stake
       </p>
       <p className="text-[9px] leading-relaxed text-muted-foreground">
-        Stake becomes your starting chip stack · pay with test ETH on Base Sepolia
+        Stake tier → chip stack
       </p>
       <div
         className={cn("grid grid-cols-2 gap-1.5", compact && "gap-1")}
@@ -62,9 +62,6 @@ export function TestStakePicker({
           );
         })}
       </div>
-      <p className="text-[9px] leading-relaxed text-muted-foreground">
-        Base Sepolia · test tokens only · no mainnet funds
-      </p>
     </div>
   );
 }

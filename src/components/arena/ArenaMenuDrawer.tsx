@@ -1,16 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Menu, X } from "lucide-react";
-import type { InsightsTab } from "@/components/arena/ArenaInsightsTabs";
-import { ArenaInsightsTabs } from "@/components/arena/ArenaInsightsTabs";
-import { AiDecisionPanel } from "@/components/arena/AiDecisionPanel";
-import { BankrStatusPanel } from "@/components/arena/BankrStatusPanel";
-import { DemoDisclaimers } from "@/components/arena/DemoDisclaimers";
+import { ActionLog } from "@/components/arena/ActionLog";
 import { AgentProfilesPanel } from "@/components/arena/AgentProfilesPanel";
-import { DemoHelpPanel } from "@/components/arena/DemoHelpPanel";
+import { AiDecisionPanel } from "@/components/arena/AiDecisionPanel";
+import { ArenaMenuOverviewPanel } from "@/components/arena/ArenaMenuOverviewPanel";
+import {
+  ArenaMenuTabList,
+  type ArenaMenuTabId,
+} from "@/components/arena/ArenaMenuTabList";
+import { BankrStatusPanel } from "@/components/arena/BankrStatusPanel";
 import { HandHistoryPanel } from "@/components/arena/HandHistoryPanel";
+import { Leaderboard } from "@/components/arena/Leaderboard";
 import { StakeSessionMenuSection } from "@/components/arena/StakeSessionMenuSection";
+import { TableStats } from "@/components/arena/TableStats";
 import type { HandHistoryRecord } from "@/lib/arena/handHistory";
 import { Button } from "@/components/ui/button";
 import type { LeaderboardEntry, SessionStats } from "@/lib/analytics/types";
@@ -19,15 +23,6 @@ import type { GameAction, SimulationAgentDecision } from "@/lib/poker/types";
 import type { X402PaymentMode } from "@/lib/bankr/x402Client";
 import { cn } from "@/lib/utils";
 
-type DrawerTab =
-  | "guide"
-  | "agents"
-  | "decision"
-  | InsightsTab
-  | "history"
-  | "integration"
-  | "disclaimers";
-
 type ArenaMenuDrawerProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -35,6 +30,7 @@ type ArenaMenuDrawerProps = {
   agentBattleMode?: boolean;
   leaderboardEntries: LeaderboardEntry[];
   highlightId?: string;
+  connectedWalletAddress?: string;
   sessionStats: SessionStats;
   sessionStatus: "locked" | "unlocked";
   paymentMode: X402PaymentMode | null;
@@ -61,25 +57,24 @@ type ArenaMenuDrawerProps = {
   startingChips?: number;
   stakeAmount?: string;
   lockSettlement?: import("@/lib/stake/stakeSessionStorage").LockSettlement;
+  escrowResolved?: boolean;
   handInProgress?: boolean;
   cashingOut?: boolean;
   payingStake?: boolean;
   onCashOut?: () => void | Promise<void>;
 };
 
-const drawerTabs: { id: DrawerTab; label: string }[] = [
-  { id: "guide", label: "Guide" },
+/** Public menu tabs — Bankr is never shown here (dev-only via ENABLE_BANKR_MENU_TAB). */
+const BASE_MENU_TABS: { id: ArenaMenuTabId; label: string }[] = [
+  { id: "overview", label: "Overview" },
   { id: "agents", label: "Agents" },
   { id: "decision", label: "Decision" },
-  { id: "log", label: "Log" },
-  { id: "leaderboard", label: "Board" },
-  { id: "stats", label: "Stats" },
   { id: "history", label: "History" },
-  { id: "integration", label: "Bankr" },
-  { id: "disclaimers", label: "Info" },
+  { id: "stats", label: "Stats" },
 ];
 
-const insightsPanels = new Set<DrawerTab>(["log", "leaderboard", "stats"]);
+/** Bankr tab hidden from player UI. Set true locally only when debugging Bankr integration. */
+const ENABLE_BANKR_MENU_TAB = false;
 
 export function ArenaMenuTrigger({
   onClick,
@@ -125,11 +120,11 @@ export function ArenaMenuDrawer({
   agentBattleMode = false,
   leaderboardEntries,
   highlightId,
+  connectedWalletAddress,
   sessionStats,
   sessionStatus,
   paymentMode,
   entryFee,
-  onResetStats,
   handHistoryEntries = [],
   onClearHandHistory,
   isArenaUnlocked = false,
@@ -148,16 +143,28 @@ export function ArenaMenuDrawer({
   stakeSessionActive = false,
   stakeCashedOut = false,
   currentHumanChips = 0,
-  startingChips = 0,
   stakeAmount,
   lockSettlement = "mock",
+  escrowResolved = false,
   handInProgress = false,
   cashingOut = false,
   payingStake = false,
   onCashOut,
 }: ArenaMenuDrawerProps) {
-  const [tab, setTab] = useState<DrawerTab>("guide");
-  const tabRefs = useRef<Map<DrawerTab, HTMLButtonElement>>(new Map());
+  const [tab, setTab] = useState<ArenaMenuTabId>("overview");
+
+  const drawerTabs = useMemo(() => {
+    if (ENABLE_BANKR_MENU_TAB) {
+      return [...BASE_MENU_TABS, { id: "integration" as const, label: "Bankr" }];
+    }
+    return BASE_MENU_TABS;
+  }, []);
+
+  useEffect(() => {
+    if (!ENABLE_BANKR_MENU_TAB && tab === "integration") {
+      setTab("overview");
+    }
+  }, [tab]);
 
   useEffect(() => {
     if (!open) return;
@@ -177,23 +184,13 @@ export function ArenaMenuDrawer({
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const activeTab = tabRefs.current.get(tab);
-    activeTab?.scrollIntoView({
-      inline: "nearest",
-      block: "nearest",
-      behavior: "smooth",
-    });
-  }, [tab, open]);
-
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[60] flex justify-end overflow-hidden">
       <button
         type="button"
-        className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+        className="arena-menu-overlay absolute inset-0"
         aria-label="Close arena menu"
         onClick={() => onOpenChange(false)}
       />
@@ -204,72 +201,48 @@ export function ArenaMenuDrawer({
         aria-modal="true"
         aria-label="Arena menu"
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-[var(--arena-border)] px-3 py-3 sm:px-4">
-          <div className="min-w-0 pr-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--arena-cyan)]">
-              Arena Menu
-            </p>
-            <p className="truncate text-xs text-[var(--arena-muted)]">
-              Guide, decisions, logs & stats
-            </p>
-          </div>
+        <div className="arena-menu-header flex shrink-0 items-center justify-between border-b border-[var(--arena-border)]/80 px-3 py-2 sm:px-3.5">
+          <p className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--arena-cyan)]">
+            Arena Menu
+          </p>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="arena-action-btn-tap shrink-0 text-muted-foreground hover:text-white sm:h-9 sm:w-9"
+            className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-white/5 hover:text-white"
             onClick={() => onOpenChange(false)}
             aria-label="Close menu"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="shrink-0 border-b border-[var(--arena-border)] px-3 py-2">
-          <div className="arena-menu-tabs" role="tablist" aria-label="Arena menu sections">
-            {drawerTabs.map(({ id, label }) => (
-              <button
-                key={id}
-                ref={(node) => {
-                  if (node) tabRefs.current.set(id, node);
-                  else tabRefs.current.delete(id);
-                }}
-                type="button"
-                role="tab"
-                aria-selected={tab === id}
-                onClick={() => setTab(id)}
-                className={cn(
-                  "arena-menu-tab",
-                  tab === id
-                    ? "arena-menu-tab-active"
-                    : "text-[var(--arena-muted)] hover:bg-[var(--arena-surface-2)]/80 hover:text-[var(--arena-text)]",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+        <div className="shrink-0 border-b border-[var(--arena-border)]/80 px-1.5 py-1.5 sm:px-2">
+          <ArenaMenuTabList
+            tabs={drawerTabs}
+            activeTab={tab}
+            onTabChange={setTab}
+            open={open}
+          />
         </div>
 
         <div className="arena-menu-scroll">
           <div className="arena-menu-panel">
-            <StakeSessionMenuSection
-              sessionActive={stakeSessionActive}
-              cashedOut={stakeCashedOut}
-              currentHumanChips={currentHumanChips}
-              startingChips={startingChips}
-              stakeAmount={stakeAmount}
-              lockSettlement={lockSettlement}
-              handInProgress={handInProgress}
-              cashingOut={cashingOut}
-              payingStake={payingStake}
-              onCashOut={onCashOut}
-              className="mb-4"
-            />
-
-            {tab === "guide" ? (
-              <div className="space-y-4">
-                <DemoHelpPanel className="border-white/10 shadow-none" />
+            {tab === "overview" ? (
+              <div className="space-y-3">
+                <StakeSessionMenuSection
+                  sessionActive={stakeSessionActive}
+                  cashedOut={stakeCashedOut}
+                  currentHumanChips={currentHumanChips}
+                  stakeAmount={stakeAmount}
+                  lockSettlement={lockSettlement}
+                  handInProgress={handInProgress}
+                  cashingOut={cashingOut}
+                  payingStake={payingStake}
+                  escrowResolved={escrowResolved}
+                  onCashOut={onCashOut}
+                />
+                <ArenaMenuOverviewPanel lockSettlement={lockSettlement} />
               </div>
             ) : null}
 
@@ -290,63 +263,63 @@ export function ArenaMenuDrawer({
                   settledResultType={settledResultType}
                   humanCallAmount={humanCallAmount}
                   totalDecisions={totalDecisions}
+                  compact
                   className="shadow-none"
                 />
               ) : (
                 <div className="v1-card rounded-xl border-dashed px-4 py-6 text-center">
                   <p className="text-sm text-[var(--arena-muted)]">
-                    Lock a test stake session to see AI decisions.
+                    Lock a test stake to see AI decisions.
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-white/45">
-                    Choose a test stake and lock a session from the sidebar or
-                    table overlay to enable Decision, Log, and History panels.
+                    Lock stake from the table overlay, then open Decision or
+                    History for reasoning and actions.
                   </p>
                 </div>
               )
             ) : null}
 
-            {insightsPanels.has(tab) ? (
-              <ArenaInsightsTabs
-                panel={tab as InsightsTab}
-                actionLogEntries={actionLogEntries}
-                agentBattleMode={agentBattleMode}
-                leaderboardEntries={leaderboardEntries}
-                highlightId={highlightId}
-                sessionStats={sessionStats}
-                sessionStatus={sessionStatus}
-                paymentMode={paymentMode}
-                entryFee={entryFee}
-                onResetStats={onResetStats}
-                embedded
-              />
-            ) : null}
-
             {tab === "history" ? (
-              <HandHistoryPanel
-                entries={handHistoryEntries}
-                onClear={() => onClearHandHistory?.()}
-                embedded
-              />
+              <div className="space-y-4">
+                <section className="min-w-0 space-y-2 border-b border-[var(--arena-border)]/50 pb-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--arena-cyan)]">
+                    Current hand
+                  </p>
+                  <ActionLog
+                    entries={actionLogEntries}
+                    agentBattleMode={agentBattleMode}
+                    embedded
+                  />
+                </section>
+                <HandHistoryPanel
+                  entries={handHistoryEntries}
+                  onClear={() => onClearHandHistory?.()}
+                  embedded
+                  sectionTitle="Recent hands"
+                />
+              </div>
             ) : null}
 
-            {tab === "integration" ? <BankrStatusPanel embedded /> : null}
-
-            {tab === "disclaimers" ? (
-              <div className="space-y-4 rounded-2xl border border-white/10 bg-black/30 p-4">
-                <DemoDisclaimers className="justify-start" />
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Session analytics and stake session data are stored in localStorage on
-                  this device only. Balances are stake- and hand-driven — not manually reset.
-                </p>
-                <p className="text-xs leading-relaxed text-violet-200/70">
-                  Agent Battle uses a shared server timeline. Multiple viewers can
-                  watch the same AI hand. Skip animations is local only.
-                </p>
-                <p className="text-[10px] leading-relaxed text-white/40">
-                  Built with Next.js · Base testnet demo · Bankr/x402 integration
-                  layer prepared — mock session unlock in this MVP.
-                </p>
+            {tab === "stats" ? (
+              <div className="space-y-3">
+                <TableStats
+                  sessionStats={sessionStats}
+                  sessionStatus={sessionStatus}
+                  paymentMode={paymentMode}
+                  entryFee={entryFee}
+                />
+                <Leaderboard
+                  entries={leaderboardEntries}
+                  highlightId={highlightId}
+                  connectedWalletAddress={connectedWalletAddress}
+                  embedded
+                  menuCompact
+                />
               </div>
+            ) : null}
+
+            {tab === "integration" && ENABLE_BANKR_MENU_TAB ? (
+              <BankrStatusPanel embedded />
             ) : null}
           </div>
         </div>
