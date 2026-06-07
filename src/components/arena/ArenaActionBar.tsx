@@ -262,6 +262,9 @@ export function ArenaActionBar({
   const spectatorBannerClass =
     "border-[var(--arena-cyan)]/45 bg-[var(--arena-blue)]/20 text-[var(--arena-cyan)] shadow-arena-blue";
 
+  const sharedLiveStatusPillClass =
+    "arena-action-status-pill--shared-live border-[var(--arena-border)] bg-[var(--arena-surface)]/90 text-[var(--arena-muted)]";
+
   const showGuidanceBanner =
     guidance && (!humanTurnActive || guidance.phase !== "your-turn");
 
@@ -339,6 +342,46 @@ export function ArenaActionBar({
   }
 
   const mobileTap = "max-md:arena-action-btn-tap";
+
+  const renderInlineStatusPill = () => {
+    if (humanTurnActive) {
+      return (
+        <span
+          className={cn(
+            "arena-action-status-pill",
+            bannerStyles["your-turn"],
+          )}
+          role="status"
+          aria-live="polite"
+        >
+          Your turn
+          {humanTurnSecondsLeft != null
+            ? ` · ${String(Math.max(0, humanTurnSecondsLeft)).padStart(2, "0")}s`
+            : null}
+        </span>
+      );
+    }
+
+    if (showGuidanceBanner && guidance?.phase) {
+      return (
+        <span
+          className={cn(
+            "arena-action-status-pill",
+            agentBattleSpectator
+              ? sharedLiveStatusPillClass
+              : bannerStyles[guidance.phase],
+          )}
+          role="status"
+        >
+          {guidance.banner}
+        </span>
+      );
+    }
+
+    return null;
+  };
+
+  const inlineStatusPill = renderInlineStatusPill();
 
   const renderHvaiModeControl = (compact = false) => {
     if (agentBattleSpectator) return null;
@@ -587,11 +630,11 @@ export function ArenaActionBar({
       <div
         className={cn(
           "arena-action-shell",
-          compactSharedSpectatorBar ? "py-1" : "py-1.5 sm:py-2",
+          compactSharedSpectatorBar ? "py-1" : "py-1.5 sm:py-2 md:py-0.5",
         )}
       >
         {humanTurnActive ? (
-          <div className="arena-action-banner-slot mb-1.5 flex justify-center">
+          <div className="arena-action-banner-slot mb-1.5 flex justify-center md:hidden">
             <span
               className={cn(
                 "rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]",
@@ -607,7 +650,7 @@ export function ArenaActionBar({
         ) : (
           <div
             className={cn(
-              "arena-action-banner-slot flex justify-center",
+              "arena-action-banner-slot flex justify-center md:hidden",
               compactSharedSpectatorBar ? "mb-1.5" : "mb-2",
             )}
             aria-hidden={!showGuidanceBanner || !guidance?.phase}
@@ -660,6 +703,11 @@ export function ArenaActionBar({
               </div>
 
               <div className="arena-controls-desktop-ab">
+                {inlineStatusPill ? (
+                  <div className="arena-action-inline-status hidden shrink-0 md:flex">
+                    {inlineStatusPill}
+                  </div>
+                ) : null}
                 {renderReturnToHumanVsAiButton(false)}
                 {renderAgentBattleStatusPill(false)}
                 {renderSkipReplayButton(false)}
@@ -857,6 +905,11 @@ export function ArenaActionBar({
               </div>
 
               <div className="arena-controls-desktop-hvai">
+              {inlineStatusPill ? (
+                <div className="arena-action-inline-status hidden shrink-0 md:flex">
+                  {inlineStatusPill}
+                </div>
+              ) : null}
               <div className="arena-action-hvai-cluster flex min-w-0 max-w-full flex-1 flex-col gap-2 lg:flex-row lg:flex-nowrap lg:items-center lg:gap-1.5 lg:overflow-x-auto">
                 <div className="arena-action-row arena-action-row-mode min-w-0 max-w-full">
             {renderHvaiModeControl()}
@@ -1155,7 +1208,7 @@ export function ArenaActionBar({
 
         <div
           className={cn(
-            "arena-action-hint-slot text-center text-xs leading-snug",
+            "arena-action-hint-slot text-center text-xs leading-snug md:hidden",
             compactSharedSpectatorBar ? "mt-1" : "mt-2",
             !actionHint && "arena-action-hint-slot--empty",
           )}

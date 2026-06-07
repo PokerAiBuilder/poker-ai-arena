@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function ArenaPage() {
   return (
-    <div className="v1-gradient-bg min-h-dvh max-h-dvh overflow-hidden overflow-x-hidden">
+    <div className="v1-gradient-bg h-dvh max-h-dvh min-h-0 overflow-hidden overflow-x-hidden">
       <ArenaShell />
     </div>
   );

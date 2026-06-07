@@ -3,16 +3,19 @@
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAccount } from "wagmi";
-import { ArrowLeft, Sparkles, Swords, Users } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { ArenaActionBar } from "@/components/arena/ArenaActionBar";
-import { ArenaMenuDrawer, ArenaMenuTrigger } from "@/components/arena/ArenaMenuDrawer";
+import { ArenaStatusBadges } from "@/components/arena/ArenaStatusBadges";
+import { ArenaMenuDrawer } from "@/components/arena/ArenaMenuDrawer";
+import {
+  ArenaDesktopSidebar,
+  useArenaSidebarExpanded,
+} from "@/components/arena/ArenaDesktopSidebar";
 import { AiDecisionPanel } from "@/components/arena/AiDecisionPanel";
-import { SharedAgentBattleStatus } from "@/components/arena/SharedAgentBattleStatus";
 import { EntryFeePanel } from "@/components/arena/EntryFeePanel";
 import { PokerTable } from "@/components/arena/PokerTable";
 import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   clearArenaAnalytics,
@@ -324,6 +327,7 @@ export function ArenaShell() {
   const [autoFlowPending, setAutoFlowPending] =
     useState<StepDemoAutoFlowPending | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useArenaSidebarExpanded();
 
   autoFlowPendingRef.current = autoFlowPending;
 
@@ -2111,27 +2115,54 @@ export function ArenaShell() {
     sharedNextHandCountdown,
   ]);
 
+  const statusHandNumber =
+    result && !stepDemo.isActive && !agentBattleReplayActive
+      ? result.handNumber
+      : agentBattleReplay?.finalResult
+        ? agentBattleReplay.finalResult.handNumber
+        : null;
+
+  const statusBadgesProps = {
+    isArenaUnlocked,
+    isStakeCashedOut,
+    handNumber: statusHandNumber,
+    sharedAgentBattleStatusActive: sharedAgentBattleStatusActive,
+    sharedAgentBattleStatusSource: sharedAgentBattleStatusSource,
+    sharedAgentBattleStatusPhase: sharedAgentBattleStatusPhase,
+    sharedNextHandCountdown: sharedNextHandCountdown,
+    gameModeLabel: gameModeLabel(activeGameMode),
+    isAgentVsAgentMode: activeGameMode === "agent-vs-agent",
+    totalGames: analytics.sessionStats.totalGames,
+  };
+
   return (
     <div className="arena-shell arena-shell-v1 relative bg-[var(--arena-bg)]">
       <div className="arena-v1-atmosphere" aria-hidden />
 
       <header className="arena-header-bar relative z-20 shrink-0 border-b border-[var(--arena-border)]/60 bg-[var(--arena-surface)]/85 backdrop-blur-xl">
-        <div className="mx-auto flex h-full max-w-[1400px] items-center justify-between gap-2 px-3 sm:px-4">
-          <Button
-            asChild
-            variant="ghost"
-            size="sm"
-            className="text-[var(--arena-muted)] hover:bg-[var(--arena-surface-2)] hover:text-[var(--arena-text)]"
-          >
-            <Link href="/">
-              <ArrowLeft className="mr-1 h-4 w-4" />
-              Lobby
-            </Link>
-          </Button>
+        <div className="arena-header-inner mx-auto grid h-full max-w-[1400px] grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 sm:px-4">
+          <div className="arena-header-left flex min-w-0 items-center gap-1.5 justify-self-start md:gap-2">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="shrink-0 text-[var(--arena-muted)] hover:bg-[var(--arena-surface-2)] hover:text-[var(--arena-text)]"
+            >
+              <Link href="/">
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                Lobby
+              </Link>
+            </Button>
+            <ArenaStatusBadges
+              {...statusBadgesProps}
+              compact
+              className="arena-header-badges hidden md:flex"
+            />
+          </div>
 
           <Link
             href="/"
-            className="flex min-w-0 items-center gap-2 transition-opacity hover:opacity-90"
+            className="arena-header-center flex min-w-0 items-center justify-center gap-2 justify-self-center transition-opacity hover:opacity-90"
           >
             <BrandMark size={28} />
             <p className="text-center">
@@ -2144,77 +2175,28 @@ export function ArenaShell() {
             </p>
           </Link>
 
-          <ConnectWalletButton size="sm" showDemoHint={false} className="v1-button-secondary !h-9 !px-3 !text-xs" />
+          <div className="arena-header-right flex shrink-0 items-center justify-end justify-self-end">
+            <ConnectWalletButton
+              size="sm"
+              showDemoHint={false}
+              className="v1-button-secondary !h-9 !px-3 !text-xs"
+            />
+          </div>
         </div>
       </header>
 
-      <div className="arena-badge-bar relative z-10 shrink-0 border-b border-[var(--arena-border)]/50 bg-[var(--arena-surface)]/45 px-2 py-1.5 sm:px-3">
+      <div className="arena-badge-bar relative z-10 shrink-0 border-b border-[var(--arena-border)]/50 bg-[var(--arena-surface)]/45 px-2 py-1.5 sm:px-3 md:hidden">
         <div className="arena-badge-strip">
-          <Badge
-            variant="outline"
-            className={cn(
-              "arena-badge-pill shrink-0 sm:text-xs",
-              isArenaUnlocked && !isStakeCashedOut && "arena-badge-pill-active",
-            )}
-          >
-            <Sparkles className="h-3 w-3 shrink-0" />
-            <span className="max-w-[7.5rem] truncate sm:max-w-none">
-              {isStakeCashedOut ? (
-                <>
-                  <span className="sm:hidden">Cashed out</span>
-                  <span className="hidden sm:inline">Cashed out</span>
-                </>
-              ) : isArenaUnlocked ? (
-                <>
-                  <span className="sm:hidden">Staked</span>
-                  <span className="hidden sm:inline">Stake active</span>
-                </>
-              ) : (
-                <>
-                  <span className="sm:hidden">Lock stake</span>
-                  <span className="hidden sm:inline">Lock stake to play</span>
-                </>
-              )}
-            </span>
-          </Badge>
-          {result && !stepDemo.isActive && !agentBattleReplayActive ? (
-            <Badge variant="outline" className="arena-badge-pill-muted shrink-0 sm:text-xs">
-              #{result.handNumber}
-            </Badge>
-          ) : agentBattleReplay?.finalResult ? (
-            <Badge variant="outline" className="arena-badge-pill-muted shrink-0 sm:text-xs">
-              #{agentBattleReplay.finalResult.handNumber}
-            </Badge>
-          ) : null}
-          <SharedAgentBattleStatus
-            active={sharedAgentBattleStatusActive}
-            source={sharedAgentBattleStatusSource}
-            lifecyclePhase={sharedAgentBattleStatusPhase}
-            secondsUntilNextHand={sharedNextHandCountdown}
-          />
-          <Badge
-            variant="outline"
-            className={cn(
-              "arena-badge-pill shrink-0 sm:text-xs",
-              activeGameMode === "agent-vs-agent" && "arena-badge-pill-active",
-            )}
-          >
-            {activeGameMode === "agent-vs-agent" ? (
-              <Swords className="h-3 w-3" />
-            ) : (
-              <Users className="h-3 w-3" />
-            )}
-            {gameModeLabel(activeGameMode)}
-          </Badge>
-          {analytics.sessionStats.totalGames > 0 ? (
-            <Badge variant="outline" className="arena-badge-pill-muted shrink-0 sm:text-xs">
-              {analytics.sessionStats.totalGames} games
-            </Badge>
-          ) : null}
+          <ArenaStatusBadges {...statusBadgesProps} />
         </div>
       </div>
 
-      <div className="arena-main-grid">
+      <div
+        className={cn(
+          "arena-main-grid",
+          sidebarExpanded && "arena-main-grid--sidebar-expanded",
+        )}
+      >
         <div className="flex min-h-0 min-w-0 flex-col overflow-hidden arena-table-column">
           <div className="arena-table-stage">
             <div className="arena-table-stage-inner">
@@ -2261,74 +2243,84 @@ export function ArenaShell() {
           </div>
         </div>
 
-        <aside className="arena-sidebar gap-1.5">
-          <EntryFeePanel
-            compact
-            className="shrink-0"
-            paymentResult={paymentResult}
-            stakeSessionMeta={stakeSessionMeta}
-            onLockStake={lockTestStake}
-            onPayMock={payMockEntryFee}
-            onBeginNewStakeSession={beginNewStakeSession}
-            onCashOut={handleCashOut}
-            onResolveEscrow={handleResolveEscrow}
-            payingLock={payingLock}
-            payingMock={payingMock}
-            lockStakePhase={lockStakePhase}
-            cashingOut={cashingOut}
-            resolvingEscrow={resolvingEscrow}
-            escrowCashOutPhase={escrowCashOutPhase}
-            error={paymentError}
-            selectedStake={selectedTestStake}
-            onStakeChange={setSelectedTestStake}
-            startingChips={lockedStartingChips}
-            currentHumanChips={currentHumanChips}
-            handInProgress={handInProgress}
-          />
-          <div className="arena-sidebar-scroll min-h-0 flex-1">
-            {isArenaUnlocked ? (
+        <ArenaDesktopSidebar
+          expanded={sidebarExpanded}
+          onExpandedChange={setSidebarExpanded}
+          onOpenMenu={() => setMenuOpen(true)}
+          isArenaUnlocked={isArenaUnlocked}
+          isStakeCashedOut={isStakeCashedOut}
+          currentHumanChips={currentHumanChips}
+          aiThinking={pokerMasterThinking || agentBattleThinking}
+          hasAiDecision={
+            agentBattleHandSettled ||
+            Boolean(latestAiDecision) ||
+            pokerMasterThinking ||
+            agentBattleThinking
+          }
+          entryFeePanel={
+            <EntryFeePanel
+              compact
+              className="shrink-0"
+              paymentResult={paymentResult}
+              stakeSessionMeta={stakeSessionMeta}
+              onLockStake={lockTestStake}
+              onPayMock={payMockEntryFee}
+              onBeginNewStakeSession={beginNewStakeSession}
+              onCashOut={handleCashOut}
+              onResolveEscrow={handleResolveEscrow}
+              payingLock={payingLock}
+              payingMock={payingMock}
+              lockStakePhase={lockStakePhase}
+              cashingOut={cashingOut}
+              resolvingEscrow={resolvingEscrow}
+              escrowCashOutPhase={escrowCashOutPhase}
+              error={paymentError}
+              selectedStake={selectedTestStake}
+              onStakeChange={setSelectedTestStake}
+              startingChips={lockedStartingChips}
+              currentHumanChips={currentHumanChips}
+              handInProgress={handInProgress}
+            />
+          }
+          aiDecisionPanel={
+            isArenaUnlocked ? (
               <AiDecisionPanel
                 compact
                 className="arena-sidebar-decision"
                 latest={latestAiDecision}
-                  handSettled={agentBattleHandSettled}
-                  settledWinnerName={
-                    agentBattleHandSettled
-                      ? agentBattleReplayDisplay?.winnerName ?? result?.winner.name
-                      : undefined
-                  }
-                  settledWinningHand={agentBattleHandSettled ? showdownHandName : undefined}
-                  settledResultType={agentBattleHandSettled ? handResultType : undefined}
-                  guidedHand={stepDemo.isActive}
-                  hidePrivateHandInfo={hidePrivatePokerMasterInfo}
-                  thinking={pokerMasterThinking || agentBattleThinking}
-                  thinkingLabel={agentBattleThinkingLabel}
-                  spectatorMode={isAgentBattleSpectator}
-                  humanCallAmount={
-                    stepDemo.isActive ? stepDemoHumanCallAmount : undefined
-                  }
-                  totalDecisions={
-                    stepDemo.isActive
-                      ? stepDemo.aiDecision
-                        ? 1
-                        : 0
-                      : agentBattleReplayDisplay
-                        ? agentBattleReplayDisplay.visibleDecisionCount
-                        : aiDecisions.length
-                  }
-                />
-            ) : null}
-          </div>
-          <ArenaMenuTrigger
-            onClick={() => setMenuOpen(true)}
-            className="mt-1.5 w-full shrink-0"
-            compact
-          />
-        </aside>
+                handSettled={agentBattleHandSettled}
+                settledWinnerName={
+                  agentBattleHandSettled
+                    ? agentBattleReplayDisplay?.winnerName ?? result?.winner.name
+                    : undefined
+                }
+                settledWinningHand={agentBattleHandSettled ? showdownHandName : undefined}
+                settledResultType={agentBattleHandSettled ? handResultType : undefined}
+                guidedHand={stepDemo.isActive}
+                hidePrivateHandInfo={hidePrivatePokerMasterInfo}
+                thinking={pokerMasterThinking || agentBattleThinking}
+                thinkingLabel={agentBattleThinkingLabel}
+                spectatorMode={isAgentBattleSpectator}
+                humanCallAmount={
+                  stepDemo.isActive ? stepDemoHumanCallAmount : undefined
+                }
+                totalDecisions={
+                  stepDemo.isActive
+                    ? stepDemo.aiDecision
+                      ? 1
+                      : 0
+                    : agentBattleReplayDisplay
+                      ? agentBattleReplayDisplay.visibleDecisionCount
+                      : aiDecisions.length
+                }
+              />
+            ) : null
+          }
+        />
       </div>
 
       <ArenaActionBar
-        className="relative z-30 shrink-0"
+        className="arena-action-bar relative z-30 shrink-0"
         onSimulateAgentBattle={handleSimulateAgentBattle}
         onReturnToHumanVsAi={handleReturnToHumanVsAi}
         onPlayStepDemo={handlePlayStepDemo}

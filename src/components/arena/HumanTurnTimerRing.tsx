@@ -48,7 +48,7 @@ export function HumanTurnTimerRing({
         />
       </svg>
       {children}
-      <span className="absolute -right-1 -top-1 z-[3] hidden min-w-[1.75rem] rounded-full border border-[var(--arena-cyan)]/40 bg-[var(--arena-surface-2)]/95 px-1 py-0.5 text-center text-[9px] font-bold tabular-nums text-[var(--arena-cyan)] shadow-sm sm:block">
+      <span className="absolute left-1/2 top-0 z-[3] hidden min-w-[1.75rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--arena-cyan)]/40 bg-[var(--arena-surface-2)]/95 px-1 py-0.5 text-center text-[9px] font-bold tabular-nums text-[var(--arena-cyan)] shadow-sm sm:block">
         {String(Math.max(0, secondsLeft)).padStart(2, "0")}s
       </span>
     </div>
