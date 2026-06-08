@@ -269,7 +269,7 @@ export async function performEscrowClaimPayout(
 
   return {
     meta: updated,
-    logMessage: `Escrow payout claimed — ${formatEscrowPayoutEth(claimedAmount)} test ETH to wallet. Tx ${hash.slice(0, 10)}…`,
+    logMessage: `Escrow payout claimed — ${formatEscrowPayoutEth(claimedAmount)} ETH to wallet. Tx ${hash.slice(0, 10)}…`,
   };
 }
 

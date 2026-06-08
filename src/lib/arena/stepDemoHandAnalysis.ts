@@ -392,13 +392,24 @@ export function buildBetContext(
   options: { humanWentAllIn?: boolean; humanRaised?: boolean },
 ): BetContext {
   const pot = state.pot;
+  const aiStack = state.players.pokerMaster.stack;
   const potAfterCall = pot + toCall;
   const callPotRatio = toCall > 0 ? toCall / Math.max(1, potAfterCall) : 0;
+  const callVsStack = aiStack > 0 && toCall > 0 ? toCall / aiStack : 0;
+  const callVsPot = pot > 0 && toCall > 0 ? toCall / pot : 0;
 
   let pressure: BetPressure = "small";
-  if (options.humanWentAllIn) {
+  if (
+    options.humanWentAllIn ||
+    (aiStack > 0 && toCall >= aiStack) ||
+    callVsStack >= 0.5
+  ) {
     pressure = "all-in";
-  } else if (callPotRatio >= 0.55 || state.lastHumanRaiseIncrement >= pot * 0.85) {
+  } else if (
+    callVsPot >= 0.6 ||
+    callPotRatio >= 0.55 ||
+    state.lastHumanRaiseIncrement >= pot * 0.85
+  ) {
     pressure = "pot";
   } else if (callPotRatio >= 0.38 || state.lastHumanRaiseIncrement >= 45) {
     pressure = "large";

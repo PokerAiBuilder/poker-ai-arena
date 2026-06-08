@@ -1,3 +1,4 @@
+import { TESTNET_STAKE_DISCLAIMER } from "@/lib/stake/testnetStake";
 import { cn } from "@/lib/utils";
 
 type DemoDisclaimersProps = {
@@ -6,10 +7,7 @@ type DemoDisclaimersProps = {
 };
 
 export function DemoDisclaimers({ className, compact = false }: DemoDisclaimersProps) {
-  const items = [
-    "Base Sepolia testnet only · no mainnet funds",
-    "Mock session · local preview only",
-  ] as const;
+  const items = [TESTNET_STAKE_DISCLAIMER, "Mock session · local preview only"] as const;
 
   return (
     <ul

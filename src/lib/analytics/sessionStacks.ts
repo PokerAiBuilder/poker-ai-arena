@@ -65,16 +65,50 @@ export function sanitizeSessionStacks(
   return next;
 }
 
+/** Player (human) has no chips — requires a new stake session. */
+export function isHumanStackDepleted(stacks: SessionStacksState): boolean {
+  return sanitizeSessionStacks(stacks).human <= 0;
+}
+
+/** Opponent / house seat has no chips — bot bust; player session may continue. */
+export function isOpponentStackDepleted(stacks: SessionStacksState): boolean {
+  return sanitizeSessionStacks(stacks)[PokerMaster.id] <= 0;
+}
+
+/** @deprecated Prefer isHumanStackDepleted — player bust only. */
 export function isHeadsUpStackDepleted(stacks: SessionStacksState): boolean {
-  const sanitized = sanitizeSessionStacks(stacks);
-  return sanitized.human <= 0 || sanitized[PokerMaster.id] <= 0;
+  return isHumanStackDepleted(stacks);
 }
 
 export function canStartHeadsUpHand(stacks: SessionStacksState): boolean {
-  return !isHeadsUpStackDepleted(stacks);
+  return !isHumanStackDepleted(stacks);
 }
 
-/** User-triggered reset — Human vs AI stacks to locked stake or default. */
+/**
+ * Prepare stacks for the next Human vs AI hand.
+ * Preserves human chips; refills only the bot/house seat when busted.
+ */
+export function prepareHeadsUpHandStacks(
+  stacks: SessionStacksState,
+  houseRefillChips: number = DEFAULT_STARTING_STACK,
+): SessionStacksState | null {
+  const sanitized = sanitizeSessionStacks(stacks);
+  if (sanitized.human <= 0) return null;
+
+  const refill = sanitizeSessionStackValue(houseRefillChips);
+  const botId = PokerMaster.id;
+
+  if (sanitized[botId] > 0) {
+    return sanitized;
+  }
+
+  return sanitizeSessionStacks({
+    ...sanitized,
+    [botId]: refill > 0 ? refill : DEFAULT_STARTING_STACK,
+  });
+}
+
+/** Dev-only: reset both Human vs AI stacks to the locked stake tier. */
 export function resetHeadsUpDemoStacks(
   stacks: SessionStacksState,
   startingChips: number = DEFAULT_STARTING_STACK,

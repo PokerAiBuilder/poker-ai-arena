@@ -25,13 +25,14 @@ import {
   createInitialArenaAnalytics,
   createInitialSessionStacks,
   canStartHeadsUpHand,
-  isHeadsUpStackDepleted,
+  isHumanStackDepleted,
+  isOpponentStackDepleted,
+  prepareHeadsUpHandStacks,
   isAgentBattleStackDepleted,
   loadAgentBattleStacks,
   loadArenaAnalytics,
   loadSessionStacks,
   resetAgentBattleStacks,
-  resetHeadsUpDemoStacks,
   applyStakeStartingStacks,
   saveAgentBattleStacks,
   saveArenaAnalytics,
@@ -82,6 +83,8 @@ import {
   getStepDemoHumanCallAmount,
   getStepDemoPotDisplay,
   getStepDemoStackUpdates,
+  reconcileHumanZeroStackState,
+  reconcileHumanZeroStackWithOutcome,
   resolveStepDemoPendingAi,
   resolveStepDemoPendingAiWithFallback,
   type StepDemoHumanActionOutcome,
@@ -94,6 +97,11 @@ import {
   deriveStepDemoUiState,
   stepDemoUiBannerPhase,
 } from "@/lib/arena/stepDemoUiState";
+import {
+  canHumanTakeBettingAction,
+  isHumanInHandStackZero,
+  isHumanMidHandBusted,
+} from "@/lib/arena/stepDemoZeroStack";
 import {
   buildAutoFlowDebugSnapshot,
   canApplyAutoFlowAction,
@@ -133,6 +141,13 @@ import {
   type TestStakeAmount,
 } from "@/lib/stake/testnetStake";
 import {
+  closeDepletedZeroPayoutEscrowSession,
+  isDepletedZeroPayoutEscrowSession,
+  isZeroClaimableEscrowPayout,
+  shouldRequireEscrowPrepareClaim,
+} from "@/lib/stake/depletedEscrowSession";
+import {
+  appendStakeSessionHistory,
   clearStakeSessionMeta,
   createMockCashOutRecord,
   createTreasuryCashOutRecord,
@@ -156,6 +171,10 @@ import {
   type EscrowPayoutUiInfo,
 } from "@/lib/stake/escrowLiquidityPreview";
 import { fetchEscrowResolverStatus } from "@/lib/stake/escrowResolveApi";
+import {
+  devResetHeadsUpStacks,
+  shouldShowDevStackReset,
+} from "@/lib/stake/devStackResetPolicy";
 import { readEscrowSession } from "@/lib/onchain/escrowContract";
 import { sendLockTestStakeTx, isLockStakePathConfigured } from "@/lib/stake/lockTestStakeTx";
 import {
@@ -427,9 +446,11 @@ export function ArenaShell() {
       }
 
       setStepDemo(() => {
-        const resolved = useFallback
-          ? resolveStepDemoPendingAiWithFallback(job.snapshot, job.pending)
-          : resolveStepDemoPendingAi(job.snapshot, job.pending);
+        const resolved = reconcileHumanZeroStackState(
+          useFallback
+            ? resolveStepDemoPendingAiWithFallback(job.snapshot, job.pending)
+            : resolveStepDemoPendingAi(job.snapshot, job.pending),
+        );
         applyStepDemoStackUpdates(resolved);
         return resolved;
       });
@@ -460,6 +481,7 @@ export function ArenaShell() {
   const isStakeSessionActiveState = isStakeSessionActive(stakeSessionMeta);
   const isStakeCashedOut = isStakeSessionCashedOut(stakeSessionMeta);
   const isArenaUnlocked = isStakeSessionActiveState && paymentResult?.success === true;
+  const lockSettlement = stakeSessionMeta?.lockSettlement ?? "mock";
 
   const handInProgress = useMemo(
     () =>
@@ -483,6 +505,24 @@ export function ArenaShell() {
     }
     return sessionStacks.human ?? 0;
   }, [stepDemo, sessionStacks.human]);
+
+  useEffect(() => {
+    if (
+      !isHumanMidHandBusted(stepDemo) ||
+      stepDemo.turn !== "human" ||
+      pokerMasterThinkingRef.current ||
+      transitionLockRef.current
+    ) {
+      return;
+    }
+
+    const outcome = reconcileHumanZeroStackWithOutcome(stepDemo);
+    applyStepDemoStackUpdates(outcome.state);
+    setStepDemo(outcome.state);
+    if (outcome.pendingAi) {
+      schedulePendingAiResponse(outcome.state, outcome.pendingAi);
+    }
+  }, [stepDemo, applyStepDemoStackUpdates, schedulePendingAiResponse]);
 
   useEffect(() => {
     const loaded = loadArenaAnalytics();
@@ -1145,6 +1185,44 @@ export function ArenaShell() {
   );
 
   const beginNewStakeSession = useCallback(() => {
+    if (
+      stakeSessionMeta &&
+      isStakeSessionActive(stakeSessionMeta) &&
+      shouldRequireEscrowPrepareClaim(
+        stakeSessionMeta,
+        currentHumanChips,
+        escrowPayoutUi,
+      )
+    ) {
+      setPaymentError(
+        "Prepare and claim payout before starting a new stake session.",
+      );
+      return;
+    }
+
+    if (
+      stakeSessionMeta &&
+      isStakeSessionActive(stakeSessionMeta) &&
+      isDepletedZeroPayoutEscrowSession(
+        stakeSessionMeta,
+        currentHumanChips,
+        escrowPayoutUi,
+      )
+    ) {
+      const closed = closeDepletedZeroPayoutEscrowSession(
+        stakeSessionMeta,
+        currentHumanChips,
+        address,
+      );
+      appendStakeSessionHistory(closed);
+      setSessionLog((prev) => [
+        ...prev,
+        createSessionLogEntry(
+          `Escrow session #${closed.escrowSessionId ?? "?"} closed — no payout available.`,
+        ),
+      ]);
+    }
+
     clearStakeSessionMeta();
     clearPokerMasterThinking();
     resetAutoFlowSession();
@@ -1156,7 +1234,14 @@ export function ArenaShell() {
     setSessionStacks(createInitialSessionStacks());
     setResult(null);
     setError(null);
-  }, [clearPokerMasterThinking, resetAutoFlowSession]);
+  }, [
+    stakeSessionMeta,
+    currentHumanChips,
+    escrowPayoutUi,
+    address,
+    clearPokerMasterThinking,
+    resetAutoFlowSession,
+  ]);
 
   const handleCashOut = useCallback(async () => {
     if (!stakeSessionMeta || !isStakeSessionActive(stakeSessionMeta)) return;
@@ -1190,6 +1275,23 @@ export function ArenaShell() {
     };
 
     try {
+      if (
+        lockSettlement === "escrow-deposit" &&
+        isZeroClaimableEscrowPayout(chips, escrowPayoutUi)
+      ) {
+        const closed = closeDepletedZeroPayoutEscrowSession(
+          stakeSessionMeta,
+          chips,
+          address,
+        );
+        appendStakeSessionHistory(closed);
+        finishCashOut(
+          closed,
+          `Escrow session closed — no payout available (${chips.toLocaleString()} chips).`,
+        );
+        return;
+      }
+
       if (lockSettlement === "escrow-deposit") {
         const { meta, logMessage } = await performEscrowClaimPayout(
           stakeSessionMeta,
@@ -1253,6 +1355,7 @@ export function ArenaShell() {
     stakeSessionMeta,
     handInProgress,
     currentHumanChips,
+    escrowPayoutUi,
     address,
     chain?.id,
     clearPokerMasterThinking,
@@ -1558,7 +1661,12 @@ export function ArenaShell() {
     }
     const readyStacks = sanitizeSessionStacks(sessionStacks);
     if (!canStartHeadsUpHand(readyStacks)) {
-      setError("One player is out of chips — start a new test stake session from the side panel.");
+      setError("No chips left — start a new test stake session.");
+      return;
+    }
+    const prepared = prepareHeadsUpHandStacks(readyStacks, lockedStartingChips);
+    if (!prepared) {
+      setError("No chips left — start a new test stake session.");
       return;
     }
     clearPokerMasterThinking();
@@ -1566,15 +1674,33 @@ export function ArenaShell() {
     clearAgentBattleSpectatorSession();
     setError(null);
     setPreferredSeatLayout("human-vs-ai");
-    setSessionStacks(readyStacks);
-    setStepDemo(dealStepDemoHand(readyStacks));
+    setSessionStacks(prepared);
+    setStepDemo(dealStepDemoHand(prepared));
     setSessionLog((prev) => [
       ...prev,
       createSessionLogEntry("Human vs AI — new hand started."),
     ]);
-  }, [isArenaUnlocked, sessionStacks, clearPokerMasterThinking, resetAutoFlowSession, clearAgentBattleSpectatorSession]);
+  }, [
+    isArenaUnlocked,
+    sessionStacks,
+    lockedStartingChips,
+    clearPokerMasterThinking,
+    resetAutoFlowSession,
+    clearAgentBattleSpectatorSession,
+  ]);
 
   const handleResetDemoStacks = useCallback(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    if (
+      !shouldShowDevStackReset({
+        isDevelopment: true,
+        lockSettlement: stakeSessionMeta?.lockSettlement,
+        playerBusted: isHumanStackDepleted(sessionStacks),
+      })
+    ) {
+      return;
+    }
+
     clearPokerMasterThinking();
     resetAutoFlowSession();
     clearAgentBattleSpectatorSession();
@@ -1582,7 +1708,11 @@ export function ArenaShell() {
       stakeSessionMeta?.startingChips ??
       paymentResult?.chipAmount ??
       getTestStakeTier(selectedTestStake).chipAmount;
-    setSessionStacks((prev) => resetHeadsUpDemoStacks(prev, startingChips));
+    const lock = stakeSessionMeta?.lockSettlement;
+    setSessionStacks((prev) => {
+      const next = devResetHeadsUpStacks(prev, startingChips, lock);
+      return next ?? prev;
+    });
     setStepDemo(createInitialStepDemoState());
     setResult(null);
     setError(null);
@@ -1590,7 +1720,7 @@ export function ArenaShell() {
     setSessionLog((prev) => [
       ...prev,
       createSessionLogEntry(
-        `Stacks reset to ${startingChips.toLocaleString()} chips (${formatStakeToChipsLine(selectedTestStake)}).`,
+        `Dev reset stacks to ${startingChips.toLocaleString()} chips (${formatStakeToChipsLine(selectedTestStake)}).`,
       ),
     ]);
   }, [
@@ -1600,6 +1730,7 @@ export function ArenaShell() {
     stakeSessionMeta,
     paymentResult,
     selectedTestStake,
+    sessionStacks,
   ]);
 
   const agentBattleReplayTimeline = useMemo(() => {
@@ -1680,7 +1811,7 @@ export function ArenaShell() {
     (updater: (prev: StepDemoState) => StepDemoState) => {
       if (pokerMasterThinkingRef.current) return;
       setStepDemo((prev) => {
-        const next = updater(prev);
+        const next = reconcileHumanZeroStackState(updater(prev));
         applyStepDemoStackUpdates(next);
         return next;
       });
@@ -1699,20 +1830,40 @@ export function ArenaShell() {
         return;
       }
 
+      if (!canHumanTakeBettingAction(stepDemoRef.current)) {
+        return;
+      }
+
       const outcome = apply(stepDemoRef.current);
-      applyStepDemoStackUpdates(outcome.state);
-      setStepDemo(outcome.state);
+      const reconciled = reconcileHumanZeroStackState(outcome.state);
+      applyStepDemoStackUpdates(reconciled);
+      setStepDemo(reconciled);
 
       if (outcome.pendingAi) {
-        schedulePendingAiResponse(outcome.state, outcome.pendingAi);
+        schedulePendingAiResponse(reconciled, outcome.pendingAi);
       }
     },
     [applyStepDemoStackUpdates, schedulePendingAiResponse],
   );
 
   const headsUpStackDepleted = useMemo(
-    () => isHeadsUpStackDepleted(sessionStacks),
+    () => isHumanStackDepleted(sessionStacks),
     [sessionStacks],
+  );
+
+  const opponentBusted = useMemo(
+    () => isOpponentStackDepleted(sessionStacks),
+    [sessionStacks],
+  );
+
+  const allowDevStackReset = useMemo(
+    () =>
+      shouldShowDevStackReset({
+        isDevelopment: process.env.NODE_ENV === "development",
+        lockSettlement,
+        playerBusted: headsUpStackDepleted,
+      }),
+    [lockSettlement, headsUpStackDepleted],
   );
 
   const agentBattleStackDepleted = useMemo(
@@ -1725,6 +1876,7 @@ export function ArenaShell() {
       deriveStepDemoUiState(stepDemo, {
         pokerMasterThinking,
         headsUpStackDepleted,
+        opponentBusted,
         arenaUnlocked: isArenaUnlocked,
         autoFlowPending,
       }),
@@ -1732,6 +1884,7 @@ export function ArenaShell() {
       stepDemo,
       pokerMasterThinking,
       headsUpStackDepleted,
+      opponentBusted,
       isArenaUnlocked,
       autoFlowPending,
     ],
@@ -1754,6 +1907,7 @@ export function ArenaShell() {
     !pokerMasterThinking &&
     !autoFlowPending &&
     !headsUpStackDepleted &&
+    !isHumanInHandStackZero(stepDemo) &&
     stepDemo.step !== "result";
 
   const humanTurnTimerKey = humanTurnTimerEnabled
@@ -1772,17 +1926,23 @@ export function ArenaShell() {
     clearHumanTurnTimerRef.current?.();
 
     const current = stepDemoRef.current;
-    if (!current.isActive || current.turn !== "human" || current.step === "result") {
+    if (
+      !current.isActive ||
+      current.turn !== "human" ||
+      current.step === "result" ||
+      !canHumanTakeBettingAction(current)
+    ) {
       return;
     }
 
     const actions = getStepDemoHumanActions(current);
     if (resolveHumanTurnTimeoutAction(actions) === "check") {
       const outcome = applyHumanTimeoutCheckWithOutcome(current);
-      applyStepDemoStackUpdates(outcome.state);
-      setStepDemo(outcome.state);
+      const reconciled = reconcileHumanZeroStackState(outcome.state);
+      applyStepDemoStackUpdates(reconciled);
+      setStepDemo(reconciled);
       if (outcome.pendingAi) {
-        schedulePendingAiResponse(outcome.state, outcome.pendingAi);
+        schedulePendingAiResponse(reconciled, outcome.pendingAi);
       }
       return;
     }
@@ -1813,7 +1973,10 @@ export function ArenaShell() {
       tryStepDemoTransition(() => {
         const ui = deriveStepDemoUiState(stepDemoRef.current, {
           pokerMasterThinking: pokerMasterThinkingRef.current,
-          headsUpStackDepleted: isHeadsUpStackDepleted(
+          headsUpStackDepleted: isHumanStackDepleted(
+            sanitizeSessionStacks(sessionStacks),
+          ),
+          opponentBusted: isOpponentStackDepleted(
             sanitizeSessionStacks(sessionStacks),
           ),
           autoFlowPending: autoFlowPendingRef.current,
@@ -1831,7 +1994,8 @@ export function ArenaShell() {
     tryStepDemoTransition(() => {
       const ui = deriveStepDemoUiState(stepDemoRef.current, {
         pokerMasterThinking: false,
-        headsUpStackDepleted: isHeadsUpStackDepleted(sessionStacks),
+        headsUpStackDepleted: isHumanStackDepleted(sessionStacks),
+        opponentBusted: isOpponentStackDepleted(sessionStacks),
       });
       if (!ui.newHandEnabled) return;
 
@@ -1840,9 +2004,13 @@ export function ArenaShell() {
       const readyStacks = sanitizeSessionStacks(sessionStacks);
       if (!canStartHeadsUpHand(readyStacks)) return;
 
+      const prepared = prepareHeadsUpHandStacks(readyStacks, lockedStartingChips);
+      if (!prepared) return;
+
       setResult(null);
       setPreferredSeatLayout("human-vs-ai");
-      setStepDemo(dealStepDemoHand(readyStacks));
+      setSessionStacks(prepared);
+      setStepDemo(dealStepDemoHand(prepared));
       setSessionLog((prev) => [
         ...prev,
         createSessionLogEntry("New hand started."),
@@ -1852,6 +2020,7 @@ export function ArenaShell() {
     clearPokerMasterThinking,
     resetAutoFlowSession,
     sessionStacks,
+    lockedStartingChips,
     tryStepDemoTransition,
   ]);
 
@@ -2009,7 +2178,8 @@ export function ArenaShell() {
     if (
       pokerMasterThinkingRef.current ||
       transitionLockRef.current ||
-      autoFlowPendingRef.current
+      autoFlowPendingRef.current ||
+      !canHumanTakeBettingAction(stepDemoRef.current)
     ) {
       return;
     }
@@ -2477,6 +2647,7 @@ export function ArenaShell() {
         onReturnToHumanVsAi={handleReturnToHumanVsAi}
         onPlayStepDemo={handlePlayStepDemo}
         onResetDemoStacks={handleResetDemoStacks}
+        allowDevStackReset={allowDevStackReset}
         onOpenMenu={() => setMenuOpen(true)}
         stepDemoActive={stepDemo.isActive}
         stepDemoUi={isHeadsUpGuided ? stepDemoUi : undefined}
@@ -2581,8 +2752,10 @@ export function ArenaShell() {
         preparingEscrow={preparingEscrow}
         escrowResolverConfigured={escrowResolverConfigured}
         escrowPayoutUi={escrowPayoutUi}
+        stakeSessionMeta={stakeSessionMeta}
         onPrepareEscrowPayout={handlePrepareEscrowPayout}
         onCashOut={handleCashOut}
+        onBeginNewStakeSession={beginNewStakeSession}
       />
     </div>
   );

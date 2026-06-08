@@ -15,6 +15,7 @@ import {
   type StepDemoAutoFlowPending,
   type StepDemoAutoFlowStatus,
 } from "@/lib/arena/stepDemoAutoFlow";
+import { isHumanMidHandBusted } from "@/lib/arena/stepDemoZeroStack";
 
 export type StepDemoUiActionState =
   | "ready_to_start"
@@ -65,7 +66,7 @@ const HINTS: Record<StepDemoUiActionState, string> = {
   show_result_ready: "Ready for showdown.",
   hand_complete: "Hand complete — start a new hand.",
   stack_depleted:
-    "No chips remaining — cash out or start a new test stake session from the side panel.",
+    "No chips left — start a new test stake session.",
 };
 
 function isHumanTurn(state: StepDemoState): boolean {
@@ -73,7 +74,8 @@ function isHumanTurn(state: StepDemoState): boolean {
     state.isActive &&
     state.turn === "human" &&
     isStepDemoBettingInProgress(state) &&
-    state.step !== "result"
+    state.step !== "result" &&
+    !isHumanMidHandBusted(state)
   );
 }
 
@@ -90,6 +92,7 @@ export function deriveStepDemoUiState(
   options: {
     pokerMasterThinking: boolean;
     headsUpStackDepleted: boolean;
+    opponentBusted?: boolean;
     arenaUnlocked?: boolean;
     autoFlowPending?: StepDemoAutoFlowPending | null;
   },
@@ -99,6 +102,7 @@ export function deriveStepDemoUiState(
   const {
     pokerMasterThinking,
     headsUpStackDepleted,
+    opponentBusted = false,
     autoFlowPending = null,
   } = options;
   const autoFlowStatus = deriveStepDemoAutoFlowStatus(state, {
@@ -110,7 +114,10 @@ export function deriveStepDemoUiState(
   let actionHint = getStepDemoAutoFlowHint(autoFlowStatus);
   let nextStep: StepDemoNextStep | null = null;
 
-  if (headsUpStackDepleted && (!state.isActive || state.step === "result")) {
+  if (
+    (headsUpStackDepleted && (!state.isActive || state.step === "result")) ||
+    isHumanMidHandBusted(state)
+  ) {
     uiState = "stack_depleted";
     actionHint = HINTS.stack_depleted;
   } else if (state.isActive && state.step === "result") {
@@ -118,7 +125,9 @@ export function deriveStepDemoUiState(
     actionHint =
       state.humanAllIn && state.winningHandName === "Win by fold"
         ? "PokerMaster folded — you win the pot."
-        : HINTS.hand_complete;
+        : opponentBusted
+          ? "PokerMaster busted — your chips are unchanged. Start a new hand."
+          : HINTS.hand_complete;
   } else if (!state.isActive) {
     uiState = "ready_to_start";
     actionHint = HINTS.ready_to_start;

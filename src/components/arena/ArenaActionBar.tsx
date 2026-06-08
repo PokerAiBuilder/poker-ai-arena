@@ -29,6 +29,7 @@ type ArenaActionBarProps = {
   stepDemoHandComplete?: boolean;
   onStepDemoReset?: () => void;
   onResetDemoStacks?: () => void;
+  allowDevStackReset?: boolean;
   headsUpStackDepleted?: boolean;
   onRevealFlop?: () => void;
   onRevealTurn?: () => void;
@@ -103,6 +104,7 @@ export function ArenaActionBar({
   stepDemoHandComplete = false,
   onStepDemoReset,
   onResetDemoStacks,
+  allowDevStackReset = false,
   headsUpStackDepleted = false,
   onRevealFlop,
   onRevealTurn,
@@ -187,7 +189,7 @@ export function ArenaActionBar({
         phase: "hand-complete",
         banner: "NO CHIPS LEFT",
         actionHint:
-          "No chips remaining — cash out or start a new test stake session from the side panel.",
+          "No chips left — start a new test stake session.",
       }
     : useHeadsUpUi
       ? {
@@ -296,6 +298,7 @@ export function ArenaActionBar({
     : showStackDepletedUi;
 
   const showDevResetStacks =
+    allowDevStackReset &&
     process.env.NODE_ENV === "development" &&
     Boolean(onResetDemoStacks) &&
     resetStacksEnabled;

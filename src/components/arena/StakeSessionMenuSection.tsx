@@ -7,7 +7,11 @@ import {
   type TestStakeAmount,
 } from "@/lib/stake/testnetStake";
 import type { EscrowPayoutUiInfo } from "@/lib/stake/escrowLiquidityPreview";
-import type { LockSettlement } from "@/lib/stake/stakeSessionStorage";
+import {
+  isDepletedZeroPayoutEscrowSession,
+  shouldRequireEscrowPrepareClaim,
+} from "@/lib/stake/depletedEscrowSession";
+import type { LockSettlement, StakeSessionMeta } from "@/lib/stake/stakeSessionStorage";
 import { getLockSettlementLabel } from "@/lib/onchain/baseSepolia";
 import { cn } from "@/lib/utils";
 
@@ -24,8 +28,10 @@ type StakeSessionMenuSectionProps = {
   preparingEscrow?: boolean;
   escrowResolverConfigured?: boolean | null;
   escrowPayoutUi?: EscrowPayoutUiInfo | null;
+  stakeSessionMeta?: StakeSessionMeta | null;
   onPrepareEscrowPayout?: () => void | Promise<void>;
   onCashOut?: () => void | Promise<void>;
+  onBeginNewStakeSession?: () => void;
   className?: string;
 };
 
@@ -42,8 +48,10 @@ export function StakeSessionMenuSection({
   preparingEscrow = false,
   escrowResolverConfigured = null,
   escrowPayoutUi = null,
+  stakeSessionMeta = null,
   onPrepareEscrowPayout,
   onCashOut,
+  onBeginNewStakeSession,
   className,
 }: StakeSessionMenuSectionProps) {
   const isEscrow = lockSettlement === "escrow-deposit";
@@ -51,9 +59,22 @@ export function StakeSessionMenuSection({
 
   const escrowBusy = cashingOut || preparingEscrow || payingStake;
 
+  const isDepletedZeroPayout = isDepletedZeroPayoutEscrowSession(
+    stakeSessionMeta,
+    currentHumanChips,
+    escrowPayoutUi,
+  );
+
+  const requiresEscrowPrepareClaim = shouldRequireEscrowPrepareClaim(
+    stakeSessionMeta,
+    currentHumanChips,
+    escrowPayoutUi,
+  );
+
   const canPrepare =
     isEscrow &&
     sessionActive &&
+    requiresEscrowPrepareClaim &&
     !escrowResolved &&
     !handInProgress &&
     !escrowBusy &&
@@ -63,7 +84,15 @@ export function StakeSessionMenuSection({
     sessionActive &&
     !handInProgress &&
     !escrowBusy &&
-    (isEscrow ? escrowResolved : currentHumanChips > 0);
+    !isDepletedZeroPayout &&
+    (isEscrow ? escrowResolved && requiresEscrowPrepareClaim : currentHumanChips > 0);
+
+  const canBeginNewStakeSession =
+    sessionActive &&
+    !handInProgress &&
+    !escrowBusy &&
+    (isDepletedZeroPayout ||
+      (!isEscrow && currentHumanChips <= 0));
 
   const claimLabel = isEscrow
     ? currentHumanChips <= 0
@@ -83,11 +112,13 @@ export function StakeSessionMenuSection({
 
   const helperText = handInProgress
     ? "Cash-out unlocks after the hand ends."
-    : isEscrow && !escrowResolved && !handInProgress
-      ? escrowResolverConfigured === false
-        ? "Resolver not configured"
-        : "Prepare payout first"
-      : null;
+    : isDepletedZeroPayout
+      ? "No payout available. Start a new test stake session."
+      : isEscrow && requiresEscrowPrepareClaim && !escrowResolved && !handInProgress
+        ? escrowResolverConfigured === false
+          ? "Resolver not configured"
+          : "Prepare payout first"
+        : null;
 
   return (
     <section
@@ -207,6 +238,19 @@ export function StakeSessionMenuSection({
               <p className="max-w-[14rem] text-center text-[10px] leading-snug text-muted-foreground">
                 {helperText}
               </p>
+            ) : null}
+            {canBeginNewStakeSession ? (
+              <Button
+                type="button"
+                className={cn(
+                  "min-w-[9.5rem] gap-2 text-xs",
+                  isDepletedZeroPayout && "v1-button-primary",
+                )}
+                disabled={!onBeginNewStakeSession}
+                onClick={() => onBeginNewStakeSession?.()}
+              >
+                New Stake Session
+              </Button>
             ) : null}
           </div>
         </>

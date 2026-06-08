@@ -1,5 +1,6 @@
 import type { StepDemoState, StepDemoStep } from "@/lib/arena/stepDemo";
 import { isStepDemoBettingInProgress } from "@/lib/arena/stepDemo";
+import { isHumanMidHandBusted } from "@/lib/arena/stepDemoZeroStack";
 
 export type StepDemoAutoDealStreet = "flop" | "turn" | "river";
 
@@ -75,7 +76,8 @@ function isHumanBettingTurn(state: StepDemoState): boolean {
     state.isActive &&
     state.turn === "human" &&
     isStepDemoBettingInProgress(state) &&
-    state.step !== "result"
+    state.step !== "result" &&
+    !isHumanMidHandBusted(state)
   );
 }
 
@@ -96,7 +98,7 @@ function autoFlowBlocked(
 ): boolean {
   const { pokerMasterThinking, headsUpStackDepleted } = options;
   if (!state.isActive || state.step === "result") return true;
-  if (headsUpStackDepleted) return true;
+  if (headsUpStackDepleted || isHumanMidHandBusted(state)) return true;
   if (pokerMasterThinking || isAwaitingPokerMaster(state)) return true;
   if (isHumanBettingTurn(state)) return true;
   return false;

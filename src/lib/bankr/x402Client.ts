@@ -1,6 +1,10 @@
 export type X402Network = "base" | "base-sepolia";
 
-import { getTestStakeTier, resolveTestStakeAmount } from "@/lib/stake/testnetStake";
+import {
+  formatTestStakeLabel,
+  getTestStakeTier,
+  resolveTestStakeAmount,
+} from "@/lib/stake/testnetStake";
 
 export type X402PaymentMode = "mock" | "real";
 
@@ -56,10 +60,7 @@ export function getPaymentModeUserLabel(mode: X402PaymentMode): string {
 
 /** User-facing test stake label — mock/testnet only, not a live charge. */
 export function formatTestStakeSessionLabel(amount: string): string {
-  const normalized = amount.trim();
-  if (!normalized) return "$0.25 test stake (mock)";
-  const withSymbol = normalized.startsWith("$") ? normalized : `$${normalized}`;
-  return `${withSymbol} test stake (mock)`;
+  return `${formatTestStakeLabel(resolveTestStakeAmount(amount.trim()))} stake (mock)`;
 }
 
 /** @deprecated Prefer formatTestStakeSessionLabel — kept for existing imports. */

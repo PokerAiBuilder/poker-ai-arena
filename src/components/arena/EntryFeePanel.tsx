@@ -30,10 +30,15 @@ import {
   DEFAULT_TEST_STAKE,
   formatStakeToChipsLine,
   formatTestBalanceAmount,
-  getTestStakeTier,
+  formatTestStakeLabel,
+  TESTNET_STAKE_DISCLAIMER,
   type TestStakeAmount,
 } from "@/lib/stake/testnetStake";
 import type { EscrowPayoutUiInfo } from "@/lib/stake/escrowLiquidityPreview";
+import {
+  isDepletedZeroPayoutEscrowSession,
+  shouldRequireEscrowPrepareClaim,
+} from "@/lib/stake/depletedEscrowSession";
 import type { StakeSessionMeta } from "@/lib/stake/stakeSessionStorage";
 import { isStakeSessionCashedOut } from "@/lib/stake/stakeSessionStorage";
 import {
@@ -138,7 +143,6 @@ export function EntryFeePanel({
     cashOut?.settlement === "escrow-zero-payout";
   const stakeAmount =
     stakeSessionMeta?.stakeAmount ?? paymentResult?.amount ?? selectedStake;
-  const tier = getTestStakeTier(stakeAmount);
 
   const escrowPlayerWallet =
     stakeSessionMeta?.walletAddress?.toLowerCase() ?? null;
@@ -152,9 +156,23 @@ export function EntryFeePanel({
   const escrowBusy =
     cashingOut || preparingEscrow || resolvingEscrow || payingLock || payingMock;
 
+  const isDepletedZeroPayout =
+    isDepletedZeroPayoutEscrowSession(
+      stakeSessionMeta,
+      currentHumanChips,
+      escrowPayoutUi,
+    );
+
+  const requiresEscrowPrepareClaim = shouldRequireEscrowPrepareClaim(
+    stakeSessionMeta,
+    currentHumanChips,
+    escrowPayoutUi,
+  );
+
   const canPrepareEscrowPayout =
     isEscrowDeposit &&
     isActive &&
+    requiresEscrowPrepareClaim &&
     !escrowResolved &&
     !handInProgress &&
     !escrowBusy &&
@@ -166,6 +184,7 @@ export function EntryFeePanel({
   const canClaimEscrowPayout =
     isEscrowDeposit &&
     isActive &&
+    requiresEscrowPrepareClaim &&
     escrowResolved &&
     !handInProgress &&
     !escrowBusy &&
@@ -181,16 +200,12 @@ export function EntryFeePanel({
         !escrowBusy &&
         currentHumanChips > 0;
 
-  const canCloseZeroEscrow =
-    isEscrowDeposit &&
+  const canBeginNewStakeSession =
     isActive &&
-    escrowResolved &&
     !handInProgress &&
     !escrowBusy &&
-    currentHumanChips <= 0 &&
-    isConnected &&
-    onBaseSepolia &&
-    isEscrowPlayerWallet;
+    (isDepletedZeroPayout ||
+      (!isEscrowDeposit && currentHumanChips <= 0));
 
   const showDevResolve =
     isEscrowDevMode() &&
@@ -283,17 +298,19 @@ export function EntryFeePanel({
               )}
             >
               <div className="flex justify-between gap-2 text-[11px]">
-                <dt className="text-muted-foreground">Chips</dt>
+                <dt className="text-muted-foreground">Chips cashed out</dt>
                 <dd className="font-semibold text-white">
                   {cashOut.cashOutChips.toLocaleString()}
                 </dd>
               </div>
-              <div className="flex justify-between gap-2 text-[11px]">
-                <dt className="text-muted-foreground">Test balance</dt>
-                <dd className="font-semibold text-[var(--arena-cyan)]">
-                  {formatTestBalanceAmount(cashOut.cashOutTestBalance)}
-                </dd>
-              </div>
+              {!cashOut.claimedEthAmount ? (
+                <div className="flex justify-between gap-2 text-[11px]">
+                  <dt className="text-muted-foreground">Payout</dt>
+                  <dd className="font-semibold text-[var(--arena-cyan)]">
+                    {formatTestBalanceAmount(cashOut.cashOutTestBalance)}
+                  </dd>
+                </div>
+              ) : null}
               <div className="flex justify-between gap-2 text-[11px]">
                 <dt className="text-muted-foreground">Recipient wallet</dt>
                 <dd
@@ -389,7 +406,7 @@ export function EntryFeePanel({
             </p>
             {!compact ? (
               <p className="text-[9px] text-muted-foreground">
-                Base Sepolia testnet only · no mainnet funds
+                {TESTNET_STAKE_DISCLAIMER}
               </p>
             ) : null}
 
@@ -541,7 +558,7 @@ export function EntryFeePanel({
             <details className="arena-details-muted rounded-lg border border-white/5 bg-black/15 px-2.5 py-2">
               <summary>Details</summary>
               <div className="mt-2 space-y-1.5 text-[9px] leading-relaxed text-muted-foreground">
-                <p>Base Sepolia testnet only · no mainnet funds</p>
+                <p>{TESTNET_STAKE_DISCLAIMER}</p>
                 {!canSendLockTx ? <p>Mock session · local preview only</p> : null}
               </div>
             </details>
@@ -557,7 +574,7 @@ export function EntryFeePanel({
               <div className="flex justify-between gap-3 text-[11px]">
                 <dt className="text-muted-foreground">Stake</dt>
                 <dd className="min-w-0 truncate text-right font-semibold text-white">
-                  {tier.usdLabel}
+                  {formatTestStakeLabel(stakeAmount)}
                 </dd>
               </div>
               <div className="flex justify-between gap-3 text-[11px]">
@@ -664,12 +681,23 @@ export function EntryFeePanel({
               </p>
             ) : null}
 
-            {isEscrowDeposit ? (
+            {isEscrowDeposit && isDepletedZeroPayout ? (
+              <div className="arena-panel-info space-y-2">
+                <p className="leading-relaxed opacity-90">
+                  No payout available from this session.
+                </p>
+                <p className="text-[9px] leading-relaxed text-muted-foreground">
+                  No payout available. Start a new test stake session.
+                </p>
+              </div>
+            ) : null}
+
+            {isEscrowDeposit && !isDepletedZeroPayout ? (
               <div className="arena-panel-info space-y-2">
                 <p className="leading-relaxed opacity-90">
                   {escrowResolved
                     ? "Payout prepared — claim to your wallet."
-                    : "Prepare payout, then claim test ETH."}
+                    : "Prepare payout, then claim ETH to your wallet."}
                 </p>
                 {escrowResolverConfigured === false ? (
                   <p className="text-[9px] leading-relaxed text-amber-200/85">
@@ -735,14 +763,11 @@ export function EntryFeePanel({
               </div>
             ) : null}
 
+            {!isDepletedZeroPayout ? (
             <Button
               type="button"
               variant="outline"
-              disabled={
-                isEscrowDeposit
-                  ? !canClaimEscrowPayout && !canCloseZeroEscrow
-                  : !canCashOut
-              }
+              disabled={isEscrowDeposit ? !canClaimEscrowPayout : !canCashOut}
               className="w-full gap-2 border-white/15 text-[11px]"
               onClick={() => onCashOut?.()}
             >
@@ -776,26 +801,39 @@ export function EntryFeePanel({
                 </>
               )}
             </Button>
+            ) : null}
             {handInProgress ? (
               <p className="text-[9px] leading-relaxed text-amber-200/80">
                 Finish the hand first.
               </p>
-            ) : isEscrowDeposit && !isConnected ? (
+            ) : isEscrowDeposit && !isConnected && requiresEscrowPrepareClaim ? (
               <p className="text-[9px] leading-relaxed text-muted-foreground">
                 Connect wallet to prepare or claim payout.
               </p>
-            ) : isEscrowDeposit && !escrowResolved && isConnected ? (
+            ) : isEscrowDeposit &&
+              requiresEscrowPrepareClaim &&
+              !escrowResolved &&
+              isConnected ? (
               <p className="text-[9px] leading-relaxed text-muted-foreground">
                 Step 1: Prepare Payout · Step 2: Claim Payout
               </p>
             ) : null}
 
-            {currentHumanChips <= 0 && !handInProgress && !cashingOut ? (
+            {isActive && currentHumanChips <= 0 && !handInProgress && !cashingOut ? (
+              <p className="text-[9px] leading-relaxed text-amber-200/85">
+                No chips left — start a new test stake session.
+              </p>
+            ) : null}
+
+            {canBeginNewStakeSession ? (
               <Button
                 type="button"
-                variant="secondary"
-                disabled={isPaying}
-                className="w-full text-[11px]"
+                variant={isDepletedZeroPayout ? "default" : "secondary"}
+                disabled={isPaying || !onBeginNewStakeSession}
+                className={cn(
+                  "w-full text-[11px]",
+                  isDepletedZeroPayout && "v1-button-primary",
+                )}
                 onClick={() => onBeginNewStakeSession?.()}
               >
                 New Stake Session

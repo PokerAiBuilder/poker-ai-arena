@@ -234,6 +234,33 @@ export function decidePokerAction(input: AgentInput): AgentDecision {
     hasFlushDraw(holeCards, communityCards) ||
     hasStraightDraw(holeCards, communityCards);
 
+  const pot = input.pot;
+  const facingLargeBet =
+    amountToCall >= stack * 0.5 ||
+    (pot > 0 && amountToCall >= pot * 0.6);
+  const isTurnOrRiver = gameStage === "turn" || gameStage === "river";
+
+  if (
+    facingLargeBet &&
+    isTurnOrRiver &&
+    strength < 200 &&
+    !hasDraw
+  ) {
+    return {
+      action: "fold",
+      confidence: 0.86,
+      reasoning: "Folds weak hand to large pressure",
+    };
+  }
+
+  if (facingLargeBet && strength < 120 && !hasDraw) {
+    return {
+      action: "fold",
+      confidence: 0.84,
+      reasoning: "Folds weak hand to large pressure",
+    };
+  }
+
   if (strength >= 200) {
     if (canCheck) {
       return {

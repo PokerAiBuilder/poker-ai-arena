@@ -1476,7 +1476,7 @@ export function PokerTable({
                 <div className="flex items-center justify-center gap-1.5">
                   <CheckCircle2 className="h-4 w-4 text-[var(--arena-cyan)]" />
                   <p className="text-sm font-semibold text-[var(--arena-cyan)]">
-                    Test Balance Cashed Out
+                    Cash Out Complete
                   </p>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -1490,12 +1490,22 @@ export function PokerTable({
                         {cashOutRecord.cashOutChips.toLocaleString()}
                       </dd>
                     </div>
-                    <div className="flex justify-between gap-2">
-                      <dt className="text-muted-foreground">Test balance</dt>
+                    {!cashOutRecord.claimedEthAmount ? (
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">Payout</dt>
                         <dd className="font-semibold text-[var(--arena-cyan)]">
-                        {formatTestBalanceAmount(cashOutRecord.cashOutTestBalance)}
-                      </dd>
-                    </div>
+                          {formatTestBalanceAmount(cashOutRecord.cashOutTestBalance)}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {cashOutRecord.claimedEthAmount ? (
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">Claimed</dt>
+                        <dd className="font-semibold text-[var(--arena-cyan)]">
+                          {cashOutRecord.claimedEthAmount} ETH
+                        </dd>
+                      </div>
+                    ) : null}
                     <div className="flex justify-between gap-2">
                       <dt className="text-muted-foreground">Recipient wallet</dt>
                       <dd
@@ -1553,7 +1563,7 @@ export function PokerTable({
                 </p>
                 {!stakeCashedOut ? (
                   <p className="mt-2 text-[9px] text-muted-foreground">
-                    Base Sepolia testnet only · no mainnet funds
+                    Base Sepolia test ETH only · No real-money value
                   </p>
                 ) : null}
                 {wrongNetwork && !stakeCashedOut ? (

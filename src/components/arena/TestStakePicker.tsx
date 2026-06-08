@@ -54,7 +54,7 @@ export function TestStakePicker({
                 disabled && "pointer-events-none opacity-50",
               )}
             >
-              <span className="block font-semibold">{tier.usdLabel}</span>
+              <span className="block font-semibold">{tier.testEthAmount} ETH</span>
               <span className="block text-[9px] opacity-80">
                 {tier.chipAmount.toLocaleString()} chips
               </span>

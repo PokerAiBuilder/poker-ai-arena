@@ -1,5 +1,9 @@
 import type { AgentDecision } from "@/lib/agents/agentTypes";
 import type { StepDemoState } from "@/lib/arena/stepDemo";
+import {
+  downgradeAiBettingVsZeroHuman,
+  getHumanInHandStack,
+} from "@/lib/arena/stepDemoZeroStack";
 import { STEP_DEMO_RAISE } from "@/lib/arena/stepDemoConstants";
 import {
   formatRaiseReasoning,
@@ -724,6 +728,105 @@ function decidePostflopFacingBet(
   return callWith(profile, ctx, `Weak hand but pot odds — calling once`, 0.4);
 }
 
+export function isLargePressureSpot(ctx: BetContext, aiStack: number): boolean {
+  if (ctx.pressure === "all-in" || ctx.pressure === "pot") return true;
+  if (aiStack > 0 && ctx.toCall >= aiStack * 0.5) return true;
+  if (ctx.pot > 0 && ctx.toCall >= ctx.pot * 0.6) return true;
+  return ctx.pressure === "large";
+}
+
+function foldLargePressure(reason = "Folds weak hand to large pressure"): AgentDecision {
+  return decision("fold", reason, 0.84);
+}
+
+/** Blocks spewy calls vs all-ins and oversized bets (turn/river focused). */
+export function applyLargeBetSanityGuard(
+  profile: HandProfile,
+  ctx: BetContext,
+  aiStack: number,
+  candidate: AgentDecision,
+): AgentDecision {
+  if (candidate.action !== "call" && candidate.action !== "all-in") {
+    return candidate;
+  }
+  if (!isLargePressureSpot(ctx, aiStack)) {
+    return candidate;
+  }
+
+  const street = profile.street;
+  const isTurnOrRiver = street === "turn" || street === "river";
+
+  if (profile.tier === "premium" || profile.tier === "strong" || isMonster(profile)) {
+    return {
+      ...candidate,
+      reasoning: "Calls with strong made hand",
+      confidence: Math.max(candidate.confidence, 0.86),
+    };
+  }
+
+  if (
+    profile.madeHand === "two_pair" ||
+    profile.madeHand === "trips" ||
+    profile.madeHand === "straight" ||
+    profile.madeHand === "flush" ||
+    profile.madeHand === "full_house_plus"
+  ) {
+    return {
+      ...candidate,
+      reasoning: "Calls with strong made hand",
+      confidence: Math.max(candidate.confidence, 0.84),
+    };
+  }
+
+  if (
+    !isTurnOrRiver &&
+    profile.draws.hasEquityDraw &&
+    (profile.draws.flushDraw || profile.draws.openEndedStraight)
+  ) {
+    return {
+      ...candidate,
+      reasoning: "Calls with strong draw and pot odds",
+      confidence: Math.max(candidate.confidence, 0.68),
+    };
+  }
+
+  if (
+    (profile.madeHand === "top_pair" || profile.isOverpair) &&
+    (profile.goodKicker || profile.isOverpair) &&
+    ctx.pressure !== "all-in" &&
+    ctx.toCall < aiStack * 0.75
+  ) {
+    return {
+      ...candidate,
+      reasoning: "Calls with strong made hand",
+      confidence: Math.max(candidate.confidence, 0.72),
+    };
+  }
+
+  if (profile.madeHand === "high_card" || profile.tier === "weak") {
+    return foldLargePressure();
+  }
+
+  if (isTurnOrRiver) {
+    if (profile.madeHand === "pair" || profile.tier === "speculative") {
+      return roll() < 0.12 ? candidate : foldLargePressure();
+    }
+    if (profile.madeHand === "top_pair" && !profile.goodKicker && !profile.isOverpair) {
+      return roll() < 0.18 ? candidate : foldLargePressure();
+    }
+  }
+
+  if (profile.madeHand === "pair" && profile.tier === "playable") {
+    return roll() < 0.15 ? candidate : foldLargePressure();
+  }
+
+  if (profile.tier === "playable" && isTurnOrRiver && ctx.pressure === "all-in") {
+    return foldLargePressure();
+  }
+
+  return candidate;
+}
+
 function decideFacingHumanAllIn(
   profile: HandProfile,
   ctx: BetContext,
@@ -732,6 +835,19 @@ function decideFacingHumanAllIn(
   const callAmount = Math.min(ctx.toCall, aiStack);
   const potOdds = ctx.toCall > 0 ? ctx.pot / ctx.toCall : 999;
   const isRiver = profile.street === "river";
+
+  if (profile.madeHand === "high_card" || profile.tier === "weak") {
+    return foldLargePressure();
+  }
+
+  if (
+    profile.madeHand === "pair" &&
+    !profile.isOverpair &&
+    profile.tier !== "strong" &&
+    profile.tier !== "premium"
+  ) {
+    return foldLargePressure();
+  }
 
   if (profile.tier === "premium") {
     return decision(
@@ -814,28 +930,7 @@ function decideFacingHumanAllIn(
     );
   }
 
-  if (potOdds >= 6 && profile.tier === "speculative" && roll() < 0.12) {
-    return decision(
-      "call",
-      `${profile.label} — calling all-in with long pot odds`,
-      0.36,
-      callAmount,
-    );
-  }
-
-  if (shouldFold(0.82, profile, "all-in")) {
-    return decision(
-      "fold",
-      `Weak hand (${profile.label}) — folding to all-in pressure`,
-      0.8,
-    );
-  }
-  return decision(
-    "call",
-    `${profile.label} — calling all-in as a bluff-catcher`,
-    0.34,
-    callAmount,
-  );
+  return foldLargePressure();
 }
 
 /**
@@ -912,6 +1007,30 @@ export function getStepDemoPokerMasterDecision(
       `${profile.label} — calling (cannot check facing a bet)`,
       result.confidence,
       toCall,
+    );
+  }
+
+  result = applyLargeBetSanityGuard(
+    profile,
+    ctx,
+    state.players.pokerMaster.stack,
+    result,
+  );
+
+  const downgradedAction = downgradeAiBettingVsZeroHuman(
+    getHumanInHandStack(state),
+    state.humanAllIn,
+    facingBet,
+    result.action,
+  );
+  if (downgradedAction !== result.action) {
+    result = decision(
+      downgradedAction === "check" && facingBet ? "call" : downgradedAction,
+      `${profile.label} — ${facingBet ? "calling" : "checking"} (opponent has no chips)`,
+      result.confidence * 0.9,
+      downgradedAction === "call" || downgradedAction === "all-in"
+        ? toCall
+        : undefined,
     );
   }
 

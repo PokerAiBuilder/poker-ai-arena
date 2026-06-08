@@ -65,8 +65,10 @@ type ArenaMenuDrawerProps = {
   preparingEscrow?: boolean;
   escrowResolverConfigured?: boolean | null;
   escrowPayoutUi?: EscrowPayoutUiInfo | null;
+  stakeSessionMeta?: import("@/lib/stake/stakeSessionStorage").StakeSessionMeta | null;
   onPrepareEscrowPayout?: () => void | Promise<void>;
   onCashOut?: () => void | Promise<void>;
+  onBeginNewStakeSession?: () => void;
 };
 
 /** Public menu tabs — Bankr is never shown here (dev-only via ENABLE_BANKR_MENU_TAB). */
@@ -157,8 +159,10 @@ export function ArenaMenuDrawer({
   preparingEscrow = false,
   escrowResolverConfigured = null,
   escrowPayoutUi = null,
+  stakeSessionMeta = null,
   onPrepareEscrowPayout,
   onCashOut,
+  onBeginNewStakeSession,
 }: ArenaMenuDrawerProps) {
   const [tab, setTab] = useState<ArenaMenuTabId>("overview");
 
@@ -252,8 +256,10 @@ export function ArenaMenuDrawer({
                   preparingEscrow={preparingEscrow}
                   escrowResolverConfigured={escrowResolverConfigured}
                   escrowPayoutUi={escrowPayoutUi}
+                  stakeSessionMeta={stakeSessionMeta}
                   onPrepareEscrowPayout={onPrepareEscrowPayout}
                   onCashOut={onCashOut}
+                  onBeginNewStakeSession={onBeginNewStakeSession}
                 />
                 <ArenaMenuOverviewPanel lockSettlement={lockSettlement} />
               </div>

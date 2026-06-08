@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 const STAKE_FLOW_STEPS = [
   "Connect wallet on Base Sepolia (optional mock session without wallet)",
-  "Choose test stake — $0.10 / $0.25 / $0.50 / $1.00 test tiers",
+  "Choose test stake — 0.00010 / 0.00025 / 0.00050 / 0.00100 ETH tiers",
   "Lock test stake — Base Sepolia test ETH transfer or mock session",
   "Play vs PokerMaster — chips come from your locked stake",
   "Choose Fold / Call / Check / Raise on your turn",

@@ -1,6 +1,8 @@
 import type { TestStakeAmount } from "@/lib/stake/testnetStake";
 
 export const STAKE_SESSION_STORAGE_KEY = "poker-ai-arena-stake-session-v1";
+export const STAKE_SESSION_HISTORY_KEY =
+  "poker-ai-arena-stake-session-history-v1";
 
 export type StakeSessionStatus = "active" | "cashed_out";
 
@@ -175,6 +177,35 @@ export function clearStakeSessionMeta(): void {
     window.localStorage.removeItem(STAKE_SESSION_STORAGE_KEY);
   } catch {
     // ignore
+  }
+}
+
+export function loadStakeSessionHistory(): StakeSessionMeta[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(STAKE_SESSION_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as StakeSessionMeta[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Preserve closed session metadata before starting a new deposit. */
+export function appendStakeSessionHistory(meta: StakeSessionMeta): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    const history = loadStakeSessionHistory();
+    history.unshift(normalizeStakeSessionMeta(meta));
+    window.localStorage.setItem(
+      STAKE_SESSION_HISTORY_KEY,
+      JSON.stringify(history.slice(0, 20)),
+    );
+  } catch (error) {
+    console.warn("[stake/stakeSessionStorage] history append failed", error);
   }
 }
 

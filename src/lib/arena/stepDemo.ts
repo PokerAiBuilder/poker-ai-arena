@@ -29,6 +29,11 @@ import {
   STEP_DEMO_RAISE_SIZES,
   type StepDemoRaiseSize,
 } from "@/lib/arena/stepDemoConstants";
+import {
+  canHumanTakeBettingAction,
+  isHumanInHandStackZero,
+  ZERO_STACK_DISABLED_HINT,
+} from "@/lib/arena/stepDemoZeroStack";
 
 export {
   STEP_DEMO_RAISE,
@@ -894,8 +899,58 @@ function runAiResponseToHumanAllIn(
   return nextState;
 }
 
+export function reconcileHumanZeroStackState(
+  state: StepDemoState,
+): StepDemoState {
+  return reconcileHumanZeroStackWithOutcome(state).state;
+}
+
+export function reconcileHumanZeroStackWithOutcome(
+  state: StepDemoState,
+): StepDemoHumanActionOutcome {
+  if (!state.isActive || state.step === "result") {
+    return { state, pendingAi: null };
+  }
+  if (!isHumanInHandStackZero(state)) {
+    return { state, pendingAi: null };
+  }
+
+  if (state.humanAllIn) {
+    if (state.turn === "human" && isHumanActionStep(state.step)) {
+      return {
+        state: { ...state, turn: "poker-master" },
+        pendingAi: null,
+      };
+    }
+    return { state, pendingAi: null };
+  }
+
+  if (state.turn === "human" && isHumanActionStep(state.step)) {
+    if (humanAmountToCall(state) > 0) {
+      return { state: applyHumanFold(state), pendingAi: null };
+    }
+    return {
+      state: awaitingAiResponse(state),
+      pendingAi: "street-response",
+    };
+  }
+
+  return { state, pendingAi: null };
+}
+
 export function applyHumanFold(state: StepDemoState): StepDemoState {
   if (state.turn !== "human" || state.step === "result" || state.allInShowdown) {
+    return state;
+  }
+  if (isHumanInHandStackZero(state) && humanAmountToCall(state) <= 0) {
+    return state;
+  }
+  if (
+    isHumanInHandStackZero(state) &&
+    humanAmountToCall(state) > 0
+  ) {
+    // Auto-fold when busted and facing a bet they cannot match.
+  } else if (!canHumanTakeBettingAction(state)) {
     return state;
   }
 
@@ -1087,6 +1142,7 @@ function runAiStreetResponse(
     forcedDecision ??
     getStepDemoPokerMasterDecision(state, {
       aiAlreadyRaised: state.aiRaisedThisStreet,
+      humanWentAllIn: state.humanAllIn,
     });
 
   const logs: GameAction[] = [
@@ -1142,7 +1198,7 @@ function runAiStreetResponse(
 export function applyHumanCallWithOutcome(
   state: StepDemoState,
 ): StepDemoHumanActionOutcome {
-  if (state.turn !== "human" || state.allInShowdown) {
+  if (!canHumanTakeBettingAction(state)) {
     return { state, pendingAi: null };
   }
 
@@ -1153,12 +1209,15 @@ export function applyHumanCallWithOutcome(
   const chips = deductStack(human.stack, toCall);
   if (chips.paid <= 0) return { state, pendingAi: null };
   human.stack = chips.stack;
+  const wentAllIn = human.stack <= 0;
 
   const log = playerLog(
     human.id,
     human.name,
-    "call",
-    `You call ${chips.paid} chips`,
+    wentAllIn ? "all-in" : "call",
+    wentAllIn
+      ? `You call all-in for ${chips.paid} chips`
+      : `You call ${chips.paid} chips`,
     gameStage(state),
   );
 
@@ -1167,8 +1226,16 @@ export function applyHumanCallWithOutcome(
     players: { human, pokerMaster: state.players.pokerMaster },
     pot: state.pot + chips.paid,
     humanStreetBet: state.humanStreetBet + chips.paid,
+    humanAllIn: state.humanAllIn || wentAllIn,
     actionLog: [...state.actionLog, log],
   };
+
+  if (wentAllIn) {
+    return {
+      state: awaitingAiResponse(next),
+      pendingAi: "all-in-response",
+    };
+  }
 
   if (isHumanFacingAiRaiseStep(state.step)) {
     return { state: completeStreet(next), pendingAi: null };
@@ -1190,7 +1257,10 @@ export function applyHumanCall(state: StepDemoState): StepDemoState {
 export function applyHumanCheckWithOutcome(
   state: StepDemoState,
 ): StepDemoHumanActionOutcome {
-  if (state.turn !== "human" || state.allInShowdown || humanAmountToCall(state) > 0) {
+  if (
+    !canHumanTakeBettingAction(state) ||
+    humanAmountToCall(state) > 0
+  ) {
     return { state, pendingAi: null };
   }
 
@@ -1223,7 +1293,10 @@ export function applyHumanCheck(state: StepDemoState): StepDemoState {
 export function applyHumanTimeoutCheckWithOutcome(
   state: StepDemoState,
 ): StepDemoHumanActionOutcome {
-  if (state.turn !== "human" || state.allInShowdown || humanAmountToCall(state) > 0) {
+  if (
+    !canHumanTakeBettingAction(state) ||
+    humanAmountToCall(state) > 0
+  ) {
     return { state, pendingAi: null };
   }
 
@@ -1250,7 +1323,7 @@ export function applyHumanRaiseWithOutcome(
   state: StepDemoState,
   size: StepDemoRaiseSize = 10,
 ): StepDemoHumanActionOutcome {
-  if (state.turn !== "human" || state.allInShowdown) {
+  if (!canHumanTakeBettingAction(state)) {
     return { state, pendingAi: null };
   }
 
@@ -1262,7 +1335,7 @@ export function applyHumanRaiseWithOutcome(
   }
 
   const increment = resolveHumanRaiseIncrement(state, size);
-  if (increment < STEP_DEMO_RAISE_MIN || clampStack(state.players.human.stack) <= 0) {
+  if (increment < STEP_DEMO_RAISE_MIN) {
     return { state, pendingAi: null };
   }
 
@@ -1290,6 +1363,7 @@ export function applyHumanRaiseWithOutcome(
     gameStage(state),
   );
 
+  const wentAllIn = human.stack <= 0;
   const next = {
     ...state,
     players: { human, pokerMaster: state.players.pokerMaster },
@@ -1297,8 +1371,16 @@ export function applyHumanRaiseWithOutcome(
     humanStreetBet: newHumanStreetBet,
     currentBet: newHumanStreetBet,
     lastHumanRaiseIncrement: increment,
+    humanAllIn: state.humanAllIn || wentAllIn,
     actionLog: [...state.actionLog, log],
   };
+
+  if (wentAllIn) {
+    return {
+      state: awaitingAiResponse(next),
+      pendingAi: "all-in-response",
+    };
+  }
 
   if (isHumanFacingAiRaiseStep(state.step)) {
     return {
@@ -1329,7 +1411,7 @@ export function applyHumanRaise(
 export function applyHumanAllInWithOutcome(
   state: StepDemoState,
 ): StepDemoHumanActionOutcome {
-  if (state.turn !== "human" || state.step === "result" || state.allInShowdown) {
+  if (!canHumanTakeBettingAction(state)) {
     return { state, pendingAi: null };
   }
 
@@ -1572,6 +1654,21 @@ export function getStepDemoHumanActions(state: StepDemoState): StepDemoHumanActi
   const defaultRaise = raiseOptions.find((o) => o.size === 10)?.increment ?? STEP_DEMO_RAISE;
   const bettingLocked = state.allInShowdown || state.humanAllIn;
 
+  if (isHumanInHandStackZero(state) && !state.humanAllIn) {
+    return {
+      canFold: false,
+      canCall: false,
+      callAmount: 0,
+      canCheck: false,
+      canRaise: false,
+      canAllIn: false,
+      allInAmount: 0,
+      raiseAmount: defaultRaise,
+      raiseOptions: [],
+      disabledHint: ZERO_STACK_DISABLED_HINT,
+    };
+  }
+
   if (bettingLocked) {
     return {
       canFold: false,
@@ -1645,6 +1742,9 @@ export function getStepDemoStatusMessage(state: StepDemoState): string {
   }
 
   if (state.turn === "human" && isHumanActionStep(state.step)) {
+    if (isHumanInHandStackZero(state) && !state.humanAllIn) {
+      return ZERO_STACK_DISABLED_HINT;
+    }
     if (isHumanFacingAiRaiseStep(state.step)) {
       return "PokerMaster raised — choose Call, Raise, or Fold.";
     }
