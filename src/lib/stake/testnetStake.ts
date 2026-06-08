@@ -1,3 +1,5 @@
+import { parseEther } from "viem";
+
 /** Testnet stake catalog — stake tier controls Human vs AI starting chip stack. */
 export const TEST_STAKE_TIERS = [
   {
@@ -49,6 +51,12 @@ export const TEST_STAKE_OPTIONS = TEST_STAKE_TIERS.map((tier) => ({
 export function getTestStakeTier(amount: string | undefined): TestStakeTier {
   const match = TEST_STAKE_TIERS.find((tier) => tier.amount === amount);
   return match ?? TEST_STAKE_TIERS[1];
+}
+
+/** Stake tier label → wei string for server session persistence. */
+export function testStakeAmountToWei(amount: string): string {
+  const tier = getTestStakeTier(amount);
+  return parseEther(tier.testEthAmount).toString();
 }
 
 export function isValidTestStakeAmount(amount: string): amount is TestStakeAmount {

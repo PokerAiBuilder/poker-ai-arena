@@ -34,9 +34,11 @@ const MAX_CHIP_MULTIPLIER = 10;
 /**
  * Server-side validation for /api/escrow/resolve.
  *
- * TODO(v1.2.2+): persist signed session results server-side; verify wallet
- * signature over {sessionId, currentChips, startingChips} instead of trusting
- * client-reported chip counts.
+ * Chip counts are preferentially sourced from the arena server session store
+ * when a matching escrow session exists. Client-reported chips are a temporary
+ * testnet-only fallback for legacy local-only sessions.
+ *
+ * TODO(v1.3+): require server session + signed hand receipts; drop client chip trust.
  */
 export function validateEscrowResolveRequest(
   body: EscrowResolveRequestBody,

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { applyServerChipsToResolveRequest } from "@/lib/arena/arenaSessionResolve";
+import { getArenaServerSessionStore } from "@/lib/arena/arenaServerSessionStore";
 import {
   getEscrowServerConfig,
   readEscrowContractBalanceServer,
@@ -42,7 +44,20 @@ export async function POST(request: Request) {
 
   const onChain = await readEscrowSessionServer(body.sessionId);
   const contractBalance = await readEscrowContractBalanceServer();
-  const validation = validateEscrowResolveRequest(body, onChain, contractBalance);
+
+  const stored = getArenaServerSessionStore().get(
+    body.walletAddress,
+    body.sessionId,
+  );
+  const { body: resolveBody, chipSource } = applyServerChipsToResolveRequest(
+    body,
+    stored,
+  );
+  const validation = validateEscrowResolveRequest(
+    resolveBody,
+    onChain,
+    contractBalance,
+  );
 
   if (!validation.ok) {
     return NextResponse.json({ error: validation.error }, { status: validation.status });
@@ -56,6 +71,17 @@ export async function POST(request: Request) {
   };
 
   if (validation.alreadyResolved) {
+    if (stored) {
+      getArenaServerSessionStore().patch(
+        validation.walletAddress,
+        validation.sessionId.toString(),
+        {
+          currentChips: validation.currentChips,
+          status: "resolved",
+        },
+      );
+    }
+
     return NextResponse.json({
       sessionId: validation.sessionId.toString(),
       txHash: null,
@@ -64,6 +90,7 @@ export async function POST(request: Request) {
       resultHash: validation.resultHash,
       status: "resolved" as const,
       alreadyResolved: true,
+      chipSource,
     });
   }
 
@@ -74,9 +101,22 @@ export async function POST(request: Request) {
       validation.payoutAmountWei,
     );
 
+    if (stored) {
+      getArenaServerSessionStore().patch(
+        validation.walletAddress,
+        validation.sessionId.toString(),
+        {
+          currentChips: validation.currentChips,
+          status: "resolved",
+          resolveTxHash: result.txHash ?? undefined,
+        },
+      );
+    }
+
     return NextResponse.json({
       ...result,
       ...liquidityPayload,
+      chipSource,
     });
   } catch (err) {
     const message =

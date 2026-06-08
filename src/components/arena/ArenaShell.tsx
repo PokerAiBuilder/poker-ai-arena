@@ -62,6 +62,12 @@ import {
   stepDemoHistoryFingerprint,
   type HandHistoryRecord,
 } from "@/lib/arena/handHistory";
+import {
+  syncArenaSessionAfterClaim,
+  syncArenaSessionAfterDeposit,
+  syncArenaSessionAfterHand,
+  syncArenaSessionAfterResolve,
+} from "@/lib/arena/arenaSessionApi";
 import { shouldRevealPokerMasterHandContext } from "@/lib/arena/humanVsAiDecisionPrivacy";
 import {
   advanceStepDemoRevealFlop,
@@ -292,6 +298,8 @@ export function ArenaShell() {
   const [stakeSessionMeta, setStakeSessionMeta] = useState<StakeSessionMeta | null>(
     null,
   );
+  const stakeSessionMetaRef = useRef(stakeSessionMeta);
+  stakeSessionMetaRef.current = stakeSessionMeta;
   const [cashingOut, setCashingOut] = useState(false);
   const [preparingEscrow, setPreparingEscrow] = useState(false);
   const [resolvingEscrow, setResolvingEscrow] = useState(false);
@@ -401,6 +409,10 @@ export function ArenaShell() {
     if (stackUpdates) {
       setSessionStacks((stacks) =>
         sanitizeSessionStacks({ ...stacks, ...stackUpdates }),
+      );
+      syncArenaSessionAfterHand(
+        stakeSessionMetaRef.current,
+        stackUpdates.human,
       );
     }
   }, []);
@@ -1023,6 +1035,7 @@ export function ArenaShell() {
       setPaymentResult(paymentData);
       saveStakeSessionMeta(meta);
       setStakeSessionMeta(meta);
+      syncArenaSessionAfterDeposit(meta);
       setSessionStacks((prev) => applyStakeStartingStacks(prev, startingChips));
       setStepDemo(createInitialStepDemoState());
       setResult(null);
@@ -1215,6 +1228,7 @@ export function ArenaShell() {
         address,
       );
       appendStakeSessionHistory(closed);
+      syncArenaSessionAfterClaim(closed, currentHumanChips, undefined, true);
       setSessionLog((prev) => [
         ...prev,
         createSessionLogEntry(
@@ -1265,6 +1279,17 @@ export function ArenaShell() {
     const finishCashOut = (meta: StakeSessionMeta, logMessage: string) => {
       saveStakeSessionMeta(meta);
       setStakeSessionMeta(meta);
+      if (meta.lockSettlement === "escrow-deposit" && meta.escrowSessionId) {
+        const zeroClosed =
+          meta.cashOut?.settlement === "escrow-zero-payout" ||
+          isZeroClaimableEscrowPayout(chips, escrowPayoutUi);
+        syncArenaSessionAfterClaim(
+          meta,
+          chips,
+          meta.escrowClaimTxHash ?? meta.cashOut?.claimTxHash,
+          zeroClosed,
+        );
+      }
       setPaymentResult(null);
       setStepDemo(createInitialStepDemoState());
       setResult(null);
@@ -1389,6 +1414,11 @@ export function ArenaShell() {
       );
       saveStakeSessionMeta(updated);
       setStakeSessionMeta(updated);
+      syncArenaSessionAfterResolve(
+        updated,
+        currentHumanChips,
+        updated.escrowResolveTxHash,
+      );
       setSessionLog((prev) => [
         ...prev,
         createSessionLogEntry(
