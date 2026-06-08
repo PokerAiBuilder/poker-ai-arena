@@ -143,10 +143,20 @@ import {
   type StakeSessionMeta,
 } from "@/lib/stake/stakeSessionStorage";
 import {
-  performEscrowCashOut,
+  performEscrowClaimPayout,
   performEscrowResolveOnly,
+  prepareEscrowPayoutViaApi,
   type EscrowCashOutPhase,
 } from "@/lib/stake/escrowCashOutFlow";
+import {
+  escrowLiquidityFromMeta,
+  escrowPayoutPreviewToUi,
+  fetchEscrowPayoutPreview,
+  type EscrowPayoutPreview,
+  type EscrowPayoutUiInfo,
+} from "@/lib/stake/escrowLiquidityPreview";
+import { fetchEscrowResolverStatus } from "@/lib/stake/escrowResolveApi";
+import { readEscrowSession } from "@/lib/onchain/escrowContract";
 import { sendLockTestStakeTx, isLockStakePathConfigured } from "@/lib/stake/lockTestStakeTx";
 import {
   isUserRejectedTransactionError,
@@ -264,7 +274,13 @@ export function ArenaShell() {
     null,
   );
   const [cashingOut, setCashingOut] = useState(false);
+  const [preparingEscrow, setPreparingEscrow] = useState(false);
   const [resolvingEscrow, setResolvingEscrow] = useState(false);
+  const [escrowResolverConfigured, setEscrowResolverConfigured] = useState<
+    boolean | null
+  >(null);
+  const [escrowPayoutPreview, setEscrowPayoutPreview] =
+    useState<EscrowPayoutPreview | null>(null);
   const [escrowCashOutPhase, setEscrowCashOutPhase] =
     useState<EscrowCashOutPhase | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -524,6 +540,91 @@ export function ArenaShell() {
     if (!handHistoryReady) return;
     saveHandHistory(handHistory);
   }, [handHistory, handHistoryReady]);
+
+  useEffect(() => {
+    if (stakeSessionMeta?.lockSettlement !== "escrow-deposit") {
+      setEscrowResolverConfigured(null);
+      return;
+    }
+    void fetchEscrowResolverStatus().then(({ configured }) => {
+      setEscrowResolverConfigured(configured);
+    });
+  }, [stakeSessionMeta?.lockSettlement, stakeSessionMeta?.escrowSessionId]);
+
+  useEffect(() => {
+    const sessionId = stakeSessionMeta?.escrowSessionId;
+    if (
+      stakeSessionMeta?.lockSettlement !== "escrow-deposit" ||
+      !sessionId ||
+      stakeSessionMeta.status !== "active"
+    ) {
+      setEscrowPayoutPreview(null);
+      return;
+    }
+
+    const startingChips =
+      stakeSessionMeta.startingChips ?? lockedStartingChips;
+
+    void fetchEscrowPayoutPreview(
+      sessionId,
+      currentHumanChips,
+      startingChips,
+    ).then(setEscrowPayoutPreview);
+  }, [
+    stakeSessionMeta?.escrowSessionId,
+    stakeSessionMeta?.lockSettlement,
+    stakeSessionMeta?.status,
+    stakeSessionMeta?.startingChips,
+    currentHumanChips,
+    lockedStartingChips,
+  ]);
+
+  const escrowPayoutUi = useMemo((): EscrowPayoutUiInfo | null => {
+    if (stakeSessionMeta?.lockSettlement !== "escrow-deposit") return null;
+    if (stakeSessionMeta.escrowResolved) {
+      return escrowLiquidityFromMeta(stakeSessionMeta);
+    }
+    if (escrowPayoutPreview) {
+      return escrowPayoutPreviewToUi(escrowPayoutPreview);
+    }
+    return null;
+  }, [stakeSessionMeta, escrowPayoutPreview]);
+
+  useEffect(() => {
+    const sessionId = stakeSessionMeta?.escrowSessionId;
+    if (
+      !sessionId ||
+      stakeSessionMeta?.lockSettlement !== "escrow-deposit" ||
+      stakeSessionMeta.escrowResolved
+    ) {
+      return;
+    }
+    void readEscrowSession(sessionId).then((onChain) => {
+      if (
+        !onChain ||
+        (onChain.status !== "resolved" && onChain.status !== "claimed")
+      ) {
+        return;
+      }
+      setStakeSessionMeta((prev) => {
+        if (!prev || prev.escrowResolved) return prev;
+        const synced: StakeSessionMeta = {
+          ...prev,
+          escrowResolved: true,
+          escrowPayoutAmount: onChain.payoutAmount.toString(),
+          escrowResult: onChain.resultHash,
+          claimStatus:
+            onChain.payoutAmount > BigInt(0) ? "none" : "not-applicable",
+        };
+        saveStakeSessionMeta(synced);
+        return synced;
+      });
+    });
+  }, [
+    stakeSessionMeta?.escrowSessionId,
+    stakeSessionMeta?.lockSettlement,
+    stakeSessionMeta?.escrowResolved,
+  ]);
 
   const commitSimulationHistory = useCallback((simulation: SimulationResult) => {
     if (simulation.gameMode !== "agent-vs-agent") return;
@@ -1066,8 +1167,6 @@ export function ArenaShell() {
 
     const lockSettlement = stakeSessionMeta.lockSettlement ?? "mock";
     const chips = currentHumanChips;
-    const startingChips =
-      stakeSessionMeta.startingChips ?? lockedStartingChips;
 
     if (lockSettlement !== "escrow-deposit" && chips <= 0) {
       setPaymentError("No chips available to cash out.");
@@ -1092,10 +1191,9 @@ export function ArenaShell() {
 
     try {
       if (lockSettlement === "escrow-deposit") {
-        const { meta, logMessage } = await performEscrowCashOut(
+        const { meta, logMessage } = await performEscrowClaimPayout(
           stakeSessionMeta,
           chips,
-          startingChips,
           address,
           chain?.id,
           (phase) => setEscrowCashOutPhase(phase),
@@ -1155,11 +1253,60 @@ export function ArenaShell() {
     stakeSessionMeta,
     handInProgress,
     currentHumanChips,
-    lockedStartingChips,
     address,
     chain?.id,
     clearPokerMasterThinking,
     resetAutoFlowSession,
+  ]);
+
+  const handlePrepareEscrowPayout = useCallback(async () => {
+    if (!stakeSessionMeta || !isStakeSessionActive(stakeSessionMeta)) return;
+    if (stakeSessionMeta.lockSettlement !== "escrow-deposit") return;
+    if (!address) {
+      setPaymentError("Connect wallet to prepare escrow payout.");
+      return;
+    }
+    if (handInProgress) {
+      setPaymentError("Finish the current hand before preparing payout.");
+      return;
+    }
+
+    setPreparingEscrow(true);
+    setEscrowCashOutPhase("preparing");
+    setPaymentError(null);
+
+    try {
+      const startingChips =
+        stakeSessionMeta.startingChips ?? lockedStartingChips;
+      const updated = await prepareEscrowPayoutViaApi(
+        stakeSessionMeta,
+        currentHumanChips,
+        startingChips,
+        address,
+      );
+      saveStakeSessionMeta(updated);
+      setStakeSessionMeta(updated);
+      setSessionLog((prev) => [
+        ...prev,
+        createSessionLogEntry(
+          `Escrow session #${updated.escrowSessionId} prepared for claim. Payout ${updated.escrowPayoutAmount ?? "0"} wei.`,
+        ),
+      ]);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Prepare payout failed";
+      setPaymentError(message);
+      setSessionLog((prev) => [...prev, createErrorLogEntry(message)]);
+    } finally {
+      setPreparingEscrow(false);
+      setEscrowCashOutPhase(null);
+    }
+  }, [
+    stakeSessionMeta,
+    address,
+    handInProgress,
+    currentHumanChips,
+    lockedStartingChips,
   ]);
 
   const handleResolveEscrow = useCallback(async () => {
@@ -2267,19 +2414,24 @@ export function ArenaShell() {
               onPayMock={payMockEntryFee}
               onBeginNewStakeSession={beginNewStakeSession}
               onCashOut={handleCashOut}
+              onPrepareEscrowPayout={handlePrepareEscrowPayout}
               onResolveEscrow={handleResolveEscrow}
               payingLock={payingLock}
               payingMock={payingMock}
               lockStakePhase={lockStakePhase}
               cashingOut={cashingOut}
+              preparingEscrow={preparingEscrow}
               resolvingEscrow={resolvingEscrow}
+              escrowResolverConfigured={escrowResolverConfigured}
               escrowCashOutPhase={escrowCashOutPhase}
+              connectedWalletAddress={address}
               error={paymentError}
               selectedStake={selectedTestStake}
               onStakeChange={setSelectedTestStake}
               startingChips={lockedStartingChips}
               currentHumanChips={currentHumanChips}
               handInProgress={handInProgress}
+              escrowPayoutUi={escrowPayoutUi}
             />
           }
           aiDecisionPanel={
@@ -2426,6 +2578,10 @@ export function ArenaShell() {
         handInProgress={handInProgress}
         cashingOut={cashingOut}
         payingStake={payingLock || payingMock}
+        preparingEscrow={preparingEscrow}
+        escrowResolverConfigured={escrowResolverConfigured}
+        escrowPayoutUi={escrowPayoutUi}
+        onPrepareEscrowPayout={handlePrepareEscrowPayout}
         onCashOut={handleCashOut}
       />
     </div>

@@ -8,25 +8,73 @@
  * exceed on-chain funds. Starting/ current chips come from Human vs AI session
  * state; stakeAmountWei comes from the on-chain escrow session deposit.
  */
-export function computeEscrowPayoutWei(
+
+export type EscrowPayoutLiquidity = {
+  estimatedPayoutWei: bigint;
+  cappedPayoutWei: bigint;
+  wasPayoutCapped: boolean;
+  escrowBalanceWei: bigint;
+};
+
+/** Chip-proportional payout before escrow liquidity cap. */
+export function computeUncappedEscrowPayoutWei(
   currentChips: number,
   startingChips: number,
   stakeAmountWei: bigint,
-  contractBalanceWei: bigint,
 ): bigint {
   if (startingChips <= 0 || stakeAmountWei <= BigInt(0)) {
     return BigInt(0);
   }
 
   const safeChips = Math.max(0, Math.floor(currentChips));
-  const payout =
-    (BigInt(safeChips) * stakeAmountWei) / BigInt(startingChips);
+  return (BigInt(safeChips) * stakeAmountWei) / BigInt(startingChips);
+}
 
-  if (contractBalanceWei <= BigInt(0)) {
-    return BigInt(0);
+export function computeEscrowPayoutLiquidity(
+  currentChips: number,
+  startingChips: number,
+  stakeAmountWei: bigint,
+  escrowBalanceWei: bigint,
+): EscrowPayoutLiquidity {
+  const estimatedPayoutWei = computeUncappedEscrowPayoutWei(
+    currentChips,
+    startingChips,
+    stakeAmountWei,
+  );
+
+  let cappedPayoutWei: bigint;
+  if (escrowBalanceWei <= BigInt(0)) {
+    cappedPayoutWei = BigInt(0);
+  } else {
+    cappedPayoutWei =
+      estimatedPayoutWei > escrowBalanceWei
+        ? escrowBalanceWei
+        : estimatedPayoutWei;
   }
 
-  return payout > contractBalanceWei ? contractBalanceWei : payout;
+  const wasPayoutCapped =
+    estimatedPayoutWei > cappedPayoutWei && estimatedPayoutWei > BigInt(0);
+
+  return {
+    estimatedPayoutWei,
+    cappedPayoutWei,
+    wasPayoutCapped,
+    escrowBalanceWei,
+  };
+}
+
+export function computeEscrowPayoutWei(
+  currentChips: number,
+  startingChips: number,
+  stakeAmountWei: bigint,
+  contractBalanceWei: bigint,
+): bigint {
+  return computeEscrowPayoutLiquidity(
+    currentChips,
+    startingChips,
+    stakeAmountWei,
+    contractBalanceWei,
+  ).cappedPayoutWei;
 }
 
 export function formatEscrowPayoutEth(payoutWei: bigint): string {

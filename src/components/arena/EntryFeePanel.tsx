@@ -33,6 +33,7 @@ import {
   getTestStakeTier,
   type TestStakeAmount,
 } from "@/lib/stake/testnetStake";
+import type { EscrowPayoutUiInfo } from "@/lib/stake/escrowLiquidityPreview";
 import type { StakeSessionMeta } from "@/lib/stake/stakeSessionStorage";
 import { isStakeSessionCashedOut } from "@/lib/stake/stakeSessionStorage";
 import {
@@ -48,12 +49,17 @@ type EntryFeePanelProps = {
   onPayMock: (stakeAmount: TestStakeAmount) => Promise<void>;
   onBeginNewStakeSession?: () => void;
   onCashOut?: () => void | Promise<void>;
+  onPrepareEscrowPayout?: () => void | Promise<void>;
   onResolveEscrow?: () => void | Promise<void>;
   payingLock?: boolean;
   payingMock?: boolean;
   lockStakePhase?: LockStakePhase;
   cashingOut?: boolean;
+  preparingEscrow?: boolean;
   resolvingEscrow?: boolean;
+  escrowResolverConfigured?: boolean | null;
+  escrowPayoutUi?: EscrowPayoutUiInfo | null;
+  connectedWalletAddress?: string;
   escrowCashOutPhase?: EscrowCashOutPhase | null;
   error?: string | null;
   selectedStake?: TestStakeAmount;
@@ -77,12 +83,17 @@ export function EntryFeePanel({
   onPayMock,
   onBeginNewStakeSession,
   onCashOut,
+  onPrepareEscrowPayout,
   onResolveEscrow,
   payingLock = false,
   payingMock = false,
   lockStakePhase = "idle",
   cashingOut = false,
+  preparingEscrow = false,
   resolvingEscrow = false,
+  escrowResolverConfigured = null,
+  escrowPayoutUi = null,
+  connectedWalletAddress,
   escrowCashOutPhase = null,
   error,
   selectedStake = DEFAULT_TEST_STAKE,
@@ -129,32 +140,63 @@ export function EntryFeePanel({
     stakeSessionMeta?.stakeAmount ?? paymentResult?.amount ?? selectedStake;
   const tier = getTestStakeTier(stakeAmount);
 
-  const canCashOut =
+  const escrowPlayerWallet =
+    stakeSessionMeta?.walletAddress?.toLowerCase() ?? null;
+  const connectedWallet = connectedWalletAddress?.toLowerCase() ?? null;
+  const isEscrowPlayerWallet =
+    !escrowPlayerWallet ||
+    !connectedWallet ||
+    escrowPlayerWallet === connectedWallet;
+
+  const escrowResolved = stakeSessionMeta?.escrowResolved === true;
+  const escrowBusy =
+    cashingOut || preparingEscrow || resolvingEscrow || payingLock || payingMock;
+
+  const canPrepareEscrowPayout =
+    isEscrowDeposit &&
     isActive &&
+    !escrowResolved &&
     !handInProgress &&
-    !cashingOut &&
-    !resolvingEscrow &&
-    !payingLock &&
-    !payingMock &&
-    (isEscrowDeposit
-      ? isConnected && onBaseSepolia
-      : currentHumanChips > 0);
+    !escrowBusy &&
+    isConnected &&
+    onBaseSepolia &&
+    isEscrowPlayerWallet &&
+    escrowResolverConfigured !== false;
+
+  const canClaimEscrowPayout =
+    isEscrowDeposit &&
+    isActive &&
+    escrowResolved &&
+    !handInProgress &&
+    !escrowBusy &&
+    isConnected &&
+    onBaseSepolia &&
+    isEscrowPlayerWallet;
+
+  const canCashOut =
+    isEscrowDeposit
+      ? canClaimEscrowPayout
+      : isActive &&
+        !handInProgress &&
+        !escrowBusy &&
+        currentHumanChips > 0;
 
   const canCloseZeroEscrow =
     isEscrowDeposit &&
     isActive &&
+    escrowResolved &&
     !handInProgress &&
-    !cashingOut &&
-    !resolvingEscrow &&
+    !escrowBusy &&
     currentHumanChips <= 0 &&
     isConnected &&
-    onBaseSepolia;
+    onBaseSepolia &&
+    isEscrowPlayerWallet;
 
   const showDevResolve =
     isEscrowDevMode() &&
     isEscrowDeposit &&
     isActive &&
-    !stakeSessionMeta?.escrowResolved;
+    !escrowResolved;
 
   const isPaying = payingLock || payingMock;
   const phaseLabel = getLockStakePhaseLabel(lockStakePhase);
@@ -588,18 +630,59 @@ export function EntryFeePanel({
                   : "Mock session · local preview only"}
             </p>
 
+            {isEscrowDeposit && escrowPayoutUi ? (
+              <dl
+                className={cn(
+                  "space-y-1 rounded-lg border border-white/10 bg-black/25",
+                  compact ? "p-2" : "p-2.5",
+                )}
+              >
+                <div className="flex justify-between gap-2 text-[11px]">
+                  <dt className="text-muted-foreground">Expected payout</dt>
+                  <dd className="font-semibold text-white">
+                    {escrowPayoutUi.expectedPayoutEth} ETH
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2 text-[11px]">
+                  <dt className="text-muted-foreground">Claimable payout</dt>
+                  <dd className="font-semibold text-[var(--arena-cyan)]">
+                    {escrowPayoutUi.claimablePayoutEth} ETH
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2 text-[11px]">
+                  <dt className="text-muted-foreground">Escrow liquidity</dt>
+                  <dd className="text-white/85">
+                    {escrowPayoutUi.escrowLiquidityEth} ETH
+                  </dd>
+                </div>
+              </dl>
+            ) : null}
+
+            {isEscrowDeposit && escrowPayoutUi?.wasPayoutCapped ? (
+              <p className="rounded-lg border border-amber-500/30 bg-amber-950/25 px-2.5 py-2 text-[10px] leading-relaxed text-amber-200/90">
+                Payout capped by escrow liquidity.
+              </p>
+            ) : null}
+
             {isEscrowDeposit ? (
-              <div className="arena-panel-info">
+              <div className="arena-panel-info space-y-2">
                 <p className="leading-relaxed opacity-90">
-                  Resolve result, then claim payout.
+                  {escrowResolved
+                    ? "Payout prepared — claim to your wallet."
+                    : "Prepare payout, then claim test ETH."}
                 </p>
-                {showDevResolve && !stakeSessionMeta?.escrowResolved ? (
-                  <p className="mt-1 text-[9px] opacity-80">
-                    Dev resolve required in this build.
+                {escrowResolverConfigured === false ? (
+                  <p className="text-[9px] leading-relaxed text-amber-200/85">
+                    Resolver not configured.
+                  </p>
+                ) : null}
+                {!isEscrowPlayerWallet && isConnected ? (
+                  <p className="text-[9px] leading-relaxed text-amber-200/85">
+                    Switch to player wallet to claim.
                   </p>
                 ) : null}
                 {stakeSessionMeta?.escrowResolveTxHash ? (
-                  <p className="mt-1 font-mono text-[9px] opacity-80">
+                  <p className="font-mono text-[9px] opacity-80">
                     Resolve tx:{" "}
                     <a
                       href={getEscrowTxUrl(stakeSessionMeta.escrowResolveTxHash)}
@@ -611,22 +694,41 @@ export function EntryFeePanel({
                     </a>
                   </p>
                 ) : null}
-                {showDevResolve ? (
+                {!escrowResolved ? (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
+                    disabled={!canPrepareEscrowPayout}
+                    className="h-8 w-full border-[var(--arena-cyan)]/35 text-[10px] text-[var(--arena-cyan)]"
+                    onClick={() => onPrepareEscrowPayout?.()}
+                  >
+                    {preparingEscrow ? (
+                      <>
+                        <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                        Preparing…
+                      </>
+                    ) : (
+                      "Prepare Payout"
+                    )}
+                  </Button>
+                ) : null}
+                {showDevResolve ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
                     disabled={resolvingEscrow || handInProgress || !isConnected}
-                    className="mt-2 h-7 w-full border-[var(--arena-cyan)]/30 text-[10px] text-[var(--arena-cyan)]"
+                    className="h-7 w-full text-[9px] text-muted-foreground"
                     onClick={() => onResolveEscrow?.()}
                   >
                     {resolvingEscrow ? (
                       <>
                         <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                        Resolving…
+                        Dev resolving…
                       </>
                     ) : (
-                      "Resolve Session"
+                      "Resolve (dev owner)"
                     )}
                   </Button>
                 ) : null}
@@ -636,19 +738,23 @@ export function EntryFeePanel({
             <Button
               type="button"
               variant="outline"
-              disabled={!canCashOut && !canCloseZeroEscrow}
+              disabled={
+                isEscrowDeposit
+                  ? !canClaimEscrowPayout && !canCloseZeroEscrow
+                  : !canCashOut
+              }
               className="w-full gap-2 border-white/15 text-[11px]"
               onClick={() => onCashOut?.()}
             >
               {cashingOut ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  {escrowCashOutPhase === "resolving"
-                    ? "Resolving escrow…"
+                  {escrowCashOutPhase === "preparing"
+                    ? "Preparing payout…"
                     : escrowCashOutPhase === "claiming"
                       ? "Claiming payout…"
                       : isEscrowDeposit
-                        ? "Processing escrow cash-out…"
+                        ? "Claiming payout…"
                         : "Cashing out…"}
                 </>
               ) : (
@@ -658,9 +764,15 @@ export function EntryFeePanel({
                     ? "Mock cash out"
                     : isTreasuryLock
                       ? "Close Session"
-                      : currentHumanChips <= 0
-                        ? "Close Session"
-                        : "Claim Payout"}
+                      : isEscrowDeposit
+                        ? isCashedOut
+                          ? "Cash Out Complete"
+                          : currentHumanChips <= 0
+                            ? "Cash Out Complete"
+                            : "Claim Payout"
+                        : currentHumanChips <= 0
+                          ? "Close Session"
+                          : "Claim Payout"}
                 </>
               )}
             </Button>
@@ -670,7 +782,11 @@ export function EntryFeePanel({
               </p>
             ) : isEscrowDeposit && !isConnected ? (
               <p className="text-[9px] leading-relaxed text-muted-foreground">
-                Connect wallet to claim payout.
+                Connect wallet to prepare or claim payout.
+              </p>
+            ) : isEscrowDeposit && !escrowResolved && isConnected ? (
+              <p className="text-[9px] leading-relaxed text-muted-foreground">
+                Step 1: Prepare Payout · Step 2: Claim Payout
               </p>
             ) : null}
 

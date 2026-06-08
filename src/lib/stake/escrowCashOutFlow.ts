@@ -13,16 +13,24 @@ import {
   getEscrowTxUrl,
 } from "@/lib/onchain/escrowContract";
 import {
-  computeEscrowPayoutWei,
+  applyEscrowLiquidityToMeta,
+  fetchEscrowPayoutPreview,
+} from "@/lib/stake/escrowLiquidityPreview";
+import {
+  computeEscrowPayoutLiquidity,
   formatEscrowPayoutEth,
 } from "@/lib/stake/escrowPayout";
+import {
+  applyEscrowResolveApiToMeta,
+  callEscrowResolveApi,
+} from "@/lib/stake/escrowResolveApi";
 import {
   createEscrowCashOutRecord,
   type StakeSessionMeta,
 } from "@/lib/stake/stakeSessionStorage";
 import { chipsToTestBalance } from "@/lib/stake/testnetStake";
 
-export type EscrowCashOutPhase = "resolving" | "claiming";
+export type EscrowCashOutPhase = "preparing" | "claiming";
 
 export type EscrowCashOutResult = {
   meta: StakeSessionMeta;
@@ -69,7 +77,7 @@ function finalizeEscrowCashOutMeta(
   };
 }
 
-async function resolveActiveEscrowSession(
+async function resolveActiveEscrowSessionDev(
   meta: StakeSessionMeta,
   sessionId: string,
   currentChips: number,
@@ -86,12 +94,13 @@ async function resolveActiveEscrowSession(
   }
 
   const contractBalance = await readEscrowContractBalance();
-  const payoutAmountWei = computeEscrowPayoutWei(
+  const liquidity = computeEscrowPayoutLiquidity(
     currentChips,
     startingChips,
     onChain.stakeAmount,
     contractBalance,
   );
+  const payoutAmountWei = liquidity.cappedPayoutWei;
   const resultHash = buildEscrowResultHash(sessionId, currentChips);
 
   const { hash } = await resolveEscrowSession(
@@ -105,12 +114,78 @@ async function resolveActiveEscrowSession(
 }
 
 /**
- * Resolve (dev owner) and/or claim escrow payout for an active Human vs AI session.
+ * Server API resolver — prepares escrow payout without dev wallet switching.
  */
-export async function performEscrowCashOut(
+export async function prepareEscrowPayoutViaApi(
   meta: StakeSessionMeta,
   currentChips: number,
   startingChips: number,
+  account: Address,
+): Promise<StakeSessionMeta> {
+  if (!meta.escrowSessionId) {
+    throw new Error("Escrow session id is missing from stake metadata.");
+  }
+
+  const sessionId = meta.escrowSessionId;
+  const chips = Math.max(0, Math.floor(currentChips));
+
+  let onChain = await readEscrowSession(sessionId);
+  if (!onChain) {
+    throw new Error("Escrow session not found on Base Sepolia.");
+  }
+
+  if (onChain.status === "resolved" || onChain.status === "claimed") {
+    const preview = await fetchEscrowPayoutPreview(
+      sessionId,
+      chips,
+      startingChips,
+    );
+    const base: StakeSessionMeta = {
+      ...meta,
+      escrowResolved: true,
+      escrowResult: onChain.resultHash,
+      escrowPayoutAmount: onChain.payoutAmount.toString(),
+      escrowCappedPayoutWei: onChain.payoutAmount.toString(),
+      claimStatus:
+        onChain.payoutAmount > BigInt(0) ? "none" : "not-applicable",
+    };
+    if (preview) {
+      return applyEscrowLiquidityToMeta(base, {
+        ...preview,
+        cappedPayoutWei: onChain.payoutAmount.toString(),
+        wasPayoutCapped:
+          BigInt(preview.estimatedPayoutWei) > onChain.payoutAmount,
+      });
+    }
+    return base;
+  }
+
+  if (onChain.player.toLowerCase() !== account.toLowerCase()) {
+    throw new Error("Switch to player wallet to prepare payout.");
+  }
+
+  const response = await callEscrowResolveApi({
+    sessionId,
+    walletAddress: account,
+    currentChips: chips,
+    startingChips,
+    lockSettlement: "escrow-deposit",
+  });
+
+  onChain = await readEscrowSession(sessionId);
+  if (!onChain || onChain.status !== "resolved") {
+    throw new Error("Escrow session was not resolved on-chain.");
+  }
+
+  return applyEscrowResolveApiToMeta(meta, response);
+}
+
+/**
+ * Claim escrow payout after session is resolved (player wallet).
+ */
+export async function performEscrowClaimPayout(
+  meta: StakeSessionMeta,
+  currentChips: number,
   account: Address | undefined,
   chainId: number | undefined,
   onPhase?: (phase: EscrowCashOutPhase) => void,
@@ -131,49 +206,13 @@ export async function performEscrowCashOut(
   const chips = Math.max(0, Math.floor(currentChips));
   const testBalance = chipsToTestBalance(chips);
 
-  let onChain = await readEscrowSession(sessionId);
+  const onChain = await readEscrowSession(sessionId);
   if (!onChain) {
     throw new Error("Escrow session not found on Base Sepolia.");
   }
 
-  let resolveTxHash = meta.escrowResolveTxHash;
-  let resultHash = meta.escrowResult as `0x${string}` | undefined;
-  let payoutAmountWei =
-    meta.escrowPayoutAmount != null
-      ? BigInt(meta.escrowPayoutAmount)
-      : undefined;
-
   if (onChain.status === "active") {
-    const canAutoResolve =
-      isEscrowDevMode() && (await isEscrowContractOwner(account));
-
-    if (!canAutoResolve) {
-      if (isEscrowDevMode()) {
-        throw new Error(
-          "Resolve test session first — use dev owner resolve or connect the contract owner wallet.",
-        );
-      }
-      throw new Error(
-        "Escrow session is not resolved yet. Payout will be available after admin resolution.",
-      );
-    }
-
-    onPhase?.("resolving");
-    const resolved = await resolveActiveEscrowSession(
-      meta,
-      sessionId,
-      chips,
-      startingChips,
-      account,
-    );
-    resolveTxHash = resolved.resolveTxHash;
-    resultHash = resolved.resultHash;
-    payoutAmountWei = resolved.payoutAmountWei;
-    onChain = await readEscrowSession(sessionId);
-  }
-
-  if (!onChain) {
-    throw new Error("Failed to read escrow session after resolve.");
+    throw new Error("Prepare payout first — escrow session is not resolved yet.");
   }
 
   if (onChain.status === "claimed") {
@@ -182,9 +221,12 @@ export async function performEscrowCashOut(
       claimedEthAmount: meta.escrowPayoutAmount
         ? formatEscrowPayoutEth(BigInt(meta.escrowPayoutAmount))
         : undefined,
-      resolveTxHash,
-      resultHash,
-      payoutAmountWei: payoutAmountWei ?? onChain.payoutAmount,
+      resolveTxHash: meta.escrowResolveTxHash,
+      resultHash: meta.escrowResult as `0x${string}` | undefined,
+      payoutAmountWei:
+        meta.escrowPayoutAmount != null
+          ? BigInt(meta.escrowPayoutAmount)
+          : onChain.payoutAmount,
       claimStatus: "confirmed",
     });
     return {
@@ -193,15 +235,12 @@ export async function performEscrowCashOut(
     };
   }
 
-  const effectivePayout =
-    onChain.status === "resolved"
-      ? onChain.payoutAmount
-      : (payoutAmountWei ?? BigInt(0));
+  const effectivePayout = onChain.payoutAmount;
 
   if (effectivePayout <= BigInt(0)) {
     const updated = finalizeEscrowCashOutMeta(meta, chips, testBalance, account, {
-      resolveTxHash,
-      resultHash,
+      resolveTxHash: meta.escrowResolveTxHash,
+      resultHash: meta.escrowResult as `0x${string}` | undefined,
       payoutAmountWei: BigInt(0),
       zeroPayout: true,
       claimStatus: "not-applicable",
@@ -213,7 +252,7 @@ export async function performEscrowCashOut(
   }
 
   if (onChain.player.toLowerCase() !== account.toLowerCase()) {
-    throw new Error("Connected wallet is not the escrow session player.");
+    throw new Error("Switch to player wallet to claim.");
   }
 
   onPhase?.("claiming");
@@ -222,8 +261,8 @@ export async function performEscrowCashOut(
   const updated = finalizeEscrowCashOutMeta(meta, chips, testBalance, account, {
     claimTxHash: hash,
     claimedEthAmount: formatEscrowPayoutEth(claimedAmount),
-    resolveTxHash,
-    resultHash,
+    resolveTxHash: meta.escrowResolveTxHash,
+    resultHash: meta.escrowResult as `0x${string}` | undefined,
     payoutAmountWei: claimedAmount,
     claimStatus: "confirmed",
   });
@@ -234,8 +273,46 @@ export async function performEscrowCashOut(
   };
 }
 
+/** @deprecated Use prepareEscrowPayoutViaApi + performEscrowClaimPayout */
+export async function performEscrowCashOut(
+  meta: StakeSessionMeta,
+  currentChips: number,
+  startingChips: number,
+  account: Address | undefined,
+  chainId: number | undefined,
+  onPhase?: (phase: EscrowCashOutPhase) => void,
+): Promise<EscrowCashOutResult> {
+  if (!meta.escrowSessionId) {
+    throw new Error("Escrow session id is missing from stake metadata.");
+  }
+
+  let workingMeta = meta;
+  const onChain = await readEscrowSession(meta.escrowSessionId);
+
+  if (onChain?.status === "active") {
+    if (!account) {
+      throw new Error("Connect wallet to prepare escrow payout.");
+    }
+    onPhase?.("preparing");
+    workingMeta = await prepareEscrowPayoutViaApi(
+      meta,
+      currentChips,
+      startingChips,
+      account,
+    );
+  }
+
+  return performEscrowClaimPayout(
+    workingMeta,
+    currentChips,
+    account,
+    chainId,
+    onPhase,
+  );
+}
+
 /**
- * Dev-only: resolve an active escrow session without claiming.
+ * Dev-only: resolve an active escrow session without claiming (owner wallet).
  */
 export async function performEscrowResolveOnly(
   meta: StakeSessionMeta,
@@ -265,7 +342,7 @@ export async function performEscrowResolveOnly(
   }
 
   const { resolveTxHash, resultHash, payoutAmountWei } =
-    await resolveActiveEscrowSession(
+    await resolveActiveEscrowSessionDev(
       meta,
       meta.escrowSessionId,
       currentChips,
@@ -273,7 +350,12 @@ export async function performEscrowResolveOnly(
       account,
     );
 
-  return {
+  const preview = await fetchEscrowPayoutPreview(
+    meta.escrowSessionId,
+    currentChips,
+    startingChips,
+  );
+  const base: StakeSessionMeta = {
     ...meta,
     escrowResolved: true,
     escrowResult: resultHash,
@@ -281,4 +363,8 @@ export async function performEscrowResolveOnly(
     escrowResolveTxHash: resolveTxHash,
     claimStatus: payoutAmountWei > BigInt(0) ? "none" : "not-applicable",
   };
+  if (preview) {
+    return applyEscrowLiquidityToMeta(base, preview);
+  }
+  return base;
 }

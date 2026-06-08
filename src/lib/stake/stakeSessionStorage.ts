@@ -51,6 +51,10 @@ export type StakeSessionMeta = {
   escrowResolved?: boolean;
   escrowResult?: string;
   escrowPayoutAmount?: string;
+  escrowEstimatedPayoutWei?: string;
+  escrowCappedPayoutWei?: string;
+  escrowPayoutWasCapped?: boolean;
+  escrowBalanceWei?: string;
   escrowResolveTxHash?: string;
   escrowClaimTxHash?: string;
   claimStatus?: ClaimStatus;

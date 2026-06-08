@@ -16,6 +16,7 @@ import { Leaderboard } from "@/components/arena/Leaderboard";
 import { StakeSessionMenuSection } from "@/components/arena/StakeSessionMenuSection";
 import { TableStats } from "@/components/arena/TableStats";
 import type { HandHistoryRecord } from "@/lib/arena/handHistory";
+import type { EscrowPayoutUiInfo } from "@/lib/stake/escrowLiquidityPreview";
 import { Button } from "@/components/ui/button";
 import type { LeaderboardEntry, SessionStats } from "@/lib/analytics/types";
 import type { HandResultDisplayType } from "@/lib/arena/simulationDisplay";
@@ -61,6 +62,10 @@ type ArenaMenuDrawerProps = {
   handInProgress?: boolean;
   cashingOut?: boolean;
   payingStake?: boolean;
+  preparingEscrow?: boolean;
+  escrowResolverConfigured?: boolean | null;
+  escrowPayoutUi?: EscrowPayoutUiInfo | null;
+  onPrepareEscrowPayout?: () => void | Promise<void>;
   onCashOut?: () => void | Promise<void>;
 };
 
@@ -149,6 +154,10 @@ export function ArenaMenuDrawer({
   handInProgress = false,
   cashingOut = false,
   payingStake = false,
+  preparingEscrow = false,
+  escrowResolverConfigured = null,
+  escrowPayoutUi = null,
+  onPrepareEscrowPayout,
   onCashOut,
 }: ArenaMenuDrawerProps) {
   const [tab, setTab] = useState<ArenaMenuTabId>("overview");
@@ -240,6 +249,10 @@ export function ArenaMenuDrawer({
                   cashingOut={cashingOut}
                   payingStake={payingStake}
                   escrowResolved={escrowResolved}
+                  preparingEscrow={preparingEscrow}
+                  escrowResolverConfigured={escrowResolverConfigured}
+                  escrowPayoutUi={escrowPayoutUi}
+                  onPrepareEscrowPayout={onPrepareEscrowPayout}
                   onCashOut={onCashOut}
                 />
                 <ArenaMenuOverviewPanel lockSettlement={lockSettlement} />
