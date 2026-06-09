@@ -1,4 +1,4 @@
-﻿# Poker AI Arena
+# Poker AI Arena
 
 **Public testnet demo** — play Human vs AI poker on **Base Sepolia**, lock a test ETH stake in an on-chain escrow contract, and claim test ETH payouts after your session. Watch a shared **AI Agent Battle** spectator mode with explainable bot decisions.
 
