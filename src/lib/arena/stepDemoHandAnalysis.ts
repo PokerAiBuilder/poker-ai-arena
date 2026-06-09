@@ -2,6 +2,7 @@ import type { Card, HandRank, Rank } from "@/lib/poker/types";
 import { RANK_VALUES } from "@/lib/poker/types";
 import { evaluateBestHand } from "@/lib/poker/evaluator";
 import type { StepDemoState, StepDemoStreet } from "@/lib/arena/stepDemo";
+import { classifyPreflopHand } from "@/lib/arena/preflopRanges";
 
 export type HandTier = "premium" | "strong" | "playable" | "speculative" | "weak";
 
@@ -32,12 +33,23 @@ export type DrawInfo = {
   summary: string;
 };
 
+export type PostflopCategory =
+  | "air"
+  | "draw"
+  | "weak_pair"
+  | "top_pair"
+  | "overpair"
+  | "two_pair_plus"
+  | "strong_draw"
+  | "monster";
+
 export type HandProfile = {
   tier: HandTier;
   strength: number;
   label: string;
   rank?: HandRank;
   madeHand?: MadeHandKind;
+  postflopCategory?: PostflopCategory;
   /** Pocket pair above the board (postflop). */
   isOverpair?: boolean;
   /** Top pair with J+ kicker (postflop). */
@@ -53,8 +65,31 @@ export type BetContext = {
   toCall: number;
   pot: number;
   callPotRatio: number;
+  /** Pot size before call divided by call amount (higher = better odds). */
+  potOdds: number;
   pressure: BetPressure;
 };
+
+export function classifyPostflopCategory(profile: HandProfile): PostflopCategory {
+  if (
+    profile.madeHand === "straight" ||
+    profile.madeHand === "flush" ||
+    profile.madeHand === "full_house_plus"
+  ) {
+    return "monster";
+  }
+  if (profile.madeHand === "two_pair" || profile.madeHand === "trips") {
+    return "two_pair_plus";
+  }
+  if (profile.isOverpair) return "overpair";
+  if (profile.madeHand === "top_pair") return "top_pair";
+  if (profile.madeHand === "pair") return "weak_pair";
+  if (profile.draws.flushDraw && profile.draws.openEndedStraight) {
+    return "strong_draw";
+  }
+  if (profile.draws.hasEquityDraw) return "draw";
+  return "air";
+}
 
 function cardValue(rank: Rank): number {
   return RANK_VALUES[rank];
@@ -228,11 +263,7 @@ function madeHandLabel(made: MadeHandKind, rank: HandRank): string {
 }
 
 export function analyzePreflopHand(hole: Card[]): HandProfile {
-  const [a, b] = hole.map((c) => cardValue(c.rank));
-  const high = Math.max(a, b);
-  const low = Math.min(a, b);
-  const suited = hole[0].suit === hole[1].suit;
-  const pair = a === b;
+  const classified = classifyPreflopHand(hole);
   const emptyDraws: DrawInfo = {
     flushDraw: false,
     openEndedStraight: false,
@@ -249,44 +280,10 @@ export function analyzePreflopHand(hole: Card[]): HandProfile {
     summary: "preflop",
   };
 
-  let tier: HandTier;
-  let strength: number;
-  let label: string;
-
-  if (pair && high >= 12) {
-    tier = "premium";
-    strength = 92;
-    label = `pocket ${hole[0].rank}s`;
-  } else if ((high >= 14 && low >= 13) || (high >= 14 && low >= 12 && suited)) {
-    tier = "premium";
-    strength = 88;
-    label = suited ? `${hole[0].rank}${hole[1].rank} suited` : `${hole[0].rank}${hole[1].rank}`;
-  } else if (pair && high >= 9) {
-    tier = "strong";
-    strength = 72;
-    label = `pocket ${hole[0].rank}s`;
-  } else if (high >= 12 && low >= 10) {
-    tier = "strong";
-    strength = 68;
-    label = `${hole[0].rank}${hole[1].rank}${suited ? " suited" : ""}`;
-  } else if (high >= 11 || (suited && high >= 10) || (suited && low >= 8 && high >= 9)) {
-    tier = "playable";
-    strength = 52;
-    label = `${hole[0].rank}${hole[1].rank}${suited ? " suited" : ""}`;
-  } else if (high >= 9 || (suited && high >= 8)) {
-    tier = "speculative";
-    strength = 38;
-    label = `${hole[0].rank}${hole[1].rank}${suited ? " suited" : " offsuit"}`;
-  } else {
-    tier = "weak";
-    strength = 18;
-    label = "weak starting hand";
-  }
-
   return {
-    tier,
-    strength,
-    label,
+    tier: classified.tier,
+    strength: classified.strength,
+    label: classified.label,
     draws: emptyDraws,
     board: emptyBoard,
     street: "preflop",
@@ -364,7 +361,7 @@ export function analyzePostflopHand(
     strength = Math.max(strength, 72);
   }
 
-  return {
+  const profile: HandProfile = {
     tier,
     strength,
     label,
@@ -376,6 +373,8 @@ export function analyzePostflopHand(
     board: boardTexture,
     street,
   };
+  profile.postflopCategory = classifyPostflopCategory(profile);
+  return profile;
 }
 
 export function buildHandProfile(state: StepDemoState): HandProfile {
@@ -421,5 +420,7 @@ export function buildBetContext(
     pressure = "medium";
   }
 
-  return { toCall, pot, callPotRatio, pressure };
+  const potOdds = toCall > 0 ? pot / toCall : 999;
+
+  return { toCall, pot, callPotRatio, potOdds, pressure };
 }

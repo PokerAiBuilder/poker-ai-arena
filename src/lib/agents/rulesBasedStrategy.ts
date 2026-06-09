@@ -2,6 +2,11 @@ import type { Card, Rank } from "@/lib/poker/types";
 import { RANK_VALUES } from "@/lib/poker/types";
 import { evaluateBestHand } from "@/lib/poker/evaluator";
 import type { AgentDecision, AgentInput, AgentStrategy } from "@/lib/agents/agentTypes";
+import {
+  classifyPreflopHand,
+  shouldContinuePreflopAllIn,
+  shouldFoldPreflopTrashToPressure,
+} from "@/lib/arena/preflopRanges";
 
 const HIGH_RANK_THRESHOLD = 11; // J+
 
@@ -120,11 +125,19 @@ export function decidePokerAction(input: AgentInput): AgentDecision {
   const raiseTo = raiseAmount(input);
   const aggression = strategyAggression(strategy);
 
-  if (amountToCall > stack * 0.4 && isWeakHand(input)) {
+  const potOdds = amountToCall > 0 ? input.pot / amountToCall : 999;
+  const facingLargeBet =
+    amountToCall >= stack * 0.5 || (input.pot > 0 && amountToCall >= input.pot * 0.6);
+  const facingSmallBet =
+    amountToCall > 0 &&
+    amountToCall < stack * 0.25 &&
+    (input.pot <= 0 || amountToCall < input.pot * 0.35);
+
+  if (facingLargeBet && isWeakHand(input) && !facingSmallBet) {
     return {
       action: "fold",
       confidence: 0.82,
-      reasoning: "weak hand facing large bet",
+      reasoning: "Folds weak hand to large pressure",
     };
   }
 
@@ -152,54 +165,100 @@ export function decidePokerAction(input: AgentInput): AgentDecision {
   }
 
   if (gameStage === "preflop") {
-    if (isPocketPair(holeCards)) {
+    const preflop = classifyPreflopHand(holeCards);
+    const isAllIn = amountToCall >= stack * 0.85;
+
+    if (isAllIn && shouldContinuePreflopAllIn(preflop.category)) {
       return {
-        action: canCheck ? "raise" : amountToCall <= input.minRaise * 2 ? "raise" : "call",
-        amount: canCheck || amountToCall <= input.minRaise * 2 ? raiseTo : amountToCall,
+        action: "call",
+        amount: amountToCall,
         confidence: 0.88,
-        reasoning: "strong pocket pair preflop",
+        reasoning:
+          preflop.category === "premium"
+            ? "Raises premium preflop range — calling all-in"
+            : "Strong preflop hand — calling all-in",
       };
     }
 
-    if (hasHighCards(holeCards)) {
+    if (
+      isAllIn &&
+      shouldFoldPreflopTrashToPressure(preflop.category, "all-in")
+    ) {
+      return {
+        action: "fold",
+        confidence: 0.84,
+        reasoning: "Folds trash to preflop all-in",
+      };
+    }
+
+    if (preflop.category === "premium") {
+      return {
+        action: canCheck ? "raise" : "call",
+        amount: canCheck ? raiseTo : amountToCall,
+        confidence: 0.9,
+        reasoning: canCheck ? "Raises premium preflop range" : "Premium preflop range — continuing",
+      };
+    }
+
+    if (preflop.category === "strong") {
       if (canCheck) {
-        return aggression >= 1.2
+        return aggression >= 1
           ? {
               action: "raise",
               amount: raiseTo,
-              confidence: 0.72,
-              reasoning: "high cards — applying pressure preflop",
+              confidence: 0.8,
+              reasoning: "Strong preflop hand — raising for value",
             }
           : {
               action: "check",
-              confidence: 0.65,
-              reasoning: "high cards — pot control preflop",
+              confidence: 0.68,
+              reasoning: "Strong preflop hand — pot control",
             };
+      }
+      if (facingLargeBet) {
+        return {
+          action: "call",
+          amount: amountToCall,
+          confidence: 0.78,
+          reasoning: "Strong preflop hand — calling large pressure",
+        };
+      }
+      return {
+        action: "call",
+        amount: amountToCall,
+        confidence: 0.74,
+        reasoning: "Strong preflop hand — calling",
+      };
+    }
+
+    if (preflop.category === "playable") {
+      if (canCheck) {
+        return strategy === "aggressive" || strategy === "bluff"
+          ? {
+              action: "raise",
+              amount: raiseTo,
+              confidence: 0.66,
+              reasoning: "Playable hand — opening the pot",
+            }
+          : {
+              action: "check",
+              confidence: 0.62,
+              reasoning: "Playable hand — checking",
+            };
+      }
+      if (!canCheck && facingLargeBet && potOdds < 2.5) {
+        return {
+          action: "fold",
+          confidence: 0.76,
+          reasoning: "Folds weak hand to large pressure",
+        };
       }
       if (amountToCall <= input.minRaise * 2 * aggression) {
         return {
           action: "call",
           amount: amountToCall,
-          confidence: 0.74,
-          reasoning: "high cards with playable equity",
-        };
-      }
-    }
-
-    if (isSuited(holeCards)) {
-      if (canCheck) {
-        return {
-          action: "check",
-          confidence: 0.62,
-          reasoning: "suited hand — seeing flop cheaply",
-        };
-      }
-      if (amountToCall <= input.minRaise * aggression) {
-        return {
-          action: "call",
-          amount: amountToCall,
-          confidence: 0.68,
-          reasoning: "suited cards with playable equity",
+          confidence: 0.66,
+          reasoning: "Playable hand — calling",
         };
       }
     }
@@ -208,15 +267,15 @@ export function decidePokerAction(input: AgentInput): AgentDecision {
       return {
         action: "check",
         confidence: 0.58,
-        reasoning: "marginal hand — checking preflop",
+        reasoning: "Checks marginal showdown value",
       };
     }
 
-    if (amountToCall > input.minRaise * 2) {
+    if (facingLargeBet || amountToCall > input.minRaise * 2) {
       return {
         action: "fold",
         confidence: 0.8,
-        reasoning: "weak hand facing large bet",
+        reasoning: "Folds trash to preflop all-in",
       };
     }
 
@@ -234,26 +293,29 @@ export function decidePokerAction(input: AgentInput): AgentDecision {
     hasFlushDraw(holeCards, communityCards) ||
     hasStraightDraw(holeCards, communityCards);
 
-  const pot = input.pot;
-  const facingLargeBet =
-    amountToCall >= stack * 0.5 ||
-    (pot > 0 && amountToCall >= pot * 0.6);
   const isTurnOrRiver = gameStage === "turn" || gameStage === "river";
+  const weakPair = strength >= 120 && strength < 200;
 
-  if (
-    facingLargeBet &&
-    isTurnOrRiver &&
-    strength < 200 &&
-    !hasDraw
-  ) {
+  if (facingSmallBet && weakPair && !hasDraw) {
     return {
-      action: "fold",
-      confidence: 0.86,
-      reasoning: "Folds weak hand to large pressure",
+      action: "call",
+      amount: amountToCall,
+      confidence: 0.62,
+      reasoning: "Weak pair — calling small pressure",
     };
   }
 
-  if (facingLargeBet && strength < 120 && !hasDraw) {
+  if (facingLargeBet && isTurnOrRiver && strength < 200 && !hasDraw) {
+    return {
+      action: "fold",
+      confidence: 0.86,
+      reasoning: weakPair
+        ? "Folds weak pair to large pressure"
+        : "Folds weak hand to large pressure",
+    };
+  }
+
+  if (facingLargeBet && strength < 120 && !hasDraw && !facingSmallBet) {
     return {
       action: "fold",
       confidence: 0.84,
@@ -286,14 +348,19 @@ export function decidePokerAction(input: AgentInput): AgentDecision {
         reasoning: "drawing hand — checking to see next card",
       };
     }
-    if (amountToCall <= input.minRaise * 2 * aggression) {
+    if (amountToCall <= input.minRaise * 2 * aggression || potOdds >= 2) {
       return {
         action: "call",
         amount: amountToCall,
         confidence: 0.7,
-        reasoning: hasFlushDraw(holeCards, communityCards)
-          ? "flush draw — calling with outs"
-          : "straight draw — calling with outs",
+        reasoning: "Calls with strong draw and pot odds",
+      };
+    }
+    if (facingLargeBet) {
+      return {
+        action: "fold",
+        confidence: 0.78,
+        reasoning: "Draw — folding without enough odds",
       };
     }
   }
@@ -302,7 +369,7 @@ export function decidePokerAction(input: AgentInput): AgentDecision {
     return {
       action: "check",
       confidence: 0.6,
-      reasoning: "no connection — checking flop",
+      reasoning: "Checks marginal showdown value",
     };
   }
 

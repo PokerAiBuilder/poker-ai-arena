@@ -8,8 +8,13 @@ import {
   type AgentBattleRaiseTier,
   computeAgentBattleRaiseTotal,
 } from "@/lib/poker/agentBattleSizing";
+import {
+  classifyPreflopHand,
+  shouldContinuePreflopAllIn,
+  shouldFoldPreflopTrashToPressure,
+  type PreflopCategory,
+} from "@/lib/arena/preflopRanges";
 
-const HIGH_RANK = 11; // J+
 const TRASH_SCORE = 16;
 
 function cardValue(rank: Card["rank"]): number {
@@ -17,19 +22,15 @@ function cardValue(rank: Card["rank"]): number {
 }
 
 function preflopScore(holeCards: Card[]): number {
-  if (holeCards.length !== 2) return 0;
-  const [a, b] = holeCards.map((c) => cardValue(c.rank));
-  const high = Math.max(a, b);
-  const low = Math.min(a, b);
-  const pair = a === b;
-  const suited = holeCards[0].suit === holeCards[1].suit;
+  return classifyPreflopHand(holeCards).strength;
+}
 
-  if (pair) return high * 4 + 10;
-  if (suited && high >= 10) return high + low + 8;
-  if (high >= HIGH_RANK && low >= 9) return high + low + 6;
-  if (high >= HIGH_RANK) return high + low * 0.75;
-  if (suited && high >= 8) return high + low * 0.55;
-  return high + low * 0.45;
+function preflopCategory(holeCards: Card[]): PreflopCategory {
+  return classifyPreflopHand(holeCards).category;
+}
+
+function isPreflopAllIn(toCall: number, stack: number, bb: number): boolean {
+  return (stack > 0 && toCall >= stack * 0.85) || toCall >= bb * 25;
 }
 
 function isSuited(holeCards: Card[]): boolean {
@@ -235,14 +236,15 @@ function pokerMasterPreflop(
   holeCards: Card[],
 ): AgentDecision {
   const playable = isPlayableShape(holeCards);
+  const category = preflopCategory(holeCards);
 
-  if (score >= 72) {
+  if (category === "premium" || score >= 72) {
     if (canCheck) {
       return raiseWithTier(
         player,
         state,
         score >= 78 ? "premium" : "pot",
-        "premium hand — balanced pot-pressure raise",
+        "Raises premium preflop range",
         0.9,
       );
     }
@@ -403,14 +405,15 @@ function riverMindPreflop(
   holeCards: Card[],
 ): AgentDecision {
   const playable = isPlayableShape(holeCards);
+  const category = preflopCategory(holeCards);
 
-  if (score >= 68) {
+  if (category === "premium" || category === "strong" || score >= 68) {
     if (canCheck) {
       return raiseWithTier(
         player,
         state,
         score >= 74 ? "big" : "pressure",
-        "strong holding — tight +75/+100 value raise",
+        "Strong preflop hand — tight value raise",
         0.9,
       );
     }
@@ -441,6 +444,9 @@ function riverMindPreflop(
   }
   if (toCall <= 75 && score >= 26 && playable) {
     return callDecision(toCall, "suited or broadway — tight but in", 0.6);
+  }
+  if (category === "weak" || category === "speculative") {
+    return foldDecision("RiverMind folds — tight profile avoids weak holdings");
   }
   return foldDecision("RiverMind folds — tight profile avoids weak holdings");
 }
@@ -505,6 +511,65 @@ function chipHunterPreflop(
   return foldDecision("ChipHunter releases a hopeless hand");
 }
 
+function defendPreflopAllIn(
+  player: Player,
+  state: GameState,
+  category: PreflopCategory,
+  agentId: string,
+): AgentDecision | null {
+  const toCall = amountToCall(player, state.currentBet);
+  if (!isPreflopAllIn(toCall, player.stack, state.bigBlind)) return null;
+
+  if (shouldContinuePreflopAllIn(category)) {
+    if (agentId === BluffBot.id) {
+      return callDecision(toCall, "BluffBot calls — premium range vs all-in", 0.78);
+    }
+    if (agentId === ChipHunter.id) {
+      return callDecision(toCall, "ChipHunter calls — strong range vs all-in", 0.84);
+    }
+    if (agentId === RiverMind.id) {
+      return callDecision(
+        toCall,
+        category === "premium"
+          ? "Raises premium preflop range — calling all-in"
+          : "Strong preflop hand — calling all-in",
+        0.88,
+      );
+    }
+    return callDecision(
+      toCall,
+      category === "premium"
+        ? "Raises premium preflop range — calling all-in"
+        : "Strong preflop hand — calling all-in",
+      0.86,
+    );
+  }
+
+  if (shouldFoldPreflopTrashToPressure(category, "all-in")) {
+    if (agentId === BluffBot.id && category === "playable" && toCall <= state.bigBlind * 30) {
+      return callDecision(toCall, "BluffBot peels wide — calling all-in", 0.52);
+    }
+    if (agentId === ChipHunter.id && category === "playable") {
+      return callDecision(toCall, "ChipHunter calls — aggressive stack pressure", 0.58);
+    }
+    const foldMsg =
+      category === "weak"
+        ? "Folds trash to preflop all-in"
+        : agentId === RiverMind.id
+          ? "RiverMind folds — tight profile avoids weak holdings"
+          : "Folds weak hand to preflop all-in";
+    return foldDecision(foldMsg);
+  }
+
+  if (agentId === RiverMind.id) {
+    return foldDecision("RiverMind folds — tight profile avoids heavy pressure");
+  }
+  if (agentId === BluffBot.id && category === "playable") {
+    return callDecision(toCall, "BluffBot calls wide — action over fold", 0.56);
+  }
+  return null;
+}
+
 export function getAgentBattlePreflopDecision(
   player: Player,
   state: GameState,
@@ -513,6 +578,12 @@ export function getAgentBattlePreflopDecision(
   const canCheck = toCall === 0;
   const score = preflopScore(player.holeCards);
   const holeCards = player.holeCards;
+  const category = preflopCategory(holeCards);
+
+  const allInDefense = defendPreflopAllIn(player, state, category, player.id);
+  if (allInDefense) {
+    return applyShowdownGuard(allInDefense, player, state, score, holeCards);
+  }
 
   let decision: AgentDecision;
 
