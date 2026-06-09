@@ -120,7 +120,7 @@ Treasury-only lock (legacy test tx) may still appear in some configs; the primar
 
 | Issue | What to try |
 | ----- | ----------- |
-| **"Lock Test Stake" unavailable** | Confirm wallet is on **Base Sepolia** (84532). Check that the deploy has escrow env configured (`NEXT_PUBLIC_TESTNET_ESCROW_ADDRESS`). Refresh and reconnect wallet. |
+| **"Lock Test Stake" unavailable** | Confirm wallet is on **Base Sepolia** (84532). Check escrow env on deploy (`NEXT_PUBLIC_TESTNET_ESCROW_ADDRESS`). Refresh and reconnect wallet. |
 | **Balance not showing** | Use **Rabby** or check **[BaseScan](https://sepolia.basescan.org)** — MetaMask sometimes hides testnet ETH clearly. |
 | **Claim disabled** | **Prepare payout** first. Connect the **same wallet** that made the escrow deposit. Finish any active hand before cash-out. |
 | **Wrong wallet / session mismatch** | Reconnect the wallet address used for the escrow deposit. Another wallet cannot claim or continue that session. |
@@ -136,8 +136,8 @@ cp .env.example .env.local   # Windows: copy .env.example .env.local
 npm run dev
 ```
 
-- http://localhost:3000 — landing  
-- http://localhost:3000/arena — arena  
+- http://localhost:3000 — landing
+- http://localhost:3000/arena — arena
 
 ```bash
 npm run lint
@@ -145,8 +145,10 @@ npm run build
 npm run contracts:test
 ```
 
-Presenter walkthrough: [DEMO_SCRIPT.md](./DEMO_SCRIPT.md)  
-Deploy notes: [DEPLOYMENT.md](./DEPLOYMENT.md)  
+Presenter walkthrough: [DEMO_SCRIPT.md](./DEMO_SCRIPT.md)
+
+Deploy notes: [DEPLOYMENT.md](./DEPLOYMENT.md)
+
 Internal status matrix: [PROJECT_STATUS.md](./PROJECT_STATUS.md)
 
 ---
@@ -167,7 +169,7 @@ Copy `.env.example` to `.env.local`. **Never commit** `.env.local` or real priva
 | `TESTNET_ESCROW_ADDRESS` | Server alias for escrow (same contract as above) |
 | `TESTNET_DEPLOYER_PRIVATE_KEY` | **Server only** — deploys contract and runs resolver; never expose to client |
 | `BASE_SEPOLIA_RPC_URL` | RPC for Hardhat deploy and server resolver |
-| `BANKR_*` / `X402_*` | Prepared for future settlement — not required for public testnet demo |
+| `BANKR_*` / `X402_*` | Not live in public demo — optional env stubs for future work |
 | `DATABASE_URL` | Future — unused in current demo |
 
 See [.env.example](./.env.example) for the full template and comments.
