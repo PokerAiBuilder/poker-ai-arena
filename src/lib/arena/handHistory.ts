@@ -2,6 +2,16 @@ import type { StepDemoState } from "@/lib/arena/stepDemo";
 import { sanitizeHumanVsAiLogMessage } from "@/lib/arena/humanVsAiDecisionPrivacy";
 import type { Card, GameAction, GameMode, SimulationResult } from "@/lib/poker/types";
 
+export type HandHistoryCreateContext = {
+  handNumber?: number;
+  humanStackBeforeHand?: number;
+  settlementLabel?: string;
+  depositTxHash?: string;
+  claimTxHash?: string;
+  depositExplorerUrl?: string;
+  claimExplorerUrl?: string;
+};
+
 export const HAND_HISTORY_STORAGE_KEY = "poker-ai-arena-hand-history-v1";
 export const MAX_HAND_HISTORY = 10;
 
@@ -31,6 +41,14 @@ export type HandHistoryRecord = {
   summary: string;
   actionCount: number;
   actionPreview: string;
+  humanChipChange?: number;
+  humanFinalChips?: number;
+  humanStackBeforeHand?: number;
+  settlementLabel?: string;
+  depositTxHash?: string;
+  claimTxHash?: string;
+  depositExplorerUrl?: string;
+  claimExplorerUrl?: string;
 };
 
 function modeLabel(gameMode: GameMode): HandHistoryModeLabel {
@@ -155,6 +173,7 @@ export function createHandHistoryFromSimulation(
 
 export function createHandHistoryFromStepDemo(
   state: StepDemoState,
+  context: HandHistoryCreateContext = {},
 ): HandHistoryRecord {
   const winningHandName = state.winningHandName ?? "Showdown";
   const resultType = resultTypeFromWinningHandName(winningHandName);
@@ -180,12 +199,19 @@ export function createHandHistoryFromStepDemo(
     state.humanAllIn || state.allInShowdown ? "all-in showdown" : undefined;
 
   const actionPreview = buildActionPreview(state.actionLog);
+  const humanFinalChips = Math.max(0, Math.floor(state.players.human.stack));
+  const humanStackBeforeHand = context.humanStackBeforeHand;
+  const humanChipChange =
+    humanStackBeforeHand != null
+      ? humanFinalChips - Math.max(0, Math.floor(humanStackBeforeHand))
+      : undefined;
 
   return {
     id: `human-vs-ai:${state.lastPotWon}:${state.winner?.id ?? "unknown"}:${state.actionLog.length}:${winningHandName}`,
     timestamp: Date.now(),
     mode,
     gameMode: "human-vs-ai",
+    handNumber: context.handNumber,
     winnerName: state.winner?.name ?? "Unknown",
     winnerId: state.winner?.id ?? "unknown",
     resultType,
@@ -204,6 +230,14 @@ export function createHandHistoryFromStepDemo(
     actionCount: state.actionLog.filter((entry) => entry.action !== "deal")
       .length,
     actionPreview,
+    humanFinalChips,
+    humanChipChange,
+    humanStackBeforeHand,
+    settlementLabel: context.settlementLabel,
+    depositTxHash: context.depositTxHash,
+    claimTxHash: context.claimTxHash,
+    depositExplorerUrl: context.depositExplorerUrl,
+    claimExplorerUrl: context.claimExplorerUrl,
   };
 }
 

@@ -3,10 +3,12 @@
 import { History, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  formatHandHistoryTime,
-  formatHandHistoryWinnerPot,
-  type HandHistoryRecord,
-} from "@/lib/arena/handHistory";
+  formatHandHistoryCompactTitle,
+  formatHandHistoryMetaLine,
+  formatHandHistoryResultLine,
+  shouldShowHistoryTxLink,
+} from "@/lib/analytics/playerSessionStats";
+import type { HandHistoryRecord } from "@/lib/arena/handHistory";
 import { cn } from "@/lib/utils";
 
 type HandHistoryPanelProps = {
@@ -15,6 +17,8 @@ type HandHistoryPanelProps = {
   className?: string;
   embedded?: boolean;
   sectionTitle?: string;
+  /** When set, only these modes are listed (default: Human vs AI). */
+  modeFilter?: HandHistoryRecord["mode"][];
 };
 
 function modeBadgeClass(mode: HandHistoryRecord["mode"]): string {
@@ -27,21 +31,16 @@ function modeBadgeLabel(mode: HandHistoryRecord["mode"]): string {
   return mode === "AI Agent Battle" ? "Agent Battle" : "Human vs AI";
 }
 
-function historyDetailLine(entry: HandHistoryRecord): string {
-  if (entry.resultType === "Win by fold") return "Win by fold";
-  if (entry.winningHandName && entry.winningHandName !== "Win by fold") {
-    return entry.winningHandName;
-  }
-  return entry.resultType;
-}
-
 export function HandHistoryPanel({
   entries,
   onClear,
   className,
   embedded = false,
-  sectionTitle = "Recent hands",
+  sectionTitle = "Local History",
+  modeFilter = ["Human vs AI"],
 }: HandHistoryPanelProps) {
+  const visibleEntries = entries.filter((entry) => modeFilter.includes(entry.mode));
+
   return (
     <div className={cn("min-w-0 max-w-full space-y-2", className)}>
       <div className="flex items-center justify-between gap-2">
@@ -51,7 +50,7 @@ export function HandHistoryPanel({
             {sectionTitle}
           </p>
         </div>
-        {entries.length > 0 ? (
+        {visibleEntries.length > 0 ? (
           <Button
             type="button"
             variant="ghost"
@@ -65,9 +64,11 @@ export function HandHistoryPanel({
         ) : null}
       </div>
 
-      {entries.length === 0 ? (
+      {visibleEntries.length === 0 ? (
         <div className="arena-menu-card border-dashed px-3 py-5 text-center">
-          <p className="text-xs text-muted-foreground">No hands recorded yet.</p>
+          <p className="text-xs text-muted-foreground">
+            Completed hands will appear here.
+          </p>
         </div>
       ) : (
         <ul
@@ -76,7 +77,7 @@ export function HandHistoryPanel({
             embedded ? "max-h-none" : "max-h-[min(52vh,420px)]",
           )}
         >
-          {entries.map((entry) => (
+          {visibleEntries.map((entry) => (
             <li
               key={entry.id}
               className="arena-menu-card min-w-0 max-w-full px-2.5 py-2"
@@ -91,18 +92,48 @@ export function HandHistoryPanel({
                   {modeBadgeLabel(entry.mode)}
                 </span>
                 <span className="text-[9px] text-muted-foreground">
-                  {formatHandHistoryTime(entry.timestamp)}
+                  {formatHandHistoryCompactTitle(entry)}
                 </span>
               </div>
               <p className="mt-1 break-words text-[11px] font-semibold leading-snug text-[var(--arena-gold-accent)]/85">
-                {formatHandHistoryWinnerPot(entry.winnerName, entry.potWon)}
+                {entry.winnerName === "You" ? "You won" : `${entry.winnerName} won`}{" "}
+                <span className="font-medium text-white/75">
+                  {entry.potWon.toLocaleString()} chips
+                </span>
               </p>
               <p className="text-[10px] text-[var(--arena-cyan)]/80">
                 {entry.resultType}
+                {formatHandHistoryResultLine(entry) !== entry.resultType
+                  ? ` · ${formatHandHistoryResultLine(entry)}`
+                  : ""}
               </p>
-              <p className="mt-0.5 line-clamp-1 text-[9px] text-white/45">
-                {historyDetailLine(entry)}
+              <p className="mt-0.5 line-clamp-2 text-[9px] text-white/45">
+                {formatHandHistoryMetaLine(entry)}
               </p>
+              {shouldShowHistoryTxLink(entry) ? (
+                <div className="mt-1 flex flex-wrap gap-2 text-[9px]">
+                  {entry.depositExplorerUrl ? (
+                    <a
+                      href={entry.depositExplorerUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[var(--arena-cyan)]/80 underline-offset-2 hover:underline"
+                    >
+                      Deposit tx
+                    </a>
+                  ) : null}
+                  {entry.claimExplorerUrl ? (
+                    <a
+                      href={entry.claimExplorerUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[var(--arena-cyan)]/80 underline-offset-2 hover:underline"
+                    >
+                      Claim tx
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

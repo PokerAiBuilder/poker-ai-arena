@@ -12,7 +12,14 @@ import {
   shouldRequireEscrowPrepareClaim,
 } from "@/lib/stake/depletedEscrowSession";
 import type { LockSettlement, StakeSessionMeta } from "@/lib/stake/stakeSessionStorage";
-import { getLockSettlementLabel } from "@/lib/onchain/baseSepolia";
+import { getLockSettlementLabel, getShortAddress } from "@/lib/onchain/baseSepolia";
+import {
+  shouldShowWalletDisconnectedEscrowState,
+  shouldShowWalletMismatchEscrowState,
+  WALLET_DISCONNECTED_BODY,
+  WALLET_DISCONNECTED_TITLE,
+  WALLET_MISMATCH_BODY,
+} from "@/lib/stake/walletSessionAccess";
 import { cn } from "@/lib/utils";
 
 type StakeSessionMenuSectionProps = {
@@ -32,6 +39,9 @@ type StakeSessionMenuSectionProps = {
   onPrepareEscrowPayout?: () => void | Promise<void>;
   onCashOut?: () => void | Promise<void>;
   onBeginNewStakeSession?: () => void;
+  isWalletConnected?: boolean;
+  connectedWalletAddress?: string;
+  paymentSuccess?: boolean;
   className?: string;
 };
 
@@ -52,9 +62,25 @@ export function StakeSessionMenuSection({
   onPrepareEscrowPayout,
   onCashOut,
   onBeginNewStakeSession,
+  isWalletConnected = false,
+  connectedWalletAddress,
+  paymentSuccess = false,
   className,
 }: StakeSessionMenuSectionProps) {
   const isEscrow = lockSettlement === "escrow-deposit";
+  const showWalletDisconnectedEscrow = shouldShowWalletDisconnectedEscrowState(
+    stakeSessionMeta,
+    paymentSuccess,
+    isWalletConnected,
+  );
+  const showWalletMismatchEscrow = shouldShowWalletMismatchEscrowState(
+    stakeSessionMeta,
+    paymentSuccess,
+    isWalletConnected,
+    connectedWalletAddress,
+  );
+  const escrowSessionVisible =
+    sessionActive && !showWalletDisconnectedEscrow && !showWalletMismatchEscrow;
   const isTreasury = lockSettlement === "base-sepolia-test-tx";
 
   const escrowBusy = cashingOut || preparingEscrow || payingStake;
@@ -73,7 +99,7 @@ export function StakeSessionMenuSection({
 
   const canPrepare =
     isEscrow &&
-    sessionActive &&
+    escrowSessionVisible &&
     requiresEscrowPrepareClaim &&
     !escrowResolved &&
     !handInProgress &&
@@ -81,14 +107,14 @@ export function StakeSessionMenuSection({
     escrowResolverConfigured !== false;
 
   const canCashOut =
-    sessionActive &&
+    escrowSessionVisible &&
     !handInProgress &&
     !escrowBusy &&
     !isDepletedZeroPayout &&
     (isEscrow ? escrowResolved && requiresEscrowPrepareClaim : currentHumanChips > 0);
 
   const canBeginNewStakeSession =
-    sessionActive &&
+    escrowSessionVisible &&
     !handInProgress &&
     !escrowBusy &&
     (isDepletedZeroPayout ||
@@ -133,6 +159,25 @@ export function StakeSessionMenuSection({
         <p className="mt-2 text-[11px] text-muted-foreground">
           Session complete.
         </p>
+      ) : showWalletDisconnectedEscrow ? (
+        <div className="mt-2 space-y-1.5">
+          <p className="text-[11px] font-medium text-white/85">
+            {WALLET_DISCONNECTED_TITLE}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {WALLET_DISCONNECTED_BODY}
+          </p>
+        </div>
+      ) : showWalletMismatchEscrow ? (
+        <div className="mt-2 space-y-1.5">
+          <p className="text-[11px] font-medium text-white/85">Wallet mismatch</p>
+          <p className="text-[11px] text-muted-foreground">{WALLET_MISMATCH_BODY}</p>
+          {stakeSessionMeta?.walletAddress ? (
+            <p className="text-[10px] text-white/45">
+              Session wallet: {getShortAddress(stakeSessionMeta.walletAddress)}
+            </p>
+          ) : null}
+        </div>
       ) : !sessionActive ? (
         <p className="mt-2 text-[11px] text-muted-foreground">
           Lock stake to play.

@@ -42,6 +42,13 @@ import {
 import type { StakeSessionMeta } from "@/lib/stake/stakeSessionStorage";
 import { isStakeSessionCashedOut } from "@/lib/stake/stakeSessionStorage";
 import {
+  shouldShowWalletDisconnectedEscrowState,
+  shouldShowWalletMismatchEscrowState,
+  WALLET_DISCONNECTED_BODY,
+  WALLET_DISCONNECTED_TITLE,
+  WALLET_MISMATCH_BODY,
+} from "@/lib/stake/walletSessionAccess";
+import {
   getLockStakePhaseLabel,
   type LockStakePhase,
 } from "@/lib/stake/lockStakeFlow";
@@ -136,7 +143,23 @@ export function EntryFeePanel({
   const isMockLock = lockSettlement === "mock";
 
   const isCashedOut = isStakeSessionCashedOut(stakeSessionMeta);
-  const isActive = !isCashedOut && paymentResult?.success === true;
+  const hasStoredActiveSession =
+    !isCashedOut && paymentResult?.success === true;
+  const showWalletDisconnectedEscrow = shouldShowWalletDisconnectedEscrowState(
+    stakeSessionMeta,
+    paymentResult?.success,
+    isConnected,
+  );
+  const showWalletMismatchEscrow = shouldShowWalletMismatchEscrowState(
+    stakeSessionMeta,
+    paymentResult?.success,
+    isConnected,
+    connectedWalletAddress ?? address,
+  );
+  const isActive =
+    hasStoredActiveSession &&
+    !showWalletDisconnectedEscrow &&
+    !showWalletMismatchEscrow;
   const cashOut = stakeSessionMeta?.cashOut;
   const isEscrowClaimed =
     cashOut?.settlement === "escrow-claim" ||
@@ -258,9 +281,13 @@ export function EntryFeePanel({
             <h3 className="truncate text-xs font-semibold text-[var(--arena-text)]">
               {isCashedOut
                 ? "Cash Out Complete"
-                : isActive
-                  ? "Stake → Chips Active"
-                  : "Lock Test Stake"}
+                : showWalletDisconnectedEscrow
+                  ? WALLET_DISCONNECTED_TITLE
+                  : showWalletMismatchEscrow
+                    ? "Wallet mismatch"
+                    : isActive
+                      ? "Stake → Chips Active"
+                      : "Lock Test Stake"}
             </h3>
           </div>
           <Badge
@@ -272,9 +299,11 @@ export function EntryFeePanel({
           >
             {isCashedOut
               ? "Cashed out"
-              : isActive
-                ? "Session active"
-                : "Base Sepolia"}
+              : showWalletDisconnectedEscrow || showWalletMismatchEscrow
+                ? "Inactive"
+                : isActive
+                  ? "Session active"
+                  : "Base Sepolia"}
           </Badge>
         </div>
       </div>
@@ -393,6 +422,32 @@ export function EntryFeePanel({
             >
               New Stake Session
             </Button>
+          </>
+        ) : showWalletDisconnectedEscrow ? (
+          <p
+            className={cn(
+              "leading-relaxed text-muted-foreground",
+              compact ? "text-[10px]" : "text-sm",
+            )}
+          >
+            {WALLET_DISCONNECTED_BODY}
+          </p>
+        ) : showWalletMismatchEscrow ? (
+          <>
+            <p
+              className={cn(
+                "leading-relaxed text-muted-foreground",
+                compact ? "text-[10px]" : "text-sm",
+              )}
+            >
+              {WALLET_MISMATCH_BODY}
+            </p>
+            {stakeSessionMeta?.walletAddress ? (
+              <p className="text-[10px] text-white/50">
+                Session wallet:{" "}
+                {getShortAddress(stakeSessionMeta.walletAddress)}
+              </p>
+            ) : null}
           </>
         ) : !isActive ? (
           <>

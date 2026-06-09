@@ -5,10 +5,10 @@ import type { LeaderboardEntry } from "@/lib/analytics/types";
 import { getShortAddress } from "@/lib/onchain/baseSepolia";
 import { cn } from "@/lib/utils";
 
-const LOCAL_LEADERBOARD_TITLE = "Local Leaderboard";
-const LOCAL_LEADERBOARD_HELPER =
-  "Local demo stats · not global rankings";
-const LOCAL_LEADERBOARD_HELPER_COMPACT =
+const DEMO_LEADERBOARD_TITLE = "Demo Leaderboard";
+const DEMO_LEADERBOARD_HELPER =
+  "Local demo standings · not global rankings";
+const DEMO_LEADERBOARD_HELPER_COMPACT =
   "Stored locally on this device";
 
 type LeaderboardProps = {
@@ -94,20 +94,20 @@ export function Leaderboard({
           <div className="flex items-center gap-2">
             <Crown className="h-4 w-4 text-casino-gold" />
             <h3 className="text-sm font-semibold text-casino-goldLight">
-              {LOCAL_LEADERBOARD_TITLE}
+              {DEMO_LEADERBOARD_TITLE}
             </h3>
           </div>
           <p className="text-[10px] text-muted-foreground">
-            {LOCAL_LEADERBOARD_HELPER}
+            {DEMO_LEADERBOARD_HELPER}
           </p>
         </div>
       ) : (
         <div className="border-b border-[var(--arena-border)]/40 px-3 py-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--arena-cyan)]">
-            {LOCAL_LEADERBOARD_TITLE}
+            {DEMO_LEADERBOARD_TITLE}
           </p>
           <p className="mt-0.5 text-[9px] leading-snug text-white/40">
-            {LOCAL_LEADERBOARD_HELPER_COMPACT}
+            {DEMO_LEADERBOARD_HELPER_COMPACT}
           </p>
         </div>
       )}

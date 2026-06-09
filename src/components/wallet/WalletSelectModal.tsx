@@ -1,9 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from "react";
+import { createPortal } from "react-dom";
 import { Loader2, Wallet } from "lucide-react";
 import type { WalletChoice } from "@/lib/onchain/walletConnectors";
 import { cn } from "@/lib/utils";
+
+export type WalletMenuPlacement = "anchored" | "centered";
 
 type WalletSelectModalProps = {
   open: boolean;
@@ -15,7 +25,14 @@ type WalletSelectModalProps = {
   onClose: () => void;
   onSelect: (choice: WalletChoice) => void;
   className?: string;
+  anchorRef?: RefObject<HTMLElement | null>;
+  menuRef?: RefObject<HTMLDivElement | null>;
+  placement?: WalletMenuPlacement;
 };
+
+const MENU_WIDTH_PX = 280;
+const VIEWPORT_MARGIN_PX = 12;
+const ACTION_BAR_CLEARANCE_PX = 88;
 
 function WalletOption({
   title,
@@ -65,39 +82,37 @@ function WalletOption({
   );
 }
 
-export function WalletSelectModal({
-  open,
+function WalletSelectPanel({
   connecting,
-  pendingChoice = null,
+  pendingChoice,
   metaMaskAvailable,
   otherWalletAvailable,
-  error = null,
-  onClose,
+  error,
   onSelect,
   className,
-}: WalletSelectModalProps) {
-  useEffect(() => {
-    if (!open) return;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !connecting) {
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, connecting, onClose]);
-
-  if (!open) return null;
-
+  panelRef,
+  style,
+}: {
+  connecting: boolean;
+  pendingChoice?: WalletChoice | null;
+  metaMaskAvailable: boolean;
+  otherWalletAvailable: boolean;
+  error?: string | null;
+  onSelect: (choice: WalletChoice) => void;
+  className?: string;
+  panelRef?: RefObject<HTMLDivElement | null>;
+  style?: CSSProperties;
+}) {
   return (
     <div
+      ref={panelRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="wallet-select-title"
+      style={style}
       className={cn(
-        "absolute right-0 top-[calc(100%+0.35rem)] z-[60] w-[min(100vw-1rem,17.5rem)] overflow-hidden rounded-xl border border-[var(--arena-border)] bg-[var(--arena-surface)] shadow-xl",
+        "z-[220] w-[min(100vw-1.5rem,17.5rem)] overflow-hidden rounded-xl border border-[var(--arena-border)] bg-[var(--arena-surface)] shadow-2xl shadow-black/50",
+        style ? "fixed" : undefined,
         className,
       )}
     >
@@ -110,7 +125,7 @@ export function WalletSelectModal({
         </h2>
       </div>
 
-      <div className="space-y-2 p-2.5">
+      <div className="max-h-[min(50vh,16rem)] space-y-2 overflow-y-auto overscroll-contain p-2.5">
         <WalletOption
           title="MetaMask"
           subtitle="Recommended for Base Sepolia test stake flow"
@@ -143,5 +158,140 @@ export function WalletSelectModal({
         </p>
       </div>
     </div>
+  );
+}
+
+export function WalletSelectModal({
+  open,
+  connecting,
+  pendingChoice = null,
+  metaMaskAvailable,
+  otherWalletAvailable,
+  error = null,
+  onClose,
+  onSelect,
+  className,
+  anchorRef,
+  menuRef,
+  placement = "anchored",
+}: WalletSelectModalProps) {
+  const internalPanelRef = useRef<HTMLDivElement>(null);
+  const panelRef = menuRef ?? internalPanelRef;
+  const [mounted, setMounted] = useState(false);
+  const [anchoredStyle, setAnchoredStyle] = useState<CSSProperties>({});
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !connecting) {
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, connecting, onClose]);
+
+  useLayoutEffect(() => {
+    if (!open || placement !== "anchored" || !anchorRef?.current) return;
+
+    const updatePosition = () => {
+      const anchor = anchorRef.current;
+      const panel = panelRef.current;
+      if (!anchor) return;
+
+      const rect = anchor.getBoundingClientRect();
+      const panelWidth = Math.min(
+        MENU_WIDTH_PX,
+        window.innerWidth - VIEWPORT_MARGIN_PX * 2,
+      );
+      const panelHeight = panel?.offsetHeight ?? 260;
+      const spaceBelow =
+        window.innerHeight - rect.bottom - ACTION_BAR_CLEARANCE_PX;
+      const spaceAbove = rect.top - VIEWPORT_MARGIN_PX;
+      const openAbove = spaceBelow < panelHeight + 8 && spaceAbove > spaceBelow;
+
+      let top = openAbove
+        ? rect.top - panelHeight - 8
+        : rect.bottom + 8;
+      top = Math.max(
+        VIEWPORT_MARGIN_PX,
+        Math.min(top, window.innerHeight - panelHeight - VIEWPORT_MARGIN_PX),
+      );
+
+      let left = rect.right - panelWidth;
+      left = Math.max(
+        VIEWPORT_MARGIN_PX,
+        Math.min(left, window.innerWidth - panelWidth - VIEWPORT_MARGIN_PX),
+      );
+
+      setAnchoredStyle({
+        top,
+        left,
+        width: panelWidth,
+      });
+    };
+
+    updatePosition();
+    const raf = window.requestAnimationFrame(updatePosition);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, placement, anchorRef, panelRef, metaMaskAvailable, otherWalletAvailable, error]);
+
+  if (!open || !mounted) return null;
+
+  if (placement === "centered") {
+    return createPortal(
+      <>
+        <button
+          type="button"
+          aria-label="Close wallet chooser"
+          className="fixed inset-0 z-[210] bg-black/55 backdrop-blur-[2px]"
+          onClick={() => {
+            if (!connecting) onClose();
+          }}
+        />
+        <div className="pointer-events-none fixed inset-0 z-[220] flex items-center justify-center p-4">
+          <div className="pointer-events-auto w-full max-w-[17.5rem]">
+            <WalletSelectPanel
+              connecting={connecting}
+              pendingChoice={pendingChoice}
+              metaMaskAvailable={metaMaskAvailable}
+              otherWalletAvailable={otherWalletAvailable}
+              error={error}
+              onSelect={onSelect}
+              className={className}
+              panelRef={panelRef}
+            />
+          </div>
+        </div>
+      </>,
+      document.body,
+    );
+  }
+
+  return createPortal(
+    <WalletSelectPanel
+      connecting={connecting}
+      pendingChoice={pendingChoice}
+      metaMaskAvailable={metaMaskAvailable}
+      otherWalletAvailable={otherWalletAvailable}
+      error={error}
+      onSelect={onSelect}
+      className={className}
+      panelRef={panelRef}
+      style={anchoredStyle}
+    />,
+    document.body,
   );
 }

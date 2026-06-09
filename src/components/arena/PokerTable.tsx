@@ -1676,6 +1676,7 @@ export function PokerTable({
                     <ConnectWalletButton
                       size="lg"
                       showDemoHint={false}
+                      menuPlacement="centered"
                       className="v1-button-primary w-full"
                     />
                     <Button

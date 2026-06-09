@@ -11,6 +11,7 @@ import {
   type ArenaMenuTabId,
 } from "@/components/arena/ArenaMenuTabList";
 import { BankrStatusPanel } from "@/components/arena/BankrStatusPanel";
+import { CurrentHandSummary } from "@/components/arena/CurrentHandSummary";
 import { HandHistoryPanel } from "@/components/arena/HandHistoryPanel";
 import { Leaderboard } from "@/components/arena/Leaderboard";
 import { StakeSessionMenuSection } from "@/components/arena/StakeSessionMenuSection";
@@ -18,6 +19,7 @@ import { TableStats } from "@/components/arena/TableStats";
 import type { HandHistoryRecord } from "@/lib/arena/handHistory";
 import type { EscrowPayoutUiInfo } from "@/lib/stake/escrowLiquidityPreview";
 import { Button } from "@/components/ui/button";
+import type { ArenaServerSession } from "@/lib/arena/arenaServerSessionTypes";
 import type { LeaderboardEntry, SessionStats } from "@/lib/analytics/types";
 import type { HandResultDisplayType } from "@/lib/arena/simulationDisplay";
 import type { GameAction, SimulationAgentDecision } from "@/lib/poker/types";
@@ -69,6 +71,12 @@ type ArenaMenuDrawerProps = {
   onPrepareEscrowPayout?: () => void | Promise<void>;
   onCashOut?: () => void | Promise<void>;
   onBeginNewStakeSession?: () => void;
+  serverSession?: ArenaServerSession | null;
+  currentHandNumber?: number | null;
+  currentHandStreet?: string;
+  currentHandPot?: number;
+  isWalletConnected?: boolean;
+  paymentSuccess?: boolean;
 };
 
 /** Public menu tabs — Bankr is never shown here (dev-only via ENABLE_BANKR_MENU_TAB). */
@@ -150,6 +158,7 @@ export function ArenaMenuDrawer({
   stakeSessionActive = false,
   stakeCashedOut = false,
   currentHumanChips = 0,
+  startingChips = 0,
   stakeAmount,
   lockSettlement = "mock",
   escrowResolved = false,
@@ -163,6 +172,12 @@ export function ArenaMenuDrawer({
   onPrepareEscrowPayout,
   onCashOut,
   onBeginNewStakeSession,
+  serverSession = null,
+  currentHandNumber = null,
+  currentHandStreet,
+  currentHandPot,
+  isWalletConnected = false,
+  paymentSuccess = false,
 }: ArenaMenuDrawerProps) {
   const [tab, setTab] = useState<ArenaMenuTabId>("overview");
 
@@ -260,6 +275,9 @@ export function ArenaMenuDrawer({
                   onPrepareEscrowPayout={onPrepareEscrowPayout}
                   onCashOut={onCashOut}
                   onBeginNewStakeSession={onBeginNewStakeSession}
+                  isWalletConnected={isWalletConnected}
+                  connectedWalletAddress={connectedWalletAddress}
+                  paymentSuccess={paymentSuccess}
                 />
                 <ArenaMenuOverviewPanel lockSettlement={lockSettlement} />
               </div>
@@ -304,6 +322,13 @@ export function ArenaMenuDrawer({
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--arena-cyan)]">
                     Current hand
                   </p>
+                  <CurrentHandSummary
+                    handNumber={currentHandNumber}
+                    street={currentHandStreet}
+                    pot={currentHandPot}
+                    humanChips={currentHumanChips}
+                    inProgress={handInProgress}
+                  />
                   <ActionLog
                     entries={actionLogEntries}
                     agentBattleMode={agentBattleMode}
@@ -314,7 +339,7 @@ export function ArenaMenuDrawer({
                   entries={handHistoryEntries}
                   onClear={() => onClearHandHistory?.()}
                   embedded
-                  sectionTitle="Recent hands"
+                  sectionTitle="Local History"
                 />
               </div>
             ) : null}
@@ -323,9 +348,11 @@ export function ArenaMenuDrawer({
               <div className="space-y-3">
                 <TableStats
                   sessionStats={sessionStats}
-                  sessionStatus={sessionStatus}
-                  paymentMode={paymentMode}
-                  entryFee={entryFee}
+                  currentChips={currentHumanChips}
+                  startingChips={startingChips}
+                  connectedWalletAddress={connectedWalletAddress}
+                  stakeSessionMeta={stakeSessionMeta}
+                  serverSession={serverSession}
                 />
                 <Leaderboard
                   entries={leaderboardEntries}

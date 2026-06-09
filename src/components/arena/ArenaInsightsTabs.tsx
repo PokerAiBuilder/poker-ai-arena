@@ -33,8 +33,8 @@ type ArenaInsightsTabsProps = {
 
 const tabLabels: Record<InsightsTab, string> = {
   log: "Action Log",
-  leaderboard: "Local Leaderboard",
-  stats: "Local Session Stats",
+  leaderboard: "Demo Leaderboard",
+  stats: "Session Stats",
 };
 
 export function ArenaInsightsTabs({
@@ -109,12 +109,7 @@ export function ArenaInsightsTabs({
       ) : null}
 
       {activeTab === "stats" ? (
-        <TableStats
-          sessionStats={sessionStats}
-          sessionStatus={sessionStatus}
-          paymentMode={paymentMode}
-          entryFee={entryFee}
-        />
+        <TableStats sessionStats={sessionStats} />
       ) : null}
     </div>
   );

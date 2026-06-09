@@ -12,7 +12,23 @@ export {
 export {
   createInitialSessionStats,
   updateSessionStatsAfterGame,
+  updateSessionStatsAfterStepDemoHand,
 } from "@/lib/analytics/sessionStats";
+export {
+  buildPlayerSessionStatsView,
+  computeNetChips,
+  computeWinRate,
+  formatChipDelta,
+  formatHandHistoryCompactTitle,
+  formatHandHistoryMetaLine,
+  formatHandHistoryResultLine,
+  formatWinRateLabel,
+  settlementLabelFromMeta,
+  sumClaimedTestEth,
+  sumDepositedTestEth,
+  type PlayerSessionStatsView,
+} from "@/lib/analytics/playerSessionStats";
+export type { HandHistoryCreateContext } from "@/lib/arena/handHistory";
 export {
   ARENA_ANALYTICS_STORAGE_KEY,
   clearArenaAnalytics,

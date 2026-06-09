@@ -9,7 +9,10 @@ import {
 } from "wagmi";
 import { ChevronDown, Loader2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { WalletSelectModal } from "@/components/wallet/WalletSelectModal";
+import {
+  WalletSelectModal,
+  type WalletMenuPlacement,
+} from "@/components/wallet/WalletSelectModal";
 import { DEFAULT_CHAIN_ID, getUserChainLabel } from "@/lib/onchain/chains";
 import {
   BASE_SEPOLIA_CHAIN_ID,
@@ -33,6 +36,8 @@ type ConnectWalletButtonProps = {
   size?: "default" | "sm" | "lg";
   /** Show optional-demo hint under the connect button */
   showDemoHint?: boolean;
+  /** Center overlay for table lock card; anchored portal elsewhere */
+  menuPlacement?: WalletMenuPlacement;
 };
 
 function networkPillLabel(chainId?: number): string {
@@ -50,6 +55,7 @@ export function ConnectWalletButton({
   className,
   size = "default",
   showDemoHint = true,
+  menuPlacement = "anchored",
 }: ConnectWalletButtonProps) {
   const { address, isConnected, chain, connector, status } = useAccount();
   const { connectAsync, connectors, isPending, error: connectError } = useConnect();
@@ -63,6 +69,7 @@ export function ConnectWalletButton({
   const [pendingChoice, setPendingChoice] = useState<WalletChoice | null>(null);
   const [isForgetting, setIsForgetting] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const walletMenuRef = useRef<HTMLDivElement>(null);
 
   const wrongNetwork = isConnected && chain?.id !== DEFAULT_CHAIN_ID;
   const shortAddress = address ? getShortAddress(address) : null;
@@ -75,10 +82,15 @@ export function ConnectWalletButton({
     if (!accountMenuOpen && !walletMenuOpen) return;
 
     const onPointerDown = (event: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setAccountMenuOpen(false);
-        setWalletMenuOpen(false);
+      const target = event.target as Node;
+      if (
+        rootRef.current?.contains(target) ||
+        walletMenuRef.current?.contains(target)
+      ) {
+        return;
       }
+      setAccountMenuOpen(false);
+      setWalletMenuOpen(false);
     };
 
     document.addEventListener("mousedown", onPointerDown);
@@ -343,6 +355,9 @@ export function ConnectWalletButton({
         metaMaskAvailable={metaMaskAvailable}
         otherWalletAvailable={otherWalletAvailable}
         error={connectErrorLocal ?? connectError?.message ?? null}
+        anchorRef={rootRef}
+        menuRef={walletMenuRef}
+        placement={menuPlacement}
         onClose={() => {
           if (!connecting) {
             setWalletMenuOpen(false);

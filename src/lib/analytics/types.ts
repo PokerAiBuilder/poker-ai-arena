@@ -21,6 +21,10 @@ export type SessionStats = {
   lastWinner?: string;
   lastGameMode?: GameMode;
   houseEdge: number | null;
+  /** Human vs AI hands in the current local session. */
+  humanHandsPlayed?: number;
+  humanWins?: number;
+  humanLosses?: number;
 };
 
 export type ArenaAnalyticsState = {

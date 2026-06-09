@@ -44,7 +44,9 @@ import {
   updateLeaderboardAfterGame,
   updateSessionStacksAfterGame,
   updateSessionStatsAfterGame,
+  updateSessionStatsAfterStepDemoHand,
 } from "@/lib/analytics";
+import { settlementLabelFromMeta } from "@/lib/analytics/playerSessionStats";
 import type {
   AgentBattleStacksState,
   ArenaAnalyticsState,
@@ -62,7 +64,10 @@ import {
   stepDemoHistoryFingerprint,
   type HandHistoryRecord,
 } from "@/lib/arena/handHistory";
+import type { ArenaServerSession } from "@/lib/arena/arenaServerSessionTypes";
 import {
+  fetchArenaServerSession,
+  isEscrowArenaSessionMeta,
   syncArenaSessionAfterClaim,
   syncArenaSessionAfterDeposit,
   syncArenaSessionAfterHand,
@@ -153,13 +158,32 @@ import {
   shouldRequireEscrowPrepareClaim,
 } from "@/lib/stake/depletedEscrowSession";
 import {
+  canAccessEscrowSession,
+  canPlayEscrowSession,
+  CONNECT_WALLET_TO_CONTINUE,
+  isEscrowDepositSession,
+} from "@/lib/stake/walletSessionAccess";
+import {
+  ensureEscrowMetaHasCurrentChips,
+  resolveEscrowCurrentChips,
+  snapshotEscrowChipsBeforeMockSession,
+  withEscrowCurrentChips,
+} from "@/lib/stake/escrowSessionChips";
+import {
+  canStartMockSessionWhileStored,
+  isWalletBackedLockSettlement,
+} from "@/lib/stake/stakeSessionPersistence";
+import {
   appendStakeSessionHistory,
+  clearAllStakeSessionStores,
+  clearMockStakeSession,
   clearStakeSessionMeta,
   createMockCashOutRecord,
   createTreasuryCashOutRecord,
   isStakeSessionActive,
   isStakeSessionCashedOut,
-  loadStakeSessionMeta,
+  loadAllEscrowStakeSessions,
+  resolveStakeSessionForWallet,
   saveStakeSessionMeta,
   type StakeSessionMeta,
 } from "@/lib/stake/stakeSessionStorage";
@@ -264,6 +288,21 @@ function applySimulationAnalytics(
   };
 }
 
+function paymentResultFromStakeSession(
+  meta: StakeSessionMeta,
+): X402PaymentResult {
+  return {
+    success: true,
+    mode: "mock",
+    amount: meta.stakeAmount,
+    chipAmount: meta.startingChips,
+    currency: "USDC",
+    network: "base-sepolia",
+    paidAt: meta.lockedAt,
+    txHash: meta.lockTxHash,
+  };
+}
+
 export function ArenaShell() {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -284,6 +323,11 @@ export function ArenaShell() {
   const [handHistoryReady, setHandHistoryReady] = useState(false);
   const lastSimHistoryKeyRef = useRef<string | null>(null);
   const lastStepDemoHistoryKeyRef = useRef<string | null>(null);
+  const lastStepDemoStatsKeyRef = useRef<string | null>(null);
+  const stepDemoHandNumberRef = useRef(0);
+  const humanStackBeforeHandRef = useRef<number | null>(null);
+  const [arenaServerSession, setArenaServerSession] =
+    useState<ArenaServerSession | null>(null);
   const [preferredSeatLayout, setPreferredSeatLayout] =
     useState<GameMode>("human-vs-ai");
   const [paymentResult, setPaymentResult] = useState<X402PaymentResult | null>(
@@ -406,15 +450,22 @@ export function ArenaShell() {
 
   const applyStepDemoStackUpdates = useCallback((state: StepDemoState) => {
     const stackUpdates = getStepDemoStackUpdates(state);
-    if (stackUpdates) {
-      setSessionStacks((stacks) =>
-        sanitizeSessionStacks({ ...stacks, ...stackUpdates }),
-      );
-      syncArenaSessionAfterHand(
-        stakeSessionMetaRef.current,
-        stackUpdates.human,
-      );
+    if (!stackUpdates) return;
+
+    setSessionStacks((stacks) =>
+      sanitizeSessionStacks({ ...stacks, ...stackUpdates }),
+    );
+
+    const meta = stakeSessionMetaRef.current;
+    if (isEscrowArenaSessionMeta(meta)) {
+      const updated = withEscrowCurrentChips(meta, stackUpdates.human);
+      saveStakeSessionMeta(updated);
+      setStakeSessionMeta(updated);
+      syncArenaSessionAfterHand(updated, stackUpdates.human);
+      return;
     }
+
+    syncArenaSessionAfterHand(meta, stackUpdates.human);
   }, []);
 
   const clearPokerMasterThinking = useCallback(() => {
@@ -492,7 +543,19 @@ export function ArenaShell() {
 
   const isStakeSessionActiveState = isStakeSessionActive(stakeSessionMeta);
   const isStakeCashedOut = isStakeSessionCashedOut(stakeSessionMeta);
-  const isArenaUnlocked = isStakeSessionActiveState && paymentResult?.success === true;
+  const hasStoredActiveSession =
+    isStakeSessionActiveState && paymentResult?.success === true;
+  const walletCanUseEscrowSession = canPlayEscrowSession(
+    stakeSessionMeta,
+    paymentResult?.success,
+    isConnected,
+    address,
+  );
+  const isArenaUnlocked = hasStoredActiveSession && walletCanUseEscrowSession;
+  const escrowSessionBlocked =
+    isEscrowDepositSession(stakeSessionMeta) &&
+    hasStoredActiveSession &&
+    !canAccessEscrowSession(isConnected, address, stakeSessionMeta);
   const lockSettlement = stakeSessionMeta?.lockSettlement ?? "mock";
 
   const handInProgress = useMemo(
@@ -545,23 +608,6 @@ export function ArenaShell() {
     if (loadedStacks) {
       setSessionStacks(loadedStacks);
     }
-    const loadedStakeSession = loadStakeSessionMeta();
-    if (loadedStakeSession) {
-      setStakeSessionMeta(loadedStakeSession);
-      setSelectedTestStake(loadedStakeSession.stakeAmount);
-      if (isStakeSessionActive(loadedStakeSession)) {
-        setPaymentResult({
-          success: true,
-          mode: "mock",
-          amount: loadedStakeSession.stakeAmount,
-          chipAmount: loadedStakeSession.startingChips,
-          currency: "USDC",
-          network: "base-sepolia",
-          paidAt: loadedStakeSession.lockedAt,
-          txHash: loadedStakeSession.lockTxHash,
-        });
-      }
-    }
     const loadedAgentBattleStacks = loadAgentBattleStacks();
     if (loadedAgentBattleStacks) {
       setAgentBattleStacks(loadedAgentBattleStacks);
@@ -577,6 +623,76 @@ export function ArenaShell() {
     if (!analyticsReady) return;
     saveArenaAnalytics(analytics);
   }, [analytics, analyticsReady]);
+
+  useEffect(() => {
+    if (!analyticsReady || isConnected) return;
+
+    const meta = stakeSessionMetaRef.current;
+    if (!meta || !isEscrowDepositSession(meta) || !isStakeSessionActive(meta)) {
+      return;
+    }
+
+    const chips = Math.max(0, Math.floor(sessionStacks.human));
+    if (meta.currentChips === chips) return;
+
+    const updated = withEscrowCurrentChips(meta, chips);
+    saveStakeSessionMeta(updated);
+    setStakeSessionMeta(updated);
+  }, [analyticsReady, isConnected, sessionStacks.human]);
+
+  useEffect(() => {
+    if (!analyticsReady) return;
+
+    let cancelled = false;
+    const resolved = resolveStakeSessionForWallet(isConnected, address);
+    setStakeSessionMeta(resolved);
+
+    if (resolved) {
+      setSelectedTestStake(resolved.stakeAmount);
+      if (isStakeSessionActive(resolved)) {
+        setPaymentResult(paymentResultFromStakeSession(resolved));
+      } else {
+        setPaymentResult(null);
+      }
+    } else {
+      setPaymentResult(null);
+      return;
+    }
+
+    if (!resolved || !isStakeSessionActive(resolved)) return;
+
+    if (isEscrowDepositSession(resolved)) {
+      void (async () => {
+        const server =
+          isConnected &&
+          resolved.walletAddress &&
+          resolved.escrowSessionId
+            ? await fetchArenaServerSession(
+                resolved.walletAddress,
+                resolved.escrowSessionId,
+              )
+            : null;
+        if (cancelled) return;
+
+        const { currentChips } = resolveEscrowCurrentChips({
+          startingChips: resolved.startingChips,
+          localCurrentChips: resolved.currentChips,
+          serverCurrentChips: server?.currentChips,
+        });
+        const updatedMeta = withEscrowCurrentChips(resolved, currentChips);
+        saveStakeSessionMeta(updatedMeta);
+        setStakeSessionMeta(updatedMeta);
+        setSessionStacks((prev) => applyStakeStartingStacks(prev, currentChips));
+      })();
+    } else if (resolved.lockSettlement === "mock") {
+      const playChips = resolved.currentChips ?? resolved.startingChips;
+      setSessionStacks((prev) => applyStakeStartingStacks(prev, playChips));
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [analyticsReady, isConnected, address]);
 
   useEffect(() => {
     if (!stacksReady) return;
@@ -608,7 +724,8 @@ export function ArenaShell() {
     if (
       stakeSessionMeta?.lockSettlement !== "escrow-deposit" ||
       !sessionId ||
-      stakeSessionMeta.status !== "active"
+      stakeSessionMeta.status !== "active" ||
+      !canAccessEscrowSession(isConnected, address, stakeSessionMeta)
     ) {
       setEscrowPayoutPreview(null);
       return;
@@ -629,10 +746,15 @@ export function ArenaShell() {
     stakeSessionMeta?.startingChips,
     currentHumanChips,
     lockedStartingChips,
+    isConnected,
+    address,
   ]);
 
   const escrowPayoutUi = useMemo((): EscrowPayoutUiInfo | null => {
     if (stakeSessionMeta?.lockSettlement !== "escrow-deposit") return null;
+    if (!canAccessEscrowSession(isConnected, address, stakeSessionMeta)) {
+      return null;
+    }
     if (stakeSessionMeta.escrowResolved) {
       return escrowLiquidityFromMeta(stakeSessionMeta);
     }
@@ -640,7 +762,7 @@ export function ArenaShell() {
       return escrowPayoutPreviewToUi(escrowPayoutPreview);
     }
     return null;
-  }, [stakeSessionMeta, escrowPayoutPreview]);
+  }, [stakeSessionMeta, escrowPayoutPreview, isConnected, address]);
 
   useEffect(() => {
     const sessionId = stakeSessionMeta?.escrowSessionId;
@@ -676,6 +798,8 @@ export function ArenaShell() {
     stakeSessionMeta?.escrowSessionId,
     stakeSessionMeta?.lockSettlement,
     stakeSessionMeta?.escrowResolved,
+    isConnected,
+    address,
   ]);
 
   const commitSimulationHistory = useCallback((simulation: SimulationResult) => {
@@ -746,15 +870,67 @@ export function ArenaShell() {
     if (!key) {
       if (!stepDemo.isActive) {
         lastStepDemoHistoryKeyRef.current = null;
+        lastStepDemoStatsKeyRef.current = null;
       }
       return;
     }
     if (lastStepDemoHistoryKeyRef.current === key) return;
     lastStepDemoHistoryKeyRef.current = key;
+    lastStepDemoStatsKeyRef.current = key;
+
+    stepDemoHandNumberRef.current += 1;
+    const handNumber = stepDemoHandNumberRef.current;
+    const meta = stakeSessionMetaRef.current;
+    const historyContext = {
+      handNumber,
+      humanStackBeforeHand: humanStackBeforeHandRef.current ?? undefined,
+      settlementLabel: settlementLabelFromMeta(meta),
+      depositTxHash: meta?.lockTxHash,
+      claimTxHash: meta?.escrowClaimTxHash,
+      depositExplorerUrl: meta?.explorerUrl,
+      claimExplorerUrl: meta?.cashOut?.claimExplorerUrl,
+    };
+
     setHandHistory((prev) =>
-      prependHandHistory(prev, createHandHistoryFromStepDemo(stepDemo)),
+      prependHandHistory(
+        prev,
+        createHandHistoryFromStepDemo(stepDemo, historyContext),
+      ),
     );
+    setAnalytics((prev) => ({
+      ...prev,
+      sessionStats: updateSessionStatsAfterStepDemoHand(prev.sessionStats, stepDemo),
+    }));
   }, [stepDemo]);
+
+  useEffect(() => {
+    const meta = stakeSessionMeta;
+    if (
+      !isEscrowArenaSessionMeta(meta) ||
+      !canAccessEscrowSession(isConnected, address, meta)
+    ) {
+      setArenaServerSession(null);
+      return;
+    }
+
+    let cancelled = false;
+    void fetchArenaServerSession(meta.walletAddress, meta.escrowSessionId).then(
+      (session) => {
+        if (!cancelled) setArenaServerSession(session);
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    stakeSessionMeta?.escrowSessionId,
+    stakeSessionMeta?.walletAddress,
+    stakeSessionMeta?.lockSettlement,
+    currentHumanChips,
+    isConnected,
+    address,
+  ]);
 
   const scheduleSharedHandRefetch = useCallback(
     (delayMs: number, reason: string) => {
@@ -1033,10 +1209,18 @@ export function ArenaShell() {
       logMessage: string,
     ) => {
       setPaymentResult(paymentData);
-      saveStakeSessionMeta(meta);
-      setStakeSessionMeta(meta);
-      syncArenaSessionAfterDeposit(meta);
-      setSessionStacks((prev) => applyStakeStartingStacks(prev, startingChips));
+      if (isWalletBackedLockSettlement(meta)) {
+        clearMockStakeSession();
+      }
+      const activatedMeta = isWalletBackedLockSettlement(meta)
+        ? ensureEscrowMetaHasCurrentChips(meta)
+        : meta;
+      const playChips =
+        activatedMeta.currentChips ?? activatedMeta.startingChips ?? startingChips;
+      saveStakeSessionMeta(activatedMeta);
+      setStakeSessionMeta(activatedMeta);
+      syncArenaSessionAfterDeposit(activatedMeta);
+      setSessionStacks((prev) => applyStakeStartingStacks(prev, playChips));
       setStepDemo(createInitialStepDemoState());
       setResult(null);
       setError(null);
@@ -1094,6 +1278,7 @@ export function ArenaShell() {
         const meta: StakeSessionMeta = {
           stakeAmount: tier.amount,
           startingChips,
+          currentChips: startingChips,
           lockedAt,
           status: "active",
           lockTxHash: hash,
@@ -1155,6 +1340,27 @@ export function ArenaShell() {
       const tier = getTestStakeTier(stakeAmount);
       const startingChips = tier.chipAmount;
 
+      if (
+        !canStartMockSessionWhileStored(
+          isConnected,
+          address,
+          loadAllEscrowStakeSessions(),
+        )
+      ) {
+        setPaymentError(
+          "This wallet already has an active escrow session. Reconnect after cash-out to use mock.",
+        );
+        setPayingMock(false);
+        return;
+      }
+
+      for (const snapshotted of snapshotEscrowChipsBeforeMockSession(
+        sessionStacks.human,
+        loadAllEscrowStakeSessions(),
+      )) {
+        saveStakeSessionMeta(snapshotted);
+      }
+
       try {
         const response = await fetch("/api/x402/entry", {
           method: "POST",
@@ -1194,7 +1400,13 @@ export function ArenaShell() {
         setPayingMock(false);
       }
     },
-    [selectedTestStake, activateStakeSession],
+    [
+      selectedTestStake,
+      activateStakeSession,
+      isConnected,
+      address,
+      sessionStacks.human,
+    ],
   );
 
   const beginNewStakeSession = useCallback(() => {
@@ -1237,7 +1449,7 @@ export function ArenaShell() {
       ]);
     }
 
-    clearStakeSessionMeta();
+    clearStakeSessionMeta(stakeSessionMeta);
     clearPokerMasterThinking();
     resetAutoFlowSession();
     setStakeSessionMeta(null);
@@ -1259,6 +1471,13 @@ export function ArenaShell() {
 
   const handleCashOut = useCallback(async () => {
     if (!stakeSessionMeta || !isStakeSessionActive(stakeSessionMeta)) return;
+    if (
+      stakeSessionMeta.lockSettlement === "escrow-deposit" &&
+      !canAccessEscrowSession(isConnected, address, stakeSessionMeta)
+    ) {
+      setPaymentError(CONNECT_WALLET_TO_CONTINUE);
+      return;
+    }
     if (handInProgress) {
       setPaymentError("Finish the current hand before cashing out.");
       return;
@@ -1390,8 +1609,8 @@ export function ArenaShell() {
   const handlePrepareEscrowPayout = useCallback(async () => {
     if (!stakeSessionMeta || !isStakeSessionActive(stakeSessionMeta)) return;
     if (stakeSessionMeta.lockSettlement !== "escrow-deposit") return;
-    if (!address) {
-      setPaymentError("Connect wallet to prepare escrow payout.");
+    if (!canAccessEscrowSession(isConnected, address, stakeSessionMeta) || !address) {
+      setPaymentError(CONNECT_WALLET_TO_CONTINUE);
       return;
     }
     if (handInProgress) {
@@ -1619,7 +1838,7 @@ export function ArenaShell() {
   const handleResetStats = useCallback(() => {
     clearArenaAnalytics();
     clearSessionStacks();
-    clearStakeSessionMeta();
+    clearAllStakeSessionStores();
     clearAgentBattleStacks();
     clearAgentBattleSpectatorSession();
     setAgentBattleLocalFallback(false);
@@ -1705,6 +1924,7 @@ export function ArenaShell() {
     setError(null);
     setPreferredSeatLayout("human-vs-ai");
     setSessionStacks(prepared);
+    humanStackBeforeHandRef.current = prepared.human;
     setStepDemo(dealStepDemoHand(prepared));
     setSessionLog((prev) => [
       ...prev,
@@ -2040,6 +2260,7 @@ export function ArenaShell() {
       setResult(null);
       setPreferredSeatLayout("human-vs-ai");
       setSessionStacks(prepared);
+      humanStackBeforeHandRef.current = prepared.human;
       setStepDemo(dealStepDemoHand(prepared));
       setSessionLog((prev) => [
         ...prev,
@@ -2698,9 +2919,11 @@ export function ArenaShell() {
         loadingMode={loadingMode}
         disabled={!isArenaUnlocked}
         disabledReason={
-          !isArenaUnlocked
-            ? "Lock a test stake session to play."
-            : undefined
+          escrowSessionBlocked
+            ? CONNECT_WALLET_TO_CONTINUE
+            : !isArenaUnlocked
+              ? "Lock a test stake session to play."
+              : undefined
         }
         error={error}
         headsUpStackDepleted={headsUpStackDepleted}
@@ -2786,6 +3009,20 @@ export function ArenaShell() {
         onPrepareEscrowPayout={handlePrepareEscrowPayout}
         onCashOut={handleCashOut}
         onBeginNewStakeSession={beginNewStakeSession}
+        serverSession={arenaServerSession}
+        currentHandNumber={
+          stepDemo.isActive && stepDemo.step !== "idle"
+            ? stepDemoHandNumberRef.current + 1
+            : null
+        }
+        currentHandStreet={
+          stepDemo.isActive && stepDemo.step !== "idle"
+            ? stepDemo.street.charAt(0).toUpperCase() + stepDemo.street.slice(1)
+            : undefined
+        }
+        currentHandPot={stepDemo.isActive ? stepDemo.pot : undefined}
+        isWalletConnected={isConnected}
+        paymentSuccess={paymentResult?.success === true}
       />
     </div>
   );

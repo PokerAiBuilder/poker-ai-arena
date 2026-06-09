@@ -130,7 +130,7 @@ export function syncArenaSessionAfterDeposit(meta: StakeSessionMeta): void {
     escrowSessionId: meta.escrowSessionId,
     stakeAmount: meta.stakeAmount,
     startingChips: meta.startingChips,
-    currentChips: meta.startingChips,
+    currentChips: meta.currentChips ?? meta.startingChips,
     depositTxHash: meta.lockTxHash,
   });
 }
