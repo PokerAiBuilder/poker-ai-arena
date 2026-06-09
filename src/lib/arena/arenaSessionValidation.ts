@@ -36,6 +36,12 @@ export function parseStartingChips(value: unknown): number | null {
   return chips;
 }
 
+export function parseNonNegativeInt(value: unknown): number | null {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
+}
+
 export function parseCurrentChips(
   value: unknown,
   startingChips: number,

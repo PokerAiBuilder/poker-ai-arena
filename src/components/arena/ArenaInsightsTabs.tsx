@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { ActionLog } from "@/components/arena/ActionLog";
 import { Leaderboard } from "@/components/arena/Leaderboard";
+import { TestnetLeaderboard } from "@/components/arena/TestnetLeaderboard";
 import { TableStats } from "@/components/arena/TableStats";
 import { Button } from "@/components/ui/button";
 import type { LeaderboardEntry, SessionStats } from "@/lib/analytics/types";
@@ -20,6 +21,10 @@ type ArenaInsightsTabsProps = {
   highlightId?: string;
   connectedWalletAddress?: string;
   sessionStats: SessionStats;
+  stakeSessionMeta?: import("@/lib/stake/stakeSessionStorage").StakeSessionMeta | null;
+  currentChips?: number;
+  startingChips?: number;
+  escrowSessionActive?: boolean;
   sessionStatus: "locked" | "unlocked";
   paymentMode: X402PaymentMode | null;
   entryFee: string;
@@ -33,7 +38,7 @@ type ArenaInsightsTabsProps = {
 
 const tabLabels: Record<InsightsTab, string> = {
   log: "Action Log",
-  leaderboard: "Demo Leaderboard",
+  leaderboard: "Leaderboards",
   stats: "Session Stats",
 };
 
@@ -44,6 +49,10 @@ export function ArenaInsightsTabs({
   highlightId,
   connectedWalletAddress,
   sessionStats,
+  stakeSessionMeta,
+  currentChips,
+  startingChips,
+  escrowSessionActive,
   sessionStatus,
   paymentMode,
   entryFee,
@@ -87,6 +96,15 @@ export function ArenaInsightsTabs({
 
       {activeTab === "leaderboard" ? (
         <div className="min-w-0 space-y-2">
+          <TestnetLeaderboard
+            connectedWalletAddress={connectedWalletAddress}
+            stakeSessionMeta={stakeSessionMeta}
+            sessionStats={sessionStats}
+            currentChips={currentChips}
+            startingChips={startingChips}
+            escrowSessionActive={escrowSessionActive}
+            menuCompact={embedded}
+          />
           <Leaderboard
             entries={leaderboardEntries}
             highlightId={highlightId}

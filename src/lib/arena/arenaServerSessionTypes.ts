@@ -16,6 +16,10 @@ export type ArenaServerSession = {
   resolveTxHash?: string;
   claimTxHash?: string;
   status: ArenaServerSessionStatus;
+  handsPlayed?: number;
+  wins?: number;
+  losses?: number;
+  biggestPot?: number;
   createdAt: string;
   updatedAt: string;
 };

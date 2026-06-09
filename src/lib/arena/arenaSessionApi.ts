@@ -4,6 +4,7 @@ import type {
   ArenaServerSession,
   ArenaServerSessionStatus,
 } from "@/lib/arena/arenaServerSessionTypes";
+import type { SessionStats } from "@/lib/analytics/types";
 import type { StakeSessionMeta } from "@/lib/stake/stakeSessionStorage";
 import { testStakeAmountToWei } from "@/lib/stake/testnetStake";
 
@@ -14,6 +15,19 @@ type RegisterArenaSessionInput = {
   startingChips: number;
   currentChips?: number;
   depositTxHash: string;
+  handsPlayed?: number;
+  wins?: number;
+  losses?: number;
+  biggestPot?: number;
+};
+
+export type ArenaSessionHandPatch = {
+  currentChips: number;
+  handsPlayed?: number;
+  wins?: number;
+  losses?: number;
+  biggestPot?: number;
+  status?: ArenaServerSessionStatus;
 };
 
 type PatchArenaSessionInput = {
@@ -23,6 +37,10 @@ type PatchArenaSessionInput = {
   status?: ArenaServerSessionStatus;
   resolveTxHash?: string;
   claimTxHash?: string;
+  handsPlayed?: number;
+  wins?: number;
+  losses?: number;
+  biggestPot?: number;
 };
 
 function warnArenaSessionSync(message: string, err?: unknown) {
@@ -63,6 +81,10 @@ export async function registerArenaServerSession(
         lockSettlement: "escrow-deposit",
         depositTxHash: input.depositTxHash,
         status: "active",
+        handsPlayed: input.handsPlayed ?? 0,
+        wins: input.wins ?? 0,
+        losses: input.losses ?? 0,
+        biggestPot: input.biggestPot ?? 0,
       }),
     });
 
@@ -122,6 +144,67 @@ export async function fetchArenaServerSession(
   }
 }
 
+export async function ensureArenaServerSessionRegistered(
+  meta: StakeSessionMeta,
+): Promise<ArenaServerSession | null> {
+  if (!isEscrowArenaSessionMeta(meta)) return null;
+
+  const existing = await fetchArenaServerSession(
+    meta.walletAddress,
+    meta.escrowSessionId,
+  );
+  if (existing) return existing;
+
+  return registerArenaServerSession({
+    walletAddress: meta.walletAddress,
+    escrowSessionId: meta.escrowSessionId,
+    stakeAmount: meta.stakeAmount,
+    startingChips: meta.startingChips,
+    currentChips: meta.currentChips ?? meta.startingChips,
+    depositTxHash: meta.lockTxHash,
+    handsPlayed: 0,
+    wins: 0,
+    losses: 0,
+    biggestPot: 0,
+  });
+}
+
+export function sessionStatsToHandPatch(
+  sessionStats: SessionStats,
+): Pick<ArenaSessionHandPatch, "handsPlayed" | "wins" | "losses" | "biggestPot"> {
+  return {
+    handsPlayed: sessionStats.humanHandsPlayed ?? sessionStats.totalGames ?? 0,
+    wins: sessionStats.humanWins ?? 0,
+    losses: sessionStats.humanLosses ?? 0,
+    biggestPot: sessionStats.biggestPot ?? 0,
+  };
+}
+
+export function syncArenaSessionHandProgress(
+  meta: StakeSessionMeta | null,
+  patch: ArenaSessionHandPatch,
+): void {
+  if (!isEscrowArenaSessionMeta(meta)) return;
+
+  void (async () => {
+    const registered = await ensureArenaServerSessionRegistered(meta);
+    if (!registered) return;
+
+    await patchArenaServerSession({
+      walletAddress: meta.walletAddress,
+      escrowSessionId: meta.escrowSessionId,
+      currentChips: patch.currentChips,
+      status:
+        patch.status ??
+        (patch.currentChips <= 0 ? "depleted" : "active"),
+      handsPlayed: patch.handsPlayed,
+      wins: patch.wins,
+      losses: patch.losses,
+      biggestPot: patch.biggestPot,
+    });
+  })();
+}
+
 export function syncArenaSessionAfterDeposit(meta: StakeSessionMeta): void {
   if (!isEscrowArenaSessionMeta(meta)) return;
 
@@ -138,14 +221,13 @@ export function syncArenaSessionAfterDeposit(meta: StakeSessionMeta): void {
 export function syncArenaSessionAfterHand(
   meta: StakeSessionMeta | null,
   currentChips: number,
+  sessionStats?: SessionStats,
 ): void {
   if (!isEscrowArenaSessionMeta(meta)) return;
 
-  void patchArenaServerSession({
-    walletAddress: meta.walletAddress,
-    escrowSessionId: meta.escrowSessionId,
+  syncArenaSessionHandProgress(meta, {
     currentChips,
-    status: currentChips <= 0 ? "depleted" : "active",
+    ...(sessionStats ? sessionStatsToHandPatch(sessionStats) : {}),
   });
 }
 

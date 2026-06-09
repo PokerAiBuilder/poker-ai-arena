@@ -14,6 +14,7 @@ import {
   formatWinRateLabel,
   type PlayerSessionStatsView,
 } from "@/lib/analytics/playerSessionStats";
+import { getDepositedEthLabel } from "@/lib/arena/arenaLeaderboard";
 import type { SessionStats } from "@/lib/analytics/types";
 import type { ArenaServerSession } from "@/lib/arena/arenaServerSessionTypes";
 import type { StakeSessionMeta } from "@/lib/stake/stakeSessionStorage";
@@ -56,7 +57,10 @@ function StatCard({
   );
 }
 
-function buildStatsCards(view: PlayerSessionStatsView) {
+function buildStatsCards(
+  view: PlayerSessionStatsView,
+  depositedLabel: "Wallet deposited" | "Session stake",
+) {
   return [
     {
       label: "Current chips",
@@ -97,7 +101,7 @@ function buildStatsCards(view: PlayerSessionStatsView) {
       icon: Trophy,
     },
     {
-      label: "Total deposited",
+      label: depositedLabel,
       value: view.totalDepositedEth,
       icon: Wallet,
     },
@@ -131,7 +135,7 @@ export function TableStats({
     serverSession,
   });
 
-  const cards = buildStatsCards(view);
+  const cards = buildStatsCards(view, getDepositedEthLabel(stakeSessionMeta));
 
   return (
     <div className={cn("min-w-0 max-w-full space-y-2", className)}>

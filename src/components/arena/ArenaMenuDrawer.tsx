@@ -14,6 +14,7 @@ import { BankrStatusPanel } from "@/components/arena/BankrStatusPanel";
 import { CurrentHandSummary } from "@/components/arena/CurrentHandSummary";
 import { HandHistoryPanel } from "@/components/arena/HandHistoryPanel";
 import { Leaderboard } from "@/components/arena/Leaderboard";
+import { TestnetLeaderboard } from "@/components/arena/TestnetLeaderboard";
 import { StakeSessionMenuSection } from "@/components/arena/StakeSessionMenuSection";
 import { TableStats } from "@/components/arena/TableStats";
 import type { HandHistoryRecord } from "@/lib/arena/handHistory";
@@ -353,6 +354,18 @@ export function ArenaMenuDrawer({
                   connectedWalletAddress={connectedWalletAddress}
                   stakeSessionMeta={stakeSessionMeta}
                   serverSession={serverSession}
+                />
+                <TestnetLeaderboard
+                  connectedWalletAddress={connectedWalletAddress}
+                  stakeSessionMeta={stakeSessionMeta}
+                  sessionStats={sessionStats}
+                  currentChips={currentHumanChips}
+                  startingChips={startingChips}
+                  escrowSessionActive={Boolean(
+                    isArenaUnlocked &&
+                      stakeSessionMeta?.lockSettlement === "escrow-deposit",
+                  )}
+                  menuCompact
                 />
                 <Leaderboard
                   entries={leaderboardEntries}

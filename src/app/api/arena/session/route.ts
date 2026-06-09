@@ -12,6 +12,7 @@ import {
   parseCurrentChips,
   parseDepositTxHash,
   parseEscrowSessionId,
+  parseNonNegativeInt,
   parseOptionalTxHash,
   parseStartingChips,
   parseStakeAmountWei,
@@ -101,6 +102,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid status." }, { status: 400 });
   }
 
+  const handsPlayed = parseNonNegativeInt(body.handsPlayed) ?? 0;
+  const wins = parseNonNegativeInt(body.wins) ?? 0;
+  const losses = parseNonNegativeInt(body.losses) ?? 0;
+  const biggestPot = parseNonNegativeInt(body.biggestPot) ?? 0;
+
   const now = new Date().toISOString();
   const session = getArenaServerSessionStore().upsert({
     walletAddress: normalizeWalletAddress(body.walletAddress as string),
@@ -113,6 +119,10 @@ export async function POST(request: Request) {
     resolveTxHash: parseOptionalTxHash(body.resolveTxHash),
     claimTxHash: parseOptionalTxHash(body.claimTxHash),
     status: deriveStatusFromChips(currentChips, explicitStatus),
+    handsPlayed,
+    wins,
+    losses,
+    biggestPot,
     createdAt: now,
     updatedAt: now,
   });
@@ -174,6 +184,38 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Invalid claimTxHash." }, { status: 400 });
   }
   if (claimTxHash) update.claimTxHash = claimTxHash;
+
+  if (body.handsPlayed != null) {
+    const handsPlayed = parseNonNegativeInt(body.handsPlayed);
+    if (handsPlayed == null) {
+      return NextResponse.json({ error: "Invalid handsPlayed." }, { status: 400 });
+    }
+    update.handsPlayed = handsPlayed;
+  }
+
+  if (body.wins != null) {
+    const wins = parseNonNegativeInt(body.wins);
+    if (wins == null) {
+      return NextResponse.json({ error: "Invalid wins." }, { status: 400 });
+    }
+    update.wins = wins;
+  }
+
+  if (body.losses != null) {
+    const losses = parseNonNegativeInt(body.losses);
+    if (losses == null) {
+      return NextResponse.json({ error: "Invalid losses." }, { status: 400 });
+    }
+    update.losses = losses;
+  }
+
+  if (body.biggestPot != null) {
+    const biggestPot = parseNonNegativeInt(body.biggestPot);
+    if (biggestPot == null) {
+      return NextResponse.json({ error: "Invalid biggestPot." }, { status: 400 });
+    }
+    update.biggestPot = biggestPot;
+  }
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: "No valid fields to update." }, { status: 400 });

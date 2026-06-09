@@ -66,6 +66,7 @@ import {
 } from "@/lib/arena/handHistory";
 import type { ArenaServerSession } from "@/lib/arena/arenaServerSessionTypes";
 import {
+  ensureArenaServerSessionRegistered,
   fetchArenaServerSession,
   isEscrowArenaSessionMeta,
   syncArenaSessionAfterClaim,
@@ -311,6 +312,8 @@ export function ArenaShell() {
   const [analytics, setAnalytics] = useState<ArenaAnalyticsState>(
     createInitialArenaAnalytics,
   );
+  const analyticsRef = useRef(analytics);
+  analyticsRef.current = analytics;
   const [analyticsReady, setAnalyticsReady] = useState(false);
   const [sessionStacks, setSessionStacks] = useState<SessionStacksState>(
     createInitialSessionStacks,
@@ -897,10 +900,20 @@ export function ArenaShell() {
         createHandHistoryFromStepDemo(stepDemo, historyContext),
       ),
     );
+    const nextSessionStats = updateSessionStatsAfterStepDemoHand(
+      analyticsRef.current.sessionStats,
+      stepDemo,
+    );
+
     setAnalytics((prev) => ({
       ...prev,
-      sessionStats: updateSessionStatsAfterStepDemoHand(prev.sessionStats, stepDemo),
+      sessionStats: nextSessionStats,
     }));
+
+    const stackUpdates = getStepDemoStackUpdates(stepDemo);
+    if (isEscrowArenaSessionMeta(meta) && stackUpdates) {
+      syncArenaSessionAfterHand(meta, stackUpdates.human, nextSessionStats);
+    }
   }, [stepDemo]);
 
   useEffect(() => {
@@ -914,11 +927,16 @@ export function ArenaShell() {
     }
 
     let cancelled = false;
-    void fetchArenaServerSession(meta.walletAddress, meta.escrowSessionId).then(
-      (session) => {
-        if (!cancelled) setArenaServerSession(session);
-      },
-    );
+    void (async () => {
+      let session = await fetchArenaServerSession(
+        meta.walletAddress,
+        meta.escrowSessionId,
+      );
+      if (!session) {
+        session = await ensureArenaServerSessionRegistered(meta);
+      }
+      if (!cancelled) setArenaServerSession(session);
+    })();
 
     return () => {
       cancelled = true;
@@ -927,6 +945,7 @@ export function ArenaShell() {
     stakeSessionMeta?.escrowSessionId,
     stakeSessionMeta?.walletAddress,
     stakeSessionMeta?.lockSettlement,
+    stakeSessionMeta?.currentChips,
     currentHumanChips,
     isConnected,
     address,

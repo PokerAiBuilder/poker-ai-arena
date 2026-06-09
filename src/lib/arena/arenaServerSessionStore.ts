@@ -2,6 +2,7 @@ import type { ArenaServerSession } from "@/lib/arena/arenaServerSessionTypes";
 
 export type ArenaServerSessionStore = {
   get(walletAddress: string, escrowSessionId: string): ArenaServerSession | null;
+  listAll(): ArenaServerSession[];
   upsert(session: ArenaServerSession): ArenaServerSession;
   patch(
     walletAddress: string,
@@ -14,6 +15,10 @@ export type ArenaServerSessionStore = {
         | "resolveTxHash"
         | "claimTxHash"
         | "startingChips"
+        | "handsPlayed"
+        | "wins"
+        | "losses"
+        | "biggestPot"
       >
     >,
   ): ArenaServerSession | null;
@@ -45,6 +50,10 @@ export function createMemoryArenaServerSessionStore(): ArenaServerSessionStore {
   return {
     get(walletAddress, escrowSessionId) {
       return state.sessions.get(sessionKey(walletAddress, escrowSessionId)) ?? null;
+    },
+
+    listAll() {
+      return Array.from(state.sessions.values());
     },
 
     upsert(session) {

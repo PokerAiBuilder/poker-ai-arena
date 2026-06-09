@@ -5,9 +5,9 @@ import type { LeaderboardEntry } from "@/lib/analytics/types";
 import { getShortAddress } from "@/lib/onchain/baseSepolia";
 import { cn } from "@/lib/utils";
 
-const DEMO_LEADERBOARD_TITLE = "Demo Leaderboard";
+const DEMO_LEADERBOARD_TITLE = "Local Agent Leaderboard";
 const DEMO_LEADERBOARD_HELPER =
-  "Local demo standings · not global rankings";
+  "Device-local bot standings · not testnet wallet rankings";
 const DEMO_LEADERBOARD_HELPER_COMPACT =
   "Stored locally on this device";
 
