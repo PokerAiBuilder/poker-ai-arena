@@ -79,6 +79,7 @@ type ArenaMenuDrawerProps = {
   currentHandPot?: number;
   isWalletConnected?: boolean;
   paymentSuccess?: boolean;
+  wrongNetwork?: boolean;
 };
 
 /** Public menu tabs — Bankr is never shown here (dev-only via ENABLE_BANKR_MENU_TAB). */
@@ -181,6 +182,7 @@ export function ArenaMenuDrawer({
   currentHandPot,
   isWalletConnected = false,
   paymentSuccess = false,
+  wrongNetwork = false,
 }: ArenaMenuDrawerProps) {
   const [tab, setTab] = useState<ArenaMenuTabId>("overview");
 
@@ -281,8 +283,12 @@ export function ArenaMenuDrawer({
                   isWalletConnected={isWalletConnected}
                   connectedWalletAddress={connectedWalletAddress}
                   paymentSuccess={paymentSuccess}
+                  wrongNetwork={wrongNetwork}
                 />
-                <ArenaMenuOverviewPanel lockSettlement={lockSettlement} />
+                <ArenaMenuOverviewPanel
+                  lockSettlement={lockSettlement}
+                  wrongNetwork={wrongNetwork}
+                />
               </div>
             ) : null}
 

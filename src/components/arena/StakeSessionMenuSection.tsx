@@ -1,6 +1,7 @@
 "use client";
 
-import { Loader2, Wallet } from "lucide-react";
+import { AlertTriangle, Loader2, Wallet } from "lucide-react";
+import { PUBLIC_TESTER_WRONG_NETWORK_MESSAGE } from "@/lib/arena/publicTesterUx";
 import { Button } from "@/components/ui/button";
 import {
   formatTestStakeLabel,
@@ -42,6 +43,7 @@ type StakeSessionMenuSectionProps = {
   isWalletConnected?: boolean;
   connectedWalletAddress?: string;
   paymentSuccess?: boolean;
+  wrongNetwork?: boolean;
   className?: string;
 };
 
@@ -65,6 +67,7 @@ export function StakeSessionMenuSection({
   isWalletConnected = false,
   connectedWalletAddress,
   paymentSuccess = false,
+  wrongNetwork = false,
   className,
 }: StakeSessionMenuSectionProps) {
   const isEscrow = lockSettlement === "escrow-deposit";
@@ -154,6 +157,15 @@ export function StakeSessionMenuSection({
       <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--arena-cyan)]">
         Stake Session
       </p>
+
+      {wrongNetwork ? (
+        <div className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/8 px-2 py-1.5">
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-300/85" />
+          <p className="text-[10px] leading-snug text-amber-100/85">
+            {PUBLIC_TESTER_WRONG_NETWORK_MESSAGE}
+          </p>
+        </div>
+      ) : null}
 
       {cashedOut ? (
         <p className="mt-2 text-[11px] text-muted-foreground">

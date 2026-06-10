@@ -64,6 +64,7 @@ import {
   stepDemoHistoryFingerprint,
   type HandHistoryRecord,
 } from "@/lib/arena/handHistory";
+import { shouldShowPublicTesterWrongNetwork } from "@/lib/arena/publicTesterUx";
 import { serverHandToHandHistoryRecord } from "@/lib/arena/arenaServerHandHistory";
 import type { ArenaServerSession } from "@/lib/arena/arenaServerSessionTypes";
 import {
@@ -338,6 +339,10 @@ export function ArenaShell() {
     null,
   );
   const { address, isConnected, chain } = useAccount();
+  const wrongNetwork = shouldShowPublicTesterWrongNetwork(
+    isConnected,
+    chain?.id,
+  );
   const [payingLock, setPayingLock] = useState(false);
   const [payingMock, setPayingMock] = useState(false);
   const [lockStakePhase, setLockStakePhase] = useState<LockStakePhase>("idle");
@@ -3057,6 +3062,7 @@ export function ArenaShell() {
         currentHandPot={stepDemo.isActive ? stepDemo.pot : undefined}
         isWalletConnected={isConnected}
         paymentSuccess={paymentResult?.success === true}
+        wrongNetwork={wrongNetwork}
       />
     </div>
   );
