@@ -1,4 +1,13 @@
-import type { ArenaServerSession } from "@/lib/arena/arenaServerSessionTypes";
+import type {
+  ArenaServerHandRecord,
+  ArenaServerSession,
+} from "@/lib/arena/arenaServerSessionTypes";
+import {
+  aggregateHandStatsFromHistory,
+  appendRecentHands,
+  buildServerHandRecord,
+  type ArenaServerHandResultInput,
+} from "@/lib/arena/arenaServerHandHistory";
 
 export type ArenaServerSessionStore = {
   get(walletAddress: string, escrowSessionId: string): ArenaServerSession | null;
@@ -19,9 +28,19 @@ export type ArenaServerSessionStore = {
         | "wins"
         | "losses"
         | "biggestPot"
+        | "recentHands"
       >
     >,
   ): ArenaServerSession | null;
+  appendHandResult(
+    walletAddress: string,
+    escrowSessionId: string,
+    handInput: ArenaServerHandResultInput,
+  ): ArenaServerSession | null;
+  getRecentHands(
+    walletAddress: string,
+    escrowSessionId: string,
+  ): ArenaServerHandRecord[];
 };
 
 const GLOBAL_STORE_KEY = "__POKER_AI_ARENA_SERVER_SESSION_STORE__";
@@ -63,6 +82,7 @@ export function createMemoryArenaServerSessionStore(): ArenaServerSessionStore {
       const next: ArenaServerSession = {
         ...session,
         walletAddress: session.walletAddress.toLowerCase(),
+        recentHands: session.recentHands ?? existing?.recentHands ?? [],
         createdAt: existing?.createdAt ?? session.createdAt ?? now,
         updatedAt: now,
       };
@@ -82,6 +102,38 @@ export function createMemoryArenaServerSessionStore(): ArenaServerSessionStore {
       };
       state.sessions.set(key, next);
       return next;
+    },
+
+    appendHandResult(walletAddress, escrowSessionId, handInput) {
+      const key = sessionKey(walletAddress, escrowSessionId);
+      const existing = state.sessions.get(key);
+      if (!existing) return null;
+
+      const hand = buildServerHandRecord(
+        walletAddress,
+        escrowSessionId,
+        handInput,
+      );
+      const recentHands = appendRecentHands(existing.recentHands, hand);
+      const stats = aggregateHandStatsFromHistory(recentHands);
+
+      const next: ArenaServerSession = {
+        ...existing,
+        recentHands,
+        handsPlayed: stats.handsPlayed,
+        wins: stats.wins,
+        losses: stats.losses,
+        biggestPot: stats.biggestPot,
+        currentChips: hand.finalChips,
+        updatedAt: new Date().toISOString(),
+      };
+      state.sessions.set(key, next);
+      return next;
+    },
+
+    getRecentHands(walletAddress, escrowSessionId) {
+      const session = state.sessions.get(sessionKey(walletAddress, escrowSessionId));
+      return session?.recentHands ?? [];
     },
   };
 }

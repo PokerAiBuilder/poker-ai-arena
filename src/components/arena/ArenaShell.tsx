@@ -64,6 +64,7 @@ import {
   stepDemoHistoryFingerprint,
   type HandHistoryRecord,
 } from "@/lib/arena/handHistory";
+import { serverHandToHandHistoryRecord } from "@/lib/arena/arenaServerHandHistory";
 import type { ArenaServerSession } from "@/lib/arena/arenaServerSessionTypes";
 import {
   ensureArenaServerSessionRegistered,
@@ -584,6 +585,12 @@ export function ArenaShell() {
     return sessionStacks.human ?? 0;
   }, [stepDemo, sessionStacks.human]);
 
+  const serverHandHistoryEntries = useMemo(
+    () =>
+      (arenaServerSession?.recentHands ?? []).map(serverHandToHandHistoryRecord),
+    [arenaServerSession?.recentHands],
+  );
+
   useEffect(() => {
     if (
       !isHumanMidHandBusted(stepDemo) ||
@@ -912,7 +919,14 @@ export function ArenaShell() {
 
     const stackUpdates = getStepDemoStackUpdates(stepDemo);
     if (isEscrowArenaSessionMeta(meta) && stackUpdates) {
-      syncArenaSessionAfterHand(meta, stackUpdates.human, nextSessionStats);
+      syncArenaSessionAfterHand(
+        meta,
+        stackUpdates.human,
+        nextSessionStats,
+        stepDemo,
+        handNumber,
+        humanStackBeforeHandRef.current ?? undefined,
+      );
     }
   }, [stepDemo]);
 
@@ -3029,6 +3043,7 @@ export function ArenaShell() {
         onCashOut={handleCashOut}
         onBeginNewStakeSession={beginNewStakeSession}
         serverSession={arenaServerSession}
+        serverHandHistoryEntries={serverHandHistoryEntries}
         currentHandNumber={
           stepDemo.isActive && stepDemo.step !== "idle"
             ? stepDemoHandNumberRef.current + 1

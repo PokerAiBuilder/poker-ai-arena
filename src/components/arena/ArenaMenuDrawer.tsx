@@ -73,6 +73,7 @@ type ArenaMenuDrawerProps = {
   onCashOut?: () => void | Promise<void>;
   onBeginNewStakeSession?: () => void;
   serverSession?: ArenaServerSession | null;
+  serverHandHistoryEntries?: HandHistoryRecord[];
   currentHandNumber?: number | null;
   currentHandStreet?: string;
   currentHandPot?: number;
@@ -174,6 +175,7 @@ export function ArenaMenuDrawer({
   onCashOut,
   onBeginNewStakeSession,
   serverSession = null,
+  serverHandHistoryEntries = [],
   currentHandNumber = null,
   currentHandStreet,
   currentHandPot,
@@ -338,6 +340,7 @@ export function ArenaMenuDrawer({
                 </section>
                 <HandHistoryPanel
                   entries={handHistoryEntries}
+                  serverEntries={serverHandHistoryEntries}
                   onClear={() => onClearHandHistory?.()}
                   embedded
                   sectionTitle="Local History"

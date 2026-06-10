@@ -4,6 +4,11 @@ import type {
   ArenaServerSession,
   ArenaServerSessionStatus,
 } from "@/lib/arena/arenaServerSessionTypes";
+import {
+  buildServerHandResultFromStepDemo,
+  type ArenaServerHandResultInput,
+} from "@/lib/arena/arenaServerHandHistory";
+import type { StepDemoState } from "@/lib/arena/stepDemo";
 import type { SessionStats } from "@/lib/analytics/types";
 import type { StakeSessionMeta } from "@/lib/stake/stakeSessionStorage";
 import { testStakeAmountToWei } from "@/lib/stake/testnetStake";
@@ -28,6 +33,7 @@ export type ArenaSessionHandPatch = {
   losses?: number;
   biggestPot?: number;
   status?: ArenaServerSessionStatus;
+  latestHandResult?: ArenaServerHandResultInput;
 };
 
 type PatchArenaSessionInput = {
@@ -41,6 +47,7 @@ type PatchArenaSessionInput = {
   wins?: number;
   losses?: number;
   biggestPot?: number;
+  latestHandResult?: ArenaServerHandResultInput;
 };
 
 function warnArenaSessionSync(message: string, err?: unknown) {
@@ -137,8 +144,15 @@ export async function fetchArenaServerSession(
     });
     const res = await fetch(`/api/arena/session?${params.toString()}`);
     if (!res.ok) return null;
-    const data = (await res.json()) as { session: ArenaServerSession };
-    return data.session;
+    const data = (await res.json()) as {
+      session: ArenaServerSession;
+      recentHands?: ArenaServerSession["recentHands"];
+    };
+    const session = data.session;
+    if (session && Array.isArray(data.recentHands)) {
+      session.recentHands = data.recentHands;
+    }
+    return session;
   } catch {
     return null;
   }
@@ -201,6 +215,7 @@ export function syncArenaSessionHandProgress(
       wins: patch.wins,
       losses: patch.losses,
       biggestPot: patch.biggestPot,
+      latestHandResult: patch.latestHandResult,
     });
   })();
 }
@@ -222,12 +237,25 @@ export function syncArenaSessionAfterHand(
   meta: StakeSessionMeta | null,
   currentChips: number,
   sessionStats?: SessionStats,
+  stepDemo?: StepDemoState,
+  handNumber?: number,
+  humanStackBeforeHand?: number,
 ): void {
   if (!isEscrowArenaSessionMeta(meta)) return;
+
+  const latestHandResult =
+    stepDemo != null
+      ? buildServerHandResultFromStepDemo(
+          stepDemo,
+          handNumber,
+          humanStackBeforeHand,
+        ) ?? undefined
+      : undefined;
 
   syncArenaSessionHandProgress(meta, {
     currentChips,
     ...(sessionStats ? sessionStatsToHandPatch(sessionStats) : {}),
+    latestHandResult,
   });
 }
 

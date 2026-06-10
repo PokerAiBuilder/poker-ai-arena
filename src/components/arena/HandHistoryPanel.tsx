@@ -17,6 +17,8 @@ type HandHistoryPanelProps = {
   className?: string;
   embedded?: boolean;
   sectionTitle?: string;
+  serverEntries?: HandHistoryRecord[];
+  serverSectionTitle?: string;
   /** When set, only these modes are listed (default: Human vs AI). */
   modeFilter?: HandHistoryRecord["mode"][];
 };
@@ -37,12 +39,45 @@ export function HandHistoryPanel({
   className,
   embedded = false,
   sectionTitle = "Local History",
+  serverEntries = [],
+  serverSectionTitle = "Server History",
   modeFilter = ["Human vs AI"],
 }: HandHistoryPanelProps) {
   const visibleEntries = entries.filter((entry) => modeFilter.includes(entry.mode));
+  const visibleServerEntries = serverEntries.filter((entry) =>
+    modeFilter.includes(entry.mode),
+  );
 
   return (
-    <div className={cn("min-w-0 max-w-full space-y-2", className)}>
+    <div className={cn("min-w-0 max-w-full space-y-3", className)}>
+      {visibleServerEntries.length > 0 ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <History className="h-3.5 w-3.5 text-[var(--arena-cyan)]/75" />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--arena-cyan)]">
+              {serverSectionTitle}
+            </p>
+          </div>
+          <p className="text-[9px] leading-snug text-white/40">
+            Demo server-backed hands · refreshes after reconnect
+          </p>
+          <ul className="space-y-1.5">
+            {visibleServerEntries.map((entry) => (
+              <li
+                key={entry.id}
+                className="arena-menu-card min-w-0 px-2.5 py-2 text-left"
+              >
+                <p className="text-[11px] font-medium text-white">
+                  {formatHandHistoryCompactTitle(entry)}
+                </p>
+                <p className="mt-0.5 text-[9px] text-muted-foreground">
+                  {formatHandHistoryMetaLine(entry)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <History className="h-3.5 w-3.5 text-[var(--arena-cyan)]/75" />

@@ -3,6 +3,7 @@ import {
   ARENA_SERVER_SESSION_STORE_NOTE,
   type ArenaServerSession,
 } from "@/lib/arena/arenaServerSessionTypes";
+import { parseLatestHandResult } from "@/lib/arena/arenaServerHandHistory";
 import { getArenaServerSessionStore } from "@/lib/arena/arenaServerSessionStore";
 import {
   deriveStatusFromChips,
@@ -25,6 +26,7 @@ export const revalidate = 0;
 function jsonSession(session: ArenaServerSession) {
   return NextResponse.json({
     session,
+    recentHands: session.recentHands ?? [],
     storeNote: ARENA_SERVER_SESSION_STORE_NOTE,
   });
 }
@@ -148,9 +150,51 @@ export async function PATCH(request: Request) {
   }
 
   const store = getArenaServerSessionStore();
-  const existing = store.get(body.walletAddress as string, escrowSessionId);
+  const wallet = body.walletAddress as string;
+  const existing = store.get(wallet, escrowSessionId);
   if (!existing) {
     return NextResponse.json({ error: "Session not found." }, { status: 404 });
+  }
+
+  if (body.latestHandResult != null) {
+    const parsedHand = parseLatestHandResult(body.latestHandResult);
+    if ("error" in parsedHand) {
+      return NextResponse.json({ error: parsedHand.error }, { status: 400 });
+    }
+
+    const update: Parameters<typeof store.patch>[2] = {};
+
+    if (body.currentChips != null) {
+      const currentChips = parseCurrentChips(body.currentChips, existing.startingChips);
+      if (currentChips == null) {
+        return NextResponse.json({ error: "Invalid current chips." }, { status: 400 });
+      }
+      parsedHand.finalChips = currentChips;
+      update.currentChips = currentChips;
+    }
+
+    const appended = store.appendHandResult(wallet, escrowSessionId, parsedHand);
+    if (!appended) {
+      return NextResponse.json({ error: "Session not found." }, { status: 404 });
+    }
+
+    let session = appended;
+
+    if (body.status != null) {
+      const status = parseArenaSessionStatus(body.status);
+      if (!status) {
+        return NextResponse.json({ error: "Invalid status." }, { status: 400 });
+      }
+      session =
+        store.patch(wallet, escrowSessionId, { status }) ?? session;
+    } else if (update.currentChips != null) {
+      session =
+        store.patch(wallet, escrowSessionId, {
+          status: deriveStatusFromChips(update.currentChips),
+        }) ?? session;
+    }
+
+    return jsonSession(session);
   }
 
   const update: Parameters<typeof store.patch>[2] = {};

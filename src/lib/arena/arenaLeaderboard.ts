@@ -1,4 +1,5 @@
 import type { SessionStats } from "@/lib/analytics/types";
+import { resolveSessionHandStats } from "@/lib/arena/arenaServerHandHistory";
 import type { ArenaServerSession } from "@/lib/arena/arenaServerSessionTypes";
 import { computeNetChips, computeWinRate } from "@/lib/analytics/playerSessionStats";
 import { getShortAddress } from "@/lib/onchain/baseSepolia";
@@ -112,10 +113,11 @@ export function aggregateLeaderboardEntryFromSessions(
     netChips += safeNetChips(sessionCurrent, sessionStarting);
     totalDepositedWei += parseWeiString(session.stakeAmountWei);
     totalClaimedWei += estimateSessionClaimedWei(session);
-    handsPlayed += safeNonNegativeInt(session.handsPlayed ?? 0);
-    wins += safeNonNegativeInt(session.wins ?? 0);
-    losses += safeNonNegativeInt(session.losses ?? 0);
-    biggestPot = Math.max(biggestPot, safeNonNegativeInt(session.biggestPot ?? 0));
+    const handStats = resolveSessionHandStats(session);
+    handsPlayed += handStats.handsPlayed;
+    wins += handStats.wins;
+    losses += handStats.losses;
+    biggestPot = Math.max(biggestPot, handStats.biggestPot);
 
     if (session.updatedAt > lastUpdated) {
       lastUpdated = session.updatedAt;
