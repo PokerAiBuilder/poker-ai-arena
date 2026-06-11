@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Loader2, Wallet } from "lucide-react";
+import { AlertTriangle, ExternalLink, Loader2, Wallet } from "lucide-react";
 import { PUBLIC_TESTER_WRONG_NETWORK_MESSAGE } from "@/lib/arena/publicTesterUx";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,19 +8,17 @@ import {
   type TestStakeAmount,
 } from "@/lib/stake/testnetStake";
 import type { EscrowPayoutUiInfo } from "@/lib/stake/escrowLiquidityPreview";
-import {
-  isDepletedZeroPayoutEscrowSession,
-  shouldRequireEscrowPrepareClaim,
-} from "@/lib/stake/depletedEscrowSession";
 import type { LockSettlement, StakeSessionMeta } from "@/lib/stake/stakeSessionStorage";
-import { getLockSettlementLabel, getShortAddress } from "@/lib/onchain/baseSepolia";
 import {
-  shouldShowWalletDisconnectedEscrowState,
-  shouldShowWalletMismatchEscrowState,
-  WALLET_DISCONNECTED_BODY,
-  WALLET_DISCONNECTED_TITLE,
-  WALLET_MISMATCH_BODY,
-} from "@/lib/stake/walletSessionAccess";
+  formatTxHash,
+  getLockSettlementLabel,
+  getShortAddress,
+} from "@/lib/onchain/baseSepolia";
+import { getEscrowTxUrl } from "@/lib/onchain/escrowContract";
+import {
+  resolveTestnetSessionLifecycle,
+  LIFECYCLE_TITLE_NEW_SESSION,
+} from "@/lib/stake/testnetSessionLifecycle";
 import { cn } from "@/lib/utils";
 
 type StakeSessionMenuSectionProps = {
@@ -71,65 +69,41 @@ export function StakeSessionMenuSection({
   className,
 }: StakeSessionMenuSectionProps) {
   const isEscrow = lockSettlement === "escrow-deposit";
-  const showWalletDisconnectedEscrow = shouldShowWalletDisconnectedEscrowState(
-    stakeSessionMeta,
-    paymentSuccess,
-    isWalletConnected,
-  );
-  const showWalletMismatchEscrow = shouldShowWalletMismatchEscrowState(
-    stakeSessionMeta,
+  const escrowBusy = cashingOut || preparingEscrow || payingStake;
+
+  const lifecycle = resolveTestnetSessionLifecycle({
     paymentSuccess,
     isWalletConnected,
     connectedWalletAddress,
-  );
-  const escrowSessionVisible =
-    sessionActive && !showWalletDisconnectedEscrow && !showWalletMismatchEscrow;
-  const isTreasury = lockSettlement === "base-sepolia-test-tx";
-
-  const escrowBusy = cashingOut || preparingEscrow || payingStake;
-
-  const isDepletedZeroPayout = isDepletedZeroPayoutEscrowSession(
     stakeSessionMeta,
     currentHumanChips,
     escrowPayoutUi,
-  );
+    escrowResolved,
+    handInProgress,
+  });
 
-  const requiresEscrowPrepareClaim = shouldRequireEscrowPrepareClaim(
-    stakeSessionMeta,
-    currentHumanChips,
-    escrowPayoutUi,
-  );
+  const showSessionDetails =
+    sessionActive &&
+    lifecycle.statusKey !== "wallet_disconnected" &&
+    lifecycle.statusKey !== "wrong_wallet" &&
+    lifecycle.statusKey !== "no_session";
 
   const canPrepare =
-    isEscrow &&
-    escrowSessionVisible &&
-    requiresEscrowPrepareClaim &&
-    !escrowResolved &&
-    !handInProgress &&
+    lifecycle.showPreparePayout &&
     !escrowBusy &&
     escrowResolverConfigured !== false;
 
-  const canCashOut =
-    escrowSessionVisible &&
-    !handInProgress &&
-    !escrowBusy &&
-    !isDepletedZeroPayout &&
-    (isEscrow ? escrowResolved && requiresEscrowPrepareClaim : currentHumanChips > 0);
+  const canCashOut = lifecycle.showClaimPayout && !escrowBusy;
 
   const canBeginNewStakeSession =
-    escrowSessionVisible &&
-    !handInProgress &&
-    !escrowBusy &&
-    (isDepletedZeroPayout ||
-      (!isEscrow && currentHumanChips <= 0));
+    lifecycle.showBeginNewStakeSession && !escrowBusy && Boolean(onBeginNewStakeSession);
 
-  const claimLabel = isEscrow
-    ? currentHumanChips <= 0
-      ? "Cash Out Complete"
-      : "Claim Payout"
-    : isTreasury
-      ? "Close Session"
-      : "Mock cash out";
+  const claimLabel =
+    lifecycle.statusKey === "payout_ready"
+      ? "Claim payout"
+      : lifecycle.statusKey === "claimed"
+        ? "Cash out complete"
+        : "Claim payout";
 
   const buttonLabel = cashingOut
     ? "Processing…"
@@ -141,13 +115,13 @@ export function StakeSessionMenuSection({
 
   const helperText = handInProgress
     ? "Cash-out unlocks after the hand ends."
-    : isDepletedZeroPayout
-      ? "No payout available. Start a new test stake session."
-      : isEscrow && requiresEscrowPrepareClaim && !escrowResolved && !handInProgress
-        ? escrowResolverConfigured === false
-          ? "Resolver not configured"
-          : "Prepare payout first"
-        : null;
+    : escrowResolverConfigured === false &&
+        (lifecycle.statusKey === "prepare_payout" ||
+          lifecycle.statusKey === "payout_ready")
+      ? "Resolver not configured"
+      : lifecycle.description;
+
+  const cashOut = stakeSessionMeta?.cashOut;
 
   return (
     <section
@@ -167,34 +141,48 @@ export function StakeSessionMenuSection({
         </div>
       ) : null}
 
-      {cashedOut ? (
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Session complete.
+      <div className="mt-2 space-y-1">
+        <p className="text-[11px] font-medium text-white/90">{lifecycle.title}</p>
+        <p className="text-[10px] leading-snug text-muted-foreground">
+          {lifecycle.description}
         </p>
-      ) : showWalletDisconnectedEscrow ? (
-        <div className="mt-2 space-y-1.5">
-          <p className="text-[11px] font-medium text-white/85">
-            {WALLET_DISCONNECTED_TITLE}
+        {lifecycle.statusKey === "wrong_wallet" && stakeSessionMeta?.walletAddress ? (
+          <p className="text-[10px] text-white/45">
+            Session wallet: {getShortAddress(stakeSessionMeta.walletAddress)}
           </p>
-          <p className="text-[11px] text-muted-foreground">
-            {WALLET_DISCONNECTED_BODY}
-          </p>
-        </div>
-      ) : showWalletMismatchEscrow ? (
-        <div className="mt-2 space-y-1.5">
-          <p className="text-[11px] font-medium text-white/85">Wallet mismatch</p>
-          <p className="text-[11px] text-muted-foreground">{WALLET_MISMATCH_BODY}</p>
-          {stakeSessionMeta?.walletAddress ? (
-            <p className="text-[10px] text-white/45">
-              Session wallet: {getShortAddress(stakeSessionMeta.walletAddress)}
-            </p>
+        ) : null}
+      </div>
+
+      {lifecycle.statusKey === "claimed" && cashOut ? (
+        <dl className="mt-2 space-y-1 rounded-lg border border-white/10 bg-black/20 p-2 text-[10px]">
+          {cashOut.claimedEthAmount ? (
+            <div className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">Claimed</dt>
+              <dd className="font-semibold text-[var(--arena-cyan)]">
+                {cashOut.claimedEthAmount} ETH
+              </dd>
+            </div>
           ) : null}
-        </div>
-      ) : !sessionActive ? (
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Lock stake to play.
-        </p>
-      ) : (
+          {cashOut.claimTxHash ? (
+            <div className="flex items-center justify-between gap-2">
+              <dt className="text-muted-foreground">Claim tx</dt>
+              <dd className="min-w-0">
+                <a
+                  href={cashOut.claimExplorerUrl ?? getEscrowTxUrl(cashOut.claimTxHash)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-mono text-[9px] text-[var(--arena-cyan)] hover:underline"
+                >
+                  {formatTxHash(cashOut.claimTxHash)}
+                  <ExternalLink className="h-2.5 w-2.5 opacity-70" />
+                </a>
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
+
+      {showSessionDetails && !cashedOut ? (
         <>
           <dl className="mt-2 space-y-1 text-[11px]">
             {stakeAmount ? (
@@ -233,12 +221,6 @@ export function StakeSessionMenuSection({
                   {escrowPayoutUi.claimablePayoutEth} ETH
                 </dd>
               </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-muted-foreground">Escrow liquidity</dt>
-                <dd className="text-white/80">
-                  {escrowPayoutUi.escrowLiquidityEth} ETH
-                </dd>
-              </div>
             </dl>
           ) : null}
 
@@ -263,35 +245,40 @@ export function StakeSessionMenuSection({
                     Preparing…
                   </>
                 ) : (
-                  "Prepare Payout"
+                  "Prepare payout"
                 )}
               </Button>
             ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!canCashOut}
-              className={cn(
-                "min-w-[9.5rem] gap-2 text-xs",
-                canCashOut
-                  ? "border-[var(--arena-cyan)]/30 bg-[var(--arena-blue)]/10 text-[var(--arena-cyan)] hover:bg-[var(--arena-blue)]/18"
-                  : "cursor-not-allowed border-white/10 bg-white/[0.03] text-white/35 opacity-80 hover:bg-white/[0.03] hover:text-white/35",
-              )}
-              onClick={() => onCashOut?.()}
-            >
-              {cashingOut ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  {buttonLabel}
-                </>
-              ) : (
-                <>
-                  <Wallet className="h-3.5 w-3.5 shrink-0 opacity-80" />
-                  {buttonLabel}
-                </>
-              )}
-            </Button>
-            {helperText ? (
+            {lifecycle.showClaimPayout ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!canCashOut}
+                className={cn(
+                  "min-w-[9.5rem] gap-2 text-xs",
+                  canCashOut
+                    ? "border-[var(--arena-cyan)]/30 bg-[var(--arena-blue)]/10 text-[var(--arena-cyan)] hover:bg-[var(--arena-blue)]/18"
+                    : "cursor-not-allowed border-white/10 bg-white/[0.03] text-white/35 opacity-80 hover:bg-white/[0.03] hover:text-white/35",
+                )}
+                onClick={() => onCashOut?.()}
+              >
+                {cashingOut ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    {buttonLabel}
+                  </>
+                ) : (
+                  <>
+                    <Wallet className="h-3.5 w-3.5 shrink-0 opacity-80" />
+                    {buttonLabel}
+                  </>
+                )}
+              </Button>
+            ) : null}
+            {helperText &&
+            (lifecycle.showPreparePayout ||
+              lifecycle.showClaimPayout ||
+              lifecycle.showBeginNewStakeSession) ? (
               <p className="max-w-[14rem] text-center text-[10px] leading-snug text-muted-foreground">
                 {helperText}
               </p>
@@ -301,17 +288,31 @@ export function StakeSessionMenuSection({
                 type="button"
                 className={cn(
                   "min-w-[9.5rem] gap-2 text-xs",
-                  isDepletedZeroPayout && "v1-button-primary",
+                  (lifecycle.statusKey === "no_chips_left" ||
+                    lifecycle.statusKey === "claimed" ||
+                    lifecycle.statusKey === "closed_ready_new") &&
+                    "v1-button-primary",
                 )}
-                disabled={!onBeginNewStakeSession}
                 onClick={() => onBeginNewStakeSession?.()}
               >
-                New Stake Session
+                {LIFECYCLE_TITLE_NEW_SESSION}
               </Button>
             ) : null}
           </div>
         </>
-      )}
+      ) : lifecycle.statusKey === "claimed" && canBeginNewStakeSession ? (
+        <div className="mt-3 flex justify-center">
+          <Button
+            type="button"
+            className="v1-button-primary min-w-[9.5rem] gap-2 text-xs"
+            onClick={() => onBeginNewStakeSession?.()}
+          >
+            {LIFECYCLE_TITLE_NEW_SESSION}
+          </Button>
+        </div>
+      ) : lifecycle.statusKey === "no_session" ? (
+        <p className="mt-2 text-[11px] text-muted-foreground">Lock test stake to play.</p>
+      ) : null}
     </section>
   );
 }

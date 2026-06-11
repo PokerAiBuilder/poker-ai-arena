@@ -6,8 +6,7 @@ function isZeroClaimableEscrowPayout(
   claimablePayoutEth: string | null,
 ): boolean {
   const chips = Math.max(0, Math.floor(currentChips));
-  if (chips <= 0) return true;
-  if (!claimablePayoutEth) return false;
+  if (!claimablePayoutEth) return chips <= 0;
   const claimable = claimablePayoutEth.trim();
   return claimable === "0" || /^0\.0*$/.test(claimable);
 }
@@ -73,8 +72,8 @@ function closeDepletedSessionClearsForDeposit(input: {
 }
 
 describe("depleted escrow session", function () {
-  it("treats 0 chips as zero claimable payout", function () {
-    expect(isZeroClaimableEscrowPayout(0, "0.001")).to.equal(true);
+  it("treats 0 chips with positive claimable as non-zero payout", function () {
+    expect(isZeroClaimableEscrowPayout(0, "0.001")).to.equal(false);
   });
 
   it("detects depleted zero-payout escrow session", function () {

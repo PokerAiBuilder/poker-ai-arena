@@ -52,6 +52,10 @@ import {
   getLockStakePhaseLabel,
   type LockStakePhase,
 } from "@/lib/stake/lockStakeFlow";
+import {
+  LIFECYCLE_TITLE_NEW_SESSION,
+  resolveTestnetSessionLifecycle,
+} from "@/lib/stake/testnetSessionLifecycle";
 import { cn } from "@/lib/utils";
 
 type EntryFeePanelProps = {
@@ -223,12 +227,22 @@ export function EntryFeePanel({
         !escrowBusy &&
         currentHumanChips > 0;
 
+  const lifecycle = resolveTestnetSessionLifecycle({
+    paymentSuccess: paymentResult?.success,
+    isWalletConnected: isConnected,
+    connectedWalletAddress: connectedWalletAddress ?? address,
+    stakeSessionMeta,
+    currentHumanChips,
+    escrowPayoutUi,
+    escrowResolved,
+    handInProgress,
+  });
+
   const canBeginNewStakeSession =
+    lifecycle.showBeginNewStakeSession &&
     isActive &&
     !handInProgress &&
-    !escrowBusy &&
-    (isDepletedZeroPayout ||
-      (!isEscrowDeposit && currentHumanChips <= 0));
+    !escrowBusy;
 
   const showDevResolve =
     isEscrowDevMode() &&
@@ -280,14 +294,14 @@ export function EntryFeePanel({
             )}
             <h3 className="truncate text-xs font-semibold text-[var(--arena-text)]">
               {isCashedOut
-                ? "Cash Out Complete"
+                ? lifecycle.title
                 : showWalletDisconnectedEscrow
                   ? WALLET_DISCONNECTED_TITLE
                   : showWalletMismatchEscrow
-                    ? "Wallet mismatch"
+                    ? lifecycle.title
                     : isActive
-                      ? "Stake → Chips Active"
-                      : "Lock Test Stake"}
+                      ? lifecycle.title
+                      : "Lock test stake"}
             </h3>
           </div>
           <Badge
@@ -298,11 +312,17 @@ export function EntryFeePanel({
             )}
           >
             {isCashedOut
-              ? "Cashed out"
+              ? "Cash out complete"
               : showWalletDisconnectedEscrow || showWalletMismatchEscrow
                 ? "Inactive"
                 : isActive
-                  ? "Session active"
+                  ? lifecycle.statusKey === "no_chips_left"
+                    ? "No chips left"
+                    : lifecycle.statusKey === "prepare_payout"
+                      ? "Prepare payout"
+                      : lifecycle.statusKey === "payout_ready"
+                        ? "Payout ready"
+                        : "Active"
                   : "Base Sepolia"}
           </Badge>
         </div>
@@ -312,13 +332,7 @@ export function EntryFeePanel({
         {isCashedOut && cashOut ? (
           <>
             <p className="text-[10px] leading-relaxed text-[var(--arena-cyan)]/85">
-              {cashOut.settlement === "escrow-claim"
-                ? "Payout claimed."
-                : cashOut.settlement === "escrow-zero-payout"
-                  ? "Session closed."
-                  : cashOut.settlement === "treasury-record"
-                    ? "Session closed."
-                    : "Mock session closed."}
+              {lifecycle.description}
             </p>
             <dl
               className={cn(
@@ -420,7 +434,7 @@ export function EntryFeePanel({
               className="v1-button-primary w-full"
               size={compact ? "default" : "lg"}
             >
-              New Stake Session
+              {LIFECYCLE_TITLE_NEW_SESSION}
             </Button>
           </>
         ) : showWalletDisconnectedEscrow ? (
@@ -736,24 +750,18 @@ export function EntryFeePanel({
               </p>
             ) : null}
 
-            {isEscrowDeposit && isDepletedZeroPayout ? (
+            {lifecycle.statusKey === "no_chips_left" ? (
               <div className="arena-panel-info space-y-2">
-                <p className="leading-relaxed opacity-90">
-                  No payout available from this session.
-                </p>
+                <p className="leading-relaxed opacity-90">{lifecycle.title}</p>
                 <p className="text-[9px] leading-relaxed text-muted-foreground">
-                  No payout available. Start a new test stake session.
+                  {lifecycle.description}
                 </p>
               </div>
             ) : null}
 
-            {isEscrowDeposit && !isDepletedZeroPayout ? (
+            {lifecycle.showPreparePayout || lifecycle.showClaimPayout ? (
               <div className="arena-panel-info space-y-2">
-                <p className="leading-relaxed opacity-90">
-                  {escrowResolved
-                    ? "Payout prepared — claim to your wallet."
-                    : "Prepare payout, then claim ETH to your wallet."}
-                </p>
+                <p className="leading-relaxed opacity-90">{lifecycle.description}</p>
                 {escrowResolverConfigured === false ? (
                   <p className="text-[9px] leading-relaxed text-amber-200/85">
                     Resolver not configured.
@@ -777,7 +785,7 @@ export function EntryFeePanel({
                     </a>
                   </p>
                 ) : null}
-                {!escrowResolved ? (
+                {lifecycle.showPreparePayout && !escrowResolved ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -792,7 +800,7 @@ export function EntryFeePanel({
                         Preparing…
                       </>
                     ) : (
-                      "Prepare Payout"
+                      "Prepare payout"
                     )}
                   </Button>
                 ) : null}
@@ -818,7 +826,7 @@ export function EntryFeePanel({
               </div>
             ) : null}
 
-            {!isDepletedZeroPayout ? (
+            {lifecycle.showClaimPayout ? (
             <Button
               type="button"
               variant="outline"
@@ -845,14 +853,10 @@ export function EntryFeePanel({
                     : isTreasuryLock
                       ? "Close Session"
                       : isEscrowDeposit
-                        ? isCashedOut
-                          ? "Cash Out Complete"
-                          : currentHumanChips <= 0
-                            ? "Cash Out Complete"
-                            : "Claim Payout"
+                        ? "Claim payout"
                         : currentHumanChips <= 0
                           ? "Close Session"
-                          : "Claim Payout"}
+                          : "Claim payout"}
                 </>
               )}
             </Button>
@@ -874,9 +878,11 @@ export function EntryFeePanel({
               </p>
             ) : null}
 
-            {isActive && currentHumanChips <= 0 && !handInProgress && !cashingOut ? (
+            {lifecycle.statusKey === "no_chips_left" &&
+            !handInProgress &&
+            !cashingOut ? (
               <p className="text-[9px] leading-relaxed text-amber-200/85">
-                No chips left — start a new test stake session.
+                {lifecycle.description}
               </p>
             ) : null}
 
@@ -891,7 +897,7 @@ export function EntryFeePanel({
                 )}
                 onClick={() => onBeginNewStakeSession?.()}
               >
-                New Stake Session
+                {LIFECYCLE_TITLE_NEW_SESSION}
               </Button>
             ) : null}
 

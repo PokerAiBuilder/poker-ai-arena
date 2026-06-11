@@ -5,14 +5,13 @@ import {
 } from "@/lib/stake/stakeSessionStorage";
 import { chipsToTestBalance } from "@/lib/stake/testnetStake";
 
-/** Claimable escrow payout is zero (chips depleted or preview shows 0 ETH). */
+/** Claimable escrow payout is zero (preview shows 0 ETH). */
 export function isZeroClaimableEscrowPayout(
   currentChips: number,
   escrowPayoutUi: EscrowPayoutUiInfo | null,
 ): boolean {
   const chips = Math.max(0, Math.floor(currentChips));
-  if (chips <= 0) return true;
-  if (!escrowPayoutUi) return false;
+  if (!escrowPayoutUi) return chips <= 0;
   const claimable = escrowPayoutUi.claimablePayoutEth.trim();
   return claimable === "0" || /^0\.0*$/.test(claimable);
 }

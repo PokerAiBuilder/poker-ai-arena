@@ -65,6 +65,11 @@ import {
   type HandHistoryRecord,
 } from "@/lib/arena/handHistory";
 import { shouldShowPublicTesterWrongNetwork } from "@/lib/arena/publicTesterUx";
+import {
+  resolveTestnetSessionActionBarReason,
+  resolveTestnetSessionLifecycle,
+  shouldBlockGameplayForLifecycle,
+} from "@/lib/stake/testnetSessionLifecycle";
 import { serverHandToHandHistoryRecord } from "@/lib/arena/arenaServerHandHistory";
 import type { ArenaServerSession } from "@/lib/arena/arenaServerSessionTypes";
 import {
@@ -561,10 +566,6 @@ export function ArenaShell() {
     address,
   );
   const isArenaUnlocked = hasStoredActiveSession && walletCanUseEscrowSession;
-  const escrowSessionBlocked =
-    isEscrowDepositSession(stakeSessionMeta) &&
-    hasStoredActiveSession &&
-    !canAccessEscrowSession(isConnected, address, stakeSessionMeta);
   const lockSettlement = stakeSessionMeta?.lockSettlement ?? "mock";
 
   const handInProgress = useMemo(
@@ -2139,6 +2140,40 @@ export function ArenaShell() {
     [sessionStacks],
   );
 
+  const sessionLifecycle = useMemo(
+    () =>
+      resolveTestnetSessionLifecycle({
+        paymentSuccess: paymentResult?.success,
+        isWalletConnected: isConnected,
+        connectedWalletAddress: address,
+        stakeSessionMeta,
+        currentHumanChips,
+        escrowPayoutUi,
+        escrowResolved: stakeSessionMeta?.escrowResolved,
+        handInProgress,
+      }),
+    [
+      paymentResult?.success,
+      isConnected,
+      address,
+      stakeSessionMeta,
+      currentHumanChips,
+      escrowPayoutUi,
+      handInProgress,
+    ],
+  );
+
+  const gameplayBlocked = shouldBlockGameplayForLifecycle(
+    sessionLifecycle,
+    isArenaUnlocked,
+    headsUpStackDepleted,
+  );
+
+  const sessionActionBarReason = resolveTestnetSessionActionBarReason(
+    sessionLifecycle,
+    { isArenaUnlocked, headsUpStackDepleted },
+  );
+
   const opponentBusted = useMemo(
     () => isOpponentStackDepleted(sessionStacks),
     [sessionStacks],
@@ -2955,14 +2990,8 @@ export function ArenaShell() {
         pokerMasterThinking={pokerMasterThinking}
         loading={loading}
         loadingMode={loadingMode}
-        disabled={!isArenaUnlocked}
-        disabledReason={
-          escrowSessionBlocked
-            ? CONNECT_WALLET_TO_CONTINUE
-            : !isArenaUnlocked
-              ? "Lock a test stake session to play."
-              : undefined
-        }
+        disabled={gameplayBlocked}
+        disabledReason={sessionActionBarReason}
         error={error}
         headsUpStackDepleted={headsUpStackDepleted}
         agentBattleStackDepleted={agentBattleStackDepleted}

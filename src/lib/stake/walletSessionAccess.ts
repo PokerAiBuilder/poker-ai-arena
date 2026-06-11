@@ -3,12 +3,12 @@ import {
   type StakeSessionMeta,
 } from "@/lib/stake/stakeSessionStorage";
 
-export const WALLET_DISCONNECTED_TITLE = "Wallet disconnected";
+export const WALLET_DISCONNECTED_TITLE = "Connect wallet to continue";
 export const WALLET_DISCONNECTED_BODY =
-  "Connect wallet to continue your test stake session.";
+  "Connect wallet to continue your testnet session.";
 export const WALLET_MISMATCH_BODY =
-  "This test stake session belongs to another wallet. Connect the deposit wallet to continue.";
-export const CONNECT_WALLET_TO_CONTINUE = "Connect wallet to continue.";
+  "Switch to the wallet used for this session.";
+export const CONNECT_WALLET_TO_CONTINUE = "Connect wallet to continue";
 
 export function normalizeWalletAddress(
   address?: string | null,

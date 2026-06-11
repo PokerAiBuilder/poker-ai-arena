@@ -133,16 +133,18 @@ export function ArenaActionBar({
 }: ArenaActionBarProps) {
   const useHeadsUpUi = !agentBattleSpectator && stepDemoUi != null;
   const humanActions = useHeadsUpUi ? stepDemoUi.humanActions : stepDemoHumanActions;
-  const humanTurnActive = useHeadsUpUi
-    ? stepDemoUi.pokerActionsEnabled
-    : stepDemoActive &&
-      !pokerMasterThinking &&
-      humanActions &&
-      (humanActions.canFold ||
-        humanActions.canCall ||
-        humanActions.canCheck ||
-        humanActions.canRaise ||
-        humanActions.canAllIn);
+  const humanTurnActive =
+    !disabled &&
+    (useHeadsUpUi
+      ? stepDemoUi.pokerActionsEnabled
+      : stepDemoActive &&
+        !pokerMasterThinking &&
+        humanActions &&
+        (humanActions.canFold ||
+          humanActions.canCall ||
+          humanActions.canCheck ||
+          humanActions.canRaise ||
+          humanActions.canAllIn));
   const playStepDemoDisabled = useHeadsUpUi
     ? !stepDemoUi.playEnabled || disabled || loading || agentBattleReplayActive
     : disabled ||
@@ -184,12 +186,18 @@ export function ArenaActionBar({
     sharedLiveSpectator &&
     (agentBattleSharedResultPause || agentBattleReplayActive);
 
-  const guidance: StepDemoGameplayGuidance | undefined = showStackDepletedUi
+  const guidance: StepDemoGameplayGuidance | undefined =
+    disabled && disabledReason
+      ? {
+          phase: "hand-complete",
+          banner: disabledReason.toUpperCase(),
+          actionHint: disabledReason,
+        }
+      : showStackDepletedUi
     ? {
         phase: "hand-complete",
         banner: "NO CHIPS LEFT",
-        actionHint:
-          "No chips left — start a new test stake session.",
+        actionHint: "No chips left",
       }
     : useHeadsUpUi
       ? {

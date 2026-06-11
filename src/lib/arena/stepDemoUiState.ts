@@ -65,8 +65,7 @@ const HINTS: Record<StepDemoUiActionState, string> = {
   runout_ready: "All-in called — run out the board.",
   show_result_ready: "Ready for showdown.",
   hand_complete: "Hand complete — start a new hand.",
-  stack_depleted:
-    "No chips left — start a new test stake session.",
+  stack_depleted: "No chips left",
 };
 
 function isHumanTurn(state: StepDemoState): boolean {
