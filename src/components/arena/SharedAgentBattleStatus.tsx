@@ -28,7 +28,7 @@ export function SharedAgentBattleStatus({
   if (source === "local") {
     return (
       <Badge variant="outline" className={cn("arena-badge-pill-muted shrink-0", className)}>
-        Local replay
+        Demo replay
       </Badge>
     );
   }
@@ -43,12 +43,13 @@ export function SharedAgentBattleStatus({
       aria-label={`Shared live arena, ${isPause ? "result pause" : "playing"}`}
     >
       <Badge variant="outline" className="arena-badge-pill arena-badge-pill-active shrink-0">
-        <span className="hidden min-[1280px]:inline">Shared live</span>
-        <span className="min-[1280px]:hidden">Shared</span>
+        <span className="hidden min-[1280px]:inline">Shared live arena</span>
+        <span className="min-[1280px]:hidden">Live</span>
       </Badge>
       {isPause && secondsUntilNextHand != null ? (
         <Badge variant="outline" className="arena-badge-pill-muted shrink-0">
-          Next {secondsUntilNextHand}s
+          <span className="hidden min-[1280px]:inline">Next battle · {secondsUntilNextHand}s</span>
+          <span className="min-[1280px]:hidden">Next · {secondsUntilNextHand}s</span>
         </Badge>
       ) : null}
     </div>

@@ -1,3 +1,4 @@
+import { normalizeAgentStyleBadge } from "@/lib/arena/agentBattleDisplay";
 import { cn } from "@/lib/utils";
 import { ChipStack } from "@/components/arena/ChipStack";
 import type { AgentStrategy } from "@/lib/agents/agentTypes";
@@ -40,7 +41,7 @@ export function AgentAvatar({
   className,
 }: AgentAvatarProps) {
   const strategyLine =
-    styleBadge ??
+    normalizeAgentStyleBadge(styleBadge) ??
     (strategy ? (strategyLabels[strategy] ?? strategy) : undefined);
   const hoverTitle = styleBadge
     ? `${name} — ${styleBadge} style`

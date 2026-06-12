@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { GameAction } from "@/lib/poker/types";
 import {
   actionTypeBadgeClass,
+  consolidateAgentBattleActionLog,
   filterActionLogByStreet,
   normalizeActionLogEntries,
   STREET_FILTER_OPTIONS,
@@ -34,6 +35,16 @@ function ActionTypeBadge({ actionType }: { actionType: ActionLogDisplayEntry["ac
   );
 }
 
+function formatBattleResultDetailLine(entry: ActionLogDisplayEntry): string | null {
+  const resultLabel = entry.winningHand ?? entry.resultType;
+  const potPart =
+    entry.potWon != null ? `Pot ${entry.potWon.toLocaleString()}` : null;
+  const parts = [resultLabel, potPart].filter(
+    (part): part is string => Boolean(part),
+  );
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 function ShowdownResultRow({
   entry,
   agentBattleMode,
@@ -41,6 +52,9 @@ function ShowdownResultRow({
   entry: ActionLogDisplayEntry;
   agentBattleMode: boolean;
 }) {
+  const isBattleResult = agentBattleMode && entry.isBattleResultCard;
+  const detailLine = isBattleResult ? formatBattleResultDetailLine(entry) : null;
+
   return (
     <div
       className={cn(
@@ -53,33 +67,59 @@ function ShowdownResultRow({
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <ActionTypeBadge actionType="WINNER" />
         <span className="text-[9px] font-semibold uppercase tracking-wider text-casino-goldLight/80">
-          {entry.phase === "RESULT" ? "Result" : "Showdown"}
+          {isBattleResult
+            ? "Battle Result"
+            : entry.phase === "RESULT"
+              ? "Result"
+              : "Showdown"}
         </span>
       </div>
-      {entry.winnerName ? (
-        <p className="text-xs text-white/90">
-          <span className="text-white/50">Winner: </span>
-          {entry.winnerName}
-        </p>
-      ) : null}
-      {entry.winningHand ? (
-        <p className="text-xs text-white/80">
-          <span className="text-white/50">Hand: </span>
-          {entry.winningHand}
-        </p>
-      ) : null}
-      {entry.resultType && !entry.winningHand ? (
-        <p className="text-xs text-white/80">
-          <span className="text-white/50">Result: </span>
-          {entry.resultType}
-        </p>
-      ) : null}
-      {entry.potWon != null ? (
-        <p className="text-xs font-medium text-casino-goldLight">
-          Pot won: {entry.potWon.toLocaleString()} chips
-        </p>
-      ) : null}
-      <p className="mt-1 text-[11px] leading-snug break-words text-white/45">{entry.displayText}</p>
+      {isBattleResult ? (
+        <>
+          {entry.winnerName ? (
+            <p className="text-xs font-semibold text-white/92">
+              {entry.winnerName} wins
+            </p>
+          ) : null}
+          {detailLine ? (
+            <p className="mt-0.5 text-[11px] text-white/78">{detailLine}</p>
+          ) : null}
+          {entry.chipDeltaLabel ? (
+            <p className="mt-0.5 text-[11px] font-medium text-casino-goldLight/90">
+              {entry.chipDeltaLabel}
+            </p>
+          ) : null}
+        </>
+      ) : (
+        <>
+          {entry.winnerName ? (
+            <p className="text-xs text-white/90">
+              <span className="text-white/50">Winner: </span>
+              {entry.winnerName}
+            </p>
+          ) : null}
+          {entry.winningHand ? (
+            <p className="text-xs text-white/80">
+              <span className="text-white/50">Hand: </span>
+              {entry.winningHand}
+            </p>
+          ) : null}
+          {entry.resultType && !entry.winningHand ? (
+            <p className="text-xs text-white/80">
+              <span className="text-white/50">Result: </span>
+              {entry.resultType}
+            </p>
+          ) : null}
+          {entry.potWon != null ? (
+            <p className="text-xs font-medium text-casino-goldLight">
+              Pot won: {entry.potWon.toLocaleString()} chips
+            </p>
+          ) : null}
+          <p className="mt-1 text-[11px] leading-snug break-words text-white/45">
+            {entry.displayText}
+          </p>
+        </>
+      )}
     </div>
   );
 }
@@ -154,7 +194,10 @@ export function ActionLog({
 }: ActionLogProps) {
   const [streetFilter, setStreetFilter] = useState<StreetFilter>("ALL");
 
-  const normalized = useMemo(() => normalizeActionLogEntries(entries), [entries]);
+  const normalized = useMemo(() => {
+    const base = normalizeActionLogEntries(entries);
+    return agentBattleMode ? consolidateAgentBattleActionLog(base) : base;
+  }, [entries, agentBattleMode]);
   const filtered = useMemo(
     () => filterActionLogByStreet(normalized, streetFilter),
     [normalized, streetFilter],

@@ -64,6 +64,7 @@ import {
   stepDemoHistoryFingerprint,
   type HandHistoryRecord,
 } from "@/lib/arena/handHistory";
+import { buildAgentBattleResultSummary } from "@/lib/arena/agentBattleDisplay";
 import { shouldShowPublicTesterWrongNetwork } from "@/lib/arena/publicTesterUx";
 import {
   resolveTestnetSessionActionBarReason,
@@ -2648,6 +2649,52 @@ export function ArenaShell() {
       ? agentBattleReplayDisplay.pot
       : (result?.pot ?? null);
 
+  const agentBattleResultSummary = useMemo(() => {
+    if (!isAgentBattleSpectatorEarly) return null;
+    if (
+      !agentBattleHandSettled &&
+      !agentBattleReplayDisplay?.showResult &&
+      !(result && !agentBattleReplayActive && !stepDemo.isActive)
+    ) {
+      return null;
+    }
+
+    const battleResult = agentBattleReplay?.finalResult ?? result;
+    if (!battleResult || battleResult.gameMode !== "agent-vs-agent") return null;
+
+    const winnerName =
+      agentBattleReplayDisplay?.winnerName ?? battleResult.winner.name;
+    const battleResultType =
+      agentBattleReplayDisplay?.resultType ??
+      getHandResultDisplayType(battleResult);
+    const battleWinningHand =
+      agentBattleReplayDisplay?.winningHand ??
+      (battleResultType === "fold"
+        ? undefined
+        : resolveSimulationWinningHandName(battleResult));
+    const battlePot = agentBattleReplayDisplay?.pot ?? battleResult.pot ?? null;
+    const lastDecision =
+      battleResult.agentDecisions[battleResult.agentDecisions.length - 1];
+
+    return buildAgentBattleResultSummary({
+      winnerName,
+      winnerId: battleResult.winner.id,
+      resultType: battleResultType,
+      winningHand: battleWinningHand,
+      pot: battlePot,
+      accounting: battleResult.agentBattleAccounting,
+      summaryReason: lastDecision?.reasoning,
+    });
+  }, [
+    isAgentBattleSpectatorEarly,
+    agentBattleHandSettled,
+    agentBattleReplayDisplay,
+    result,
+    agentBattleReplayActive,
+    stepDemo.isActive,
+    agentBattleReplay?.finalResult,
+  ]);
+
   const agentBattleVisibleBoardCount = useMemo(() => {
     if (!isAgentBattleSpectatorEarly) return undefined;
 
@@ -2879,6 +2926,7 @@ export function ArenaShell() {
                 humanTurnSecondsLeft={
                   isHeadsUpGuided && stepDemo.isActive ? humanTurnSecondsLeft : null
                 }
+                agentBattleResultSummary={agentBattleResultSummary}
               />
             </div>
           </div>

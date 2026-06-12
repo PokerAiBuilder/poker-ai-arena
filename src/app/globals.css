@@ -2462,6 +2462,22 @@
     max-width: 3.75rem;
   }
 
+  .arena-ab-mini-seat-style {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 1px solid rgb(34 211 238 / 0.16);
+    background: rgb(0 82 255 / 0.08);
+    padding: 0 0.35rem;
+    font-size: 7px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(34 211 238 / 0.72);
+    line-height: 1.1;
+  }
+
   .arena-ab-mini-seat-status {
     display: inline-flex;
     min-width: 4.35rem;

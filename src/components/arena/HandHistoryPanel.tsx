@@ -8,6 +8,7 @@ import {
   formatHandHistoryResultLine,
   shouldShowHistoryTxLink,
 } from "@/lib/analytics/playerSessionStats";
+import { formatAgentBattleHistoryCard } from "@/lib/arena/agentBattleDisplay";
 import type { HandHistoryRecord } from "@/lib/arena/handHistory";
 import { cn } from "@/lib/utils";
 
@@ -112,65 +113,93 @@ export function HandHistoryPanel({
             embedded ? "max-h-none" : "max-h-[min(52vh,420px)]",
           )}
         >
-          {visibleEntries.map((entry) => (
-            <li
-              key={entry.id}
-              className="arena-menu-card min-w-0 max-w-full px-2.5 py-2"
-            >
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span
-                  className={cn(
-                    "rounded-full border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide",
-                    modeBadgeClass(entry.mode),
-                  )}
-                >
-                  {modeBadgeLabel(entry.mode)}
-                </span>
-                <span className="text-[9px] text-muted-foreground">
-                  {formatHandHistoryCompactTitle(entry)}
-                </span>
-              </div>
-              <p className="mt-1 break-words text-[11px] font-semibold leading-snug text-[var(--arena-gold-accent)]/85">
-                {entry.winnerName === "You" ? "You won" : `${entry.winnerName} won`}{" "}
-                <span className="font-medium text-white/75">
-                  {entry.potWon.toLocaleString()} chips
-                </span>
-              </p>
-              <p className="text-[10px] text-[var(--arena-cyan)]/80">
-                {entry.resultType}
-                {formatHandHistoryResultLine(entry) !== entry.resultType
-                  ? ` · ${formatHandHistoryResultLine(entry)}`
-                  : ""}
-              </p>
-              <p className="mt-0.5 line-clamp-2 text-[9px] text-white/45">
-                {formatHandHistoryMetaLine(entry)}
-              </p>
-              {shouldShowHistoryTxLink(entry) ? (
-                <div className="mt-1 flex flex-wrap gap-2 text-[9px]">
-                  {entry.depositExplorerUrl ? (
-                    <a
-                      href={entry.depositExplorerUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[var(--arena-cyan)]/80 underline-offset-2 hover:underline"
-                    >
-                      Deposit tx
-                    </a>
-                  ) : null}
-                  {entry.claimExplorerUrl ? (
-                    <a
-                      href={entry.claimExplorerUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[var(--arena-cyan)]/80 underline-offset-2 hover:underline"
-                    >
-                      Claim tx
-                    </a>
+          {visibleEntries.map((entry) => {
+            const isAgentBattle = entry.mode === "AI Agent Battle";
+            const battleCard = isAgentBattle
+              ? formatAgentBattleHistoryCard(entry)
+              : null;
+
+            return (
+              <li
+                key={entry.id}
+                className={cn(
+                  "min-w-0 max-w-full px-2.5 py-2",
+                  isAgentBattle
+                    ? "rounded-lg border border-violet-400/25 bg-violet-950/25"
+                    : "arena-menu-card",
+                )}
+              >
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span
+                    className={cn(
+                      "rounded-full border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide",
+                      modeBadgeClass(entry.mode),
+                    )}
+                  >
+                    {modeBadgeLabel(entry.mode)}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground">
+                    {formatHandHistoryCompactTitle(entry)}
+                  </span>
+                  {isAgentBattle ? (
+                    <span className="text-[8px] font-semibold uppercase tracking-wider text-violet-200/70">
+                      Battle Result
+                    </span>
                   ) : null}
                 </div>
-              ) : null}
-            </li>
-          ))}
+                {battleCard ? (
+                  <>
+                    <p className="mt-1 break-words text-[11px] font-semibold leading-snug text-[var(--arena-gold-accent)]/90">
+                      {battleCard.headline}
+                    </p>
+                    <p className="text-[10px] text-white/78">{battleCard.detailLine}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-1 break-words text-[11px] font-semibold leading-snug text-[var(--arena-gold-accent)]/85">
+                      {entry.winnerName === "You" ? "You won" : `${entry.winnerName} won`}{" "}
+                      <span className="font-medium text-white/75">
+                        {entry.potWon.toLocaleString()} chips
+                      </span>
+                    </p>
+                    <p className="text-[10px] text-[var(--arena-cyan)]/80">
+                      {entry.resultType}
+                      {formatHandHistoryResultLine(entry) !== entry.resultType
+                        ? ` · ${formatHandHistoryResultLine(entry)}`
+                        : ""}
+                    </p>
+                  </>
+                )}
+                <p className="mt-0.5 line-clamp-2 text-[9px] text-white/45">
+                  {formatHandHistoryMetaLine(entry)}
+                </p>
+                {shouldShowHistoryTxLink(entry) ? (
+                  <div className="mt-1 flex flex-wrap gap-2 text-[9px]">
+                    {entry.depositExplorerUrl ? (
+                      <a
+                        href={entry.depositExplorerUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[var(--arena-cyan)]/80 underline-offset-2 hover:underline"
+                      >
+                        Deposit tx
+                      </a>
+                    ) : null}
+                    {entry.claimExplorerUrl ? (
+                      <a
+                        href={entry.claimExplorerUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[var(--arena-cyan)]/80 underline-offset-2 hover:underline"
+                      >
+                        Claim tx
+                      </a>
+                    ) : null}
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

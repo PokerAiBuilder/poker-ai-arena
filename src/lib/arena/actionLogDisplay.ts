@@ -37,10 +37,13 @@ export type ActionLogDisplayEntry = {
   pot?: number;
   displayText: string;
   isShowdownBlock: boolean;
+  /** Agent Battle — single consolidated final result card per hand */
+  isBattleResultCard?: boolean;
   isError: boolean;
   winnerName?: string;
   winningHand?: string;
   potWon?: number;
+  chipDeltaLabel?: string;
   resultType?: string;
   raw: GameAction;
 };
@@ -453,6 +456,149 @@ export function normalizeActionLogEntries(
 
     return normalized;
   });
+}
+
+function isAgentBattleLifecycleMessage(messageLower: string): boolean {
+  const trimmed = messageLower.trim();
+  return (
+    trimmed === "showdown complete." ||
+    trimmed === "showdown complete" ||
+    trimmed === "hand won by fold." ||
+    trimmed === "hand won by fold" ||
+    messageLower.includes("pot settled:") ||
+    messageLower.includes("stacks updated:")
+  );
+}
+
+function isAgentBattlePrimaryWinnerEntry(entry: ActionLogDisplayEntry): boolean {
+  const messageLower = entry.displayText.toLowerCase();
+  if (isAgentBattleLifecycleMessage(messageLower)) return false;
+  return (
+    /\bwins\s+—\s+/i.test(entry.displayText) ||
+    (/\bwins\b/i.test(entry.displayText) && messageLower.includes("showdown:"))
+  );
+}
+
+function parseWinnerChipDeltaFromStacksMessage(
+  message: string,
+  winnerName: string,
+): string | undefined {
+  const escaped = winnerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = message.match(
+    new RegExp(`${escaped}\\s*([+-]\\d[\\d,]*)`, "i"),
+  );
+  if (!match) return undefined;
+  const delta = Number.parseInt(match[1].replace(/,/g, ""), 10);
+  if (!Number.isFinite(delta) || delta === 0) return undefined;
+  const sign = delta > 0 ? "+" : "";
+  return `${sign}${delta.toLocaleString()} chips`;
+}
+
+function demoteToCompactLogRow(
+  entry: ActionLogDisplayEntry,
+): ActionLogDisplayEntry {
+  return {
+    ...entry,
+    isShowdownBlock: false,
+    isBattleResultCard: false,
+    actionType: entry.actionType === "WINNER" ? "INFO" : entry.actionType,
+  };
+}
+
+/**
+ * Agent Battle spectator logs emit several winner-shaped system lines per hand.
+ * Keep one premium Battle Result card and demote lifecycle lines to compact rows.
+ */
+export function consolidateAgentBattleActionLog(
+  entries: ActionLogDisplayEntry[],
+): ActionLogDisplayEntry[] {
+  if (entries.length === 0) return entries;
+
+  let primaryIndex = -1;
+  let potFromSettled: number | undefined;
+  let chipDeltaLabel: string | undefined;
+
+  for (let i = 0; i < entries.length; i += 1) {
+    const entry = entries[i];
+    const messageLower = entry.displayText.toLowerCase();
+
+    if (messageLower.includes("pot settled:")) {
+      potFromSettled = entry.potWon ?? parsePotFromMessage(entry.displayText);
+    }
+
+    if (messageLower.includes("stacks updated:") && entry.winnerName) {
+      chipDeltaLabel = parseWinnerChipDeltaFromStacksMessage(
+        entry.displayText,
+        entry.winnerName,
+      );
+    }
+
+    if (primaryIndex < 0 && isAgentBattlePrimaryWinnerEntry(entry)) {
+      primaryIndex = i;
+    }
+  }
+
+  if (primaryIndex < 0) {
+    for (let i = 0; i < entries.length; i += 1) {
+      if (entries[i].displayText.toLowerCase().includes("pot settled:")) {
+        primaryIndex = i;
+        break;
+      }
+    }
+  }
+
+  const winnerName =
+    primaryIndex >= 0 ? entries[primaryIndex].winnerName : undefined;
+
+  if (primaryIndex >= 0 && winnerName && !chipDeltaLabel) {
+    for (const entry of entries) {
+      if (entry.displayText.toLowerCase().includes("stacks updated:")) {
+        chipDeltaLabel = parseWinnerChipDeltaFromStacksMessage(
+          entry.displayText,
+          winnerName,
+        );
+        if (chipDeltaLabel) break;
+      }
+    }
+  }
+
+  return entries.map((entry, index) => {
+    const messageLower = entry.displayText.toLowerCase();
+
+    if (isAgentBattleLifecycleMessage(messageLower)) {
+      return demoteToCompactLogRow(entry);
+    }
+
+    if (index === primaryIndex) {
+      const winningHand =
+        entry.winningHand ??
+        (messageLower.includes("win by fold") ? "Win by fold" : undefined);
+      const potWon = entry.potWon ?? potFromSettled ?? entry.pot;
+      return {
+        ...entry,
+        isShowdownBlock: true,
+        isBattleResultCard: true,
+        actionType: "WINNER",
+        phase: "RESULT",
+        winningHand,
+        potWon,
+        chipDeltaLabel,
+        resultType: winningHand ?? entry.resultType ?? "Showdown",
+      };
+    }
+
+    if (entry.isShowdownBlock) {
+      return demoteToCompactLogRow(entry);
+    }
+
+    return entry;
+  });
+}
+
+export function countAgentBattleResultCards(
+  entries: ActionLogDisplayEntry[],
+): number {
+  return entries.filter((entry) => entry.isBattleResultCard).length;
 }
 
 export function filterActionLogByStreet(

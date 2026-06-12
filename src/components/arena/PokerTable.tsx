@@ -9,6 +9,11 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
 import { TestStakePicker } from "@/components/arena/TestStakePicker";
 import { useTestnetStakeNetwork } from "@/hooks/useTestnetStakeNetwork";
+import {
+  formatAgentBattleSeatStatusLabel,
+  normalizeAgentStyleBadge,
+  type AgentBattleResultSummary,
+} from "@/lib/arena/agentBattleDisplay";
 import type { HandResultDisplayType } from "@/lib/arena/simulationDisplay";
 import { getVisibleBoardCount } from "@/lib/arena/simulationDisplay";
 import type { Card } from "@/lib/poker/types";
@@ -75,6 +80,7 @@ type PokerTableProps = {
   onTestStakeChange?: (stake: TestStakeAmount) => void;
   stakeCashedOut?: boolean;
   cashOutRecord?: StakeCashOutRecord | null;
+  agentBattleResultSummary?: AgentBattleResultSummary | null;
   className?: string;
 };
 
@@ -340,6 +346,7 @@ function WinnerBanner({
   resultType,
   winningHand,
   pot,
+  summary,
   compact = false,
   ultraCompact = false,
   spectator = false,
@@ -348,11 +355,24 @@ function WinnerBanner({
   resultType: HandResultDisplayType;
   winningHand?: string;
   pot: number | null;
+  summary?: AgentBattleResultSummary | null;
   compact?: boolean;
   ultraCompact?: boolean;
   spectator?: boolean;
 }) {
   const isFoldWin = resultType === "fold";
+  const resultLabel = summary?.resultLabel
+    ?? (isFoldWin ? "Win by fold" : winningHand ?? "Showdown");
+  const headline = summary?.headline ?? `${winnerName} wins`;
+  const detailLine =
+    summary?.detailLine ??
+    [
+      resultLabel,
+      pot != null ? `Pot ${pot.toLocaleString()}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  const chipDeltaLabel = summary?.chipDeltaLabel ?? null;
 
   if (ultraCompact) {
     return (
@@ -363,15 +383,17 @@ function WinnerBanner({
         )}
       >
         <p className="text-[6px] font-semibold uppercase leading-none tracking-[0.12em] text-[var(--arena-muted)]">
-          {spectator ? "Result" : "Hand result"}
+          {spectator ? "Agent Battle result" : "Hand result"}
         </p>
-        <p className="mt-0.5 text-[10px] font-bold leading-tight text-[var(--arena-gold-accent)]/85">
-          {winnerName}
+        <p className="mt-0.5 text-[10px] font-bold leading-tight text-[var(--arena-gold-accent)]/90">
+          {headline}
         </p>
-        <p className="text-[7px] leading-tight text-white/65">
-          {isFoldWin ? "Win by fold" : winningHand ?? "Showdown"}
-          {pot != null ? ` · Pot ${pot.toLocaleString()}` : ""}
-        </p>
+        <p className="text-[7px] leading-snug text-white/70">{detailLine}</p>
+        {chipDeltaLabel ? (
+          <p className="text-[7px] leading-snug text-[var(--arena-gold-accent)]/85">
+            {chipDeltaLabel}
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -384,17 +406,15 @@ function WinnerBanner({
       )}
     >
       <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--arena-muted)]">
-        Hand result
+        {spectator ? "Agent Battle result" : "Hand result"}
       </p>
       <p className="mt-1 text-sm font-bold leading-tight text-[var(--arena-gold-accent)]/90 sm:text-base">
-        {winnerName}
+        {headline}
       </p>
-      <p className="mt-1 text-[10px] text-white/75">
-        {isFoldWin ? "Win by fold" : winningHand ?? "Showdown"}
-      </p>
-      {pot != null ? (
-        <p className="mt-1 text-[10px] font-semibold text-[var(--arena-cyan)]">
-          Pot {pot.toLocaleString()}
+      <p className="mt-1 text-[10px] leading-snug text-white/78">{detailLine}</p>
+      {chipDeltaLabel ? (
+        <p className="mt-0.5 text-[10px] text-[var(--arena-gold-accent)]/85">
+          {chipDeltaLabel}
         </p>
       ) : null}
     </div>
@@ -682,13 +702,15 @@ function AgentBattleSideSeat({
   );
 }
 
-function agentBattleMiniSeatStatus(seat: TableSeat): string {
-  if (seat.activeHighlight === "thinking") return "THINKING";
-  if (seat.activeHighlight === "acting") return "ACTING";
-  if (seat.status === "winner") return "WINNER";
-  if (seat.status === "folded") return "FOLDED";
-  if (seat.status === "active") return "ACTIVE";
-  return "WATCHING";
+function agentBattleMiniSeatStatus(seat: TableSeat): string | null {
+  return formatAgentBattleSeatStatusLabel({
+    status: seat.status,
+    activeHighlight: seat.activeHighlight,
+  });
+}
+
+function agentBattleMiniStyleBadge(seat: TableSeat): string | undefined {
+  return normalizeAgentStyleBadge(seat.personalityBadge);
 }
 
 function AgentBattleMiniHoleCards({ seat }: { seat: TableSeat }) {
@@ -720,7 +742,14 @@ function AgentBattleMiniSideSeat({ seat }: { seat: TableSeat }) {
         <div className="arena-ab-mini-seat-panel">
           <div className="arena-ab-mini-seat-avatar">{seat.avatar}</div>
           <p className="arena-ab-mini-seat-name">{seat.name}</p>
-          <span className="arena-ab-mini-seat-status">{statusLabel}</span>
+          {agentBattleMiniStyleBadge(seat) ? (
+            <span className="arena-ab-mini-seat-style">
+              {agentBattleMiniStyleBadge(seat)}
+            </span>
+          ) : null}
+          {statusLabel ? (
+            <span className="arena-ab-mini-seat-status">{statusLabel}</span>
+          ) : null}
           <p className="arena-ab-mini-seat-stack">{seat.stack.toLocaleString()}</p>
         </div>
       </article>
@@ -749,7 +778,14 @@ function AgentBattleMiniSeat({
       <div className="arena-ab-mini-seat-avatar">{seat.avatar}</div>
       <div className="arena-ab-mini-seat-meta">
         <p className="arena-ab-mini-seat-name">{seat.name}</p>
-        <span className="arena-ab-mini-seat-status">{statusLabel}</span>
+        {agentBattleMiniStyleBadge(seat) ? (
+          <span className="arena-ab-mini-seat-style">
+            {agentBattleMiniStyleBadge(seat)}
+          </span>
+        ) : null}
+        {statusLabel ? (
+          <span className="arena-ab-mini-seat-status">{statusLabel}</span>
+        ) : null}
         <p className="arena-ab-mini-seat-stack">{seat.stack.toLocaleString()}</p>
       </div>
     </div>
@@ -803,6 +839,7 @@ function RoomAgentBattleBroadcastLayout({
   winnerName,
   winningHand,
   resultType,
+  resultSummary,
 }: {
   pot: number | null;
   communityCards: Card[];
@@ -811,6 +848,7 @@ function RoomAgentBattleBroadcastLayout({
   winnerName?: string;
   winningHand?: string;
   resultType: HandResultDisplayType;
+  resultSummary?: AgentBattleResultSummary | null;
 }) {
   const topSeat = seats.find((s) => s.position === "top");
   const bottomSeat = seats.find((s) => s.position === "bottom");
@@ -866,6 +904,7 @@ function RoomAgentBattleBroadcastLayout({
                 resultType={resultType}
                 winningHand={winningHand}
                 pot={pot}
+                summary={resultSummary}
                 ultraCompact
                 spectator
               />
@@ -897,6 +936,7 @@ function RoomAgentBattleEllipseLayout({
   winnerName,
   winningHand,
   resultType,
+  resultSummary,
 }: {
   pot: number | null;
   communityCards: Card[];
@@ -905,6 +945,7 @@ function RoomAgentBattleEllipseLayout({
   winnerName?: string;
   winningHand?: string;
   resultType: HandResultDisplayType;
+  resultSummary?: AgentBattleResultSummary | null;
 }) {
   const agentBattleBoardCardSize: CardSize = AGENT_BATTLE_CARD_SIZE;
   const topSeat = seats.find((s) => s.position === "top");
@@ -946,6 +987,7 @@ function RoomAgentBattleEllipseLayout({
               resultType={resultType}
               winningHand={winningHand}
               pot={pot}
+              summary={resultSummary}
               ultraCompact
               spectator
             />
@@ -982,6 +1024,7 @@ function RoomAgentBattleTableLayout({
   winnerName,
   winningHand,
   resultType,
+  resultSummary,
 }: {
   pot: number | null;
   communityCards: Card[];
@@ -990,6 +1033,7 @@ function RoomAgentBattleTableLayout({
   winnerName?: string;
   winningHand?: string;
   resultType: HandResultDisplayType;
+  resultSummary?: AgentBattleResultSummary | null;
 }) {
   return (
     <AgentBattleResponsiveShell
@@ -1002,6 +1046,7 @@ function RoomAgentBattleTableLayout({
           winnerName={winnerName}
           winningHand={winningHand}
           resultType={resultType}
+          resultSummary={resultSummary}
         />
       }
       ellipse={
@@ -1013,6 +1058,7 @@ function RoomAgentBattleTableLayout({
           winnerName={winnerName}
           winningHand={winningHand}
           resultType={resultType}
+          resultSummary={resultSummary}
         />
       }
     />
@@ -1291,6 +1337,7 @@ export function PokerTable({
   onTestStakeChange,
   stakeCashedOut = false,
   cashOutRecord = null,
+  agentBattleResultSummary = null,
   className,
 }: PokerTableProps) {
   const {
@@ -1331,12 +1378,10 @@ export function PokerTable({
       {spectatorMode ? (
         <Badge
           variant="outline"
-          className="pointer-events-none absolute right-2 top-2 z-[28] max-w-[9rem] border-white/10 bg-black/35 px-1.5 py-0.5 text-center text-[6px] font-normal leading-snug text-white/45 backdrop-blur-sm sm:right-3 sm:top-3 sm:max-w-[10.5rem] sm:text-[7px] md:hidden"
+          className="pointer-events-none absolute right-2 top-2 z-[28] max-w-[11rem] border-[var(--arena-cyan)]/15 bg-black/30 px-1.5 py-0.5 text-center text-[6px] font-normal leading-snug text-white/40 backdrop-blur-sm sm:right-3 sm:top-3 sm:text-[7px]"
         >
-          <span className="hidden min-[480px]:inline">
-            Spectator Mode — all agent cards visible
-          </span>
-          <span className="min-[480px]:hidden">Spectator</span>
+          <span className="hidden min-[420px]:inline">Spectator mode · Agent cards visible for demo</span>
+          <span className="min-[420px]:hidden">Spectator mode</span>
         </Badge>
       ) : null}
 
@@ -1398,6 +1443,7 @@ export function PokerTable({
             winnerName={winnerName}
             winningHand={winningHand}
             resultType={resultType}
+            resultSummary={agentBattleResultSummary}
           />
         ) : (
           <>
@@ -1447,6 +1493,7 @@ export function PokerTable({
               resultType={resultType}
               winningHand={winningHand}
               pot={pot}
+              summary={agentBattleResultSummary}
               ultraCompact={fourPlayerLayout}
               compact={fourPlayerLayout}
               spectator={agentBattleMode}

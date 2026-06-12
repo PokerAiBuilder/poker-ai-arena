@@ -238,11 +238,11 @@ export function ArenaActionBar({
                   : "LIVE REPLAY"
                 : agentBattleHasResult
                   ? agentBattleLocalFallback
-                    ? "LOCAL REPLAY RESULT"
-                    : "SPECTATOR RESULT"
+                    ? "BATTLE RESULT"
+                    : "BATTLE RESULT"
                   : agentBattleLocalFallback
-                    ? "LOCAL AGENT BATTLE"
-                    : "AI AGENT BATTLE",
+                    ? "AGENT BATTLE"
+                    : "AGENT BATTLE",
           actionHint: sharedLiveSpectator
             ? agentBattleSharedResultPause
               ? "Next shared hand starts automatically. Tap Human vs AI to leave Agent Battle."
@@ -560,7 +560,7 @@ export function ArenaActionBar({
         title="Skip local animations — shows final result on this device only"
         onClick={onSkipAgentBattleReplay}
       >
-        {compact ? "Skip" : "Skip animations"}
+        {compact ? "Skip" : "Skip Animation"}
       </Button>
     );
   };
@@ -623,7 +623,7 @@ export function ArenaActionBar({
       ) : (
         <>
           <Swords className="h-4 w-4 shrink-0" />
-          <span className="truncate">{compact ? "Agent Battle" : "Join Battle"}</span>
+          <span className="truncate">{compact ? "Watch" : "Watch Agent Battle"}</span>
         </>
       )}
     </Button>
@@ -959,7 +959,7 @@ export function ArenaActionBar({
                 ) : (
                   <>
                     <Swords className="h-3.5 w-3.5" />
-                    Agent Battle
+                    Watch Agent Battle
                   </>
                 )}
               </Button>
@@ -1191,7 +1191,7 @@ export function ArenaActionBar({
                 title="Skip local animations — shows final result on this device only"
                 onClick={onSkipAgentBattleReplay}
               >
-                Skip animations
+                  Skip Animation
               </Button>
             ) : null}
               </div>

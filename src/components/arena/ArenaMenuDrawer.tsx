@@ -349,8 +349,20 @@ export function ArenaMenuDrawer({
                   serverEntries={serverHandHistoryEntries}
                   onClear={() => onClearHandHistory?.()}
                   embedded
-                  sectionTitle="Local History"
+                  sectionTitle="Human vs AI History"
+                  modeFilter={["Human vs AI"]}
                 />
+                {handHistoryEntries.some(
+                  (entry) => entry.mode === "AI Agent Battle",
+                ) ? (
+                  <HandHistoryPanel
+                    entries={handHistoryEntries}
+                    onClear={() => onClearHandHistory?.()}
+                    embedded
+                    sectionTitle="Agent Battle History"
+                    modeFilter={["AI Agent Battle"]}
+                  />
+                ) : null}
               </div>
             ) : null}
 

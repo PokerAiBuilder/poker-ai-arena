@@ -54,7 +54,7 @@ export const AGENT_PROFILES: AgentProfile[] = [
     range: "Loose",
     signature: "Creates action with speculative hands and pressure bets.",
     watchFor: "Wide continues and semi-bluffs; occasional river bluffs after missed draws.",
-    styleBadge: "Bluffy",
+    styleBadge: "Bluff",
   },
   {
     id: "river-mind",
